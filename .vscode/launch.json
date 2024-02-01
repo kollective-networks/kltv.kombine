@@ -1,0 +1,31 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "C#: Debug example build",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "kombine-build",
+			"program": "",
+			"windows": {
+				"program": "${workspaceFolder}/out/bin/win-x64/debug/mkb.exe",
+			},
+			"linux":{
+				"program": "",
+			},
+			"osx": {
+				"program": "",
+			},
+			"args": [ "-ksdbg","-ko:v","-ksrb", "test" ],
+			//"args": [ "-ksdbg", "-ko:d", "-ksrb", "publish" ],
+			"cwd": "${workspaceFolder}/examples/network/",
+			//"cwd": "${workspaceFolder}",
+			"stopAtEntry": false,
+			"console": "integratedTerminal",
+			"justMyCode": false,
+		}
+	]
+}

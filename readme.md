@@ -45,16 +45,16 @@ It is single file / self contained so you don't need dotnet to execute it. Kombi
 
 ## Download and Installation
 
-You have all the files in the [releases](releases/) page. 
+You have all the files in the [releases](https://github.com/kollective-networks/kltv.kombine/releases/tag/preview) page. 
 
-Just grab the file for your platform ( [Windows](releases/download/Preview/kombine.win.zip), [Linux](releases/download/Preview/kombine.lnx.tar.gz) or [Mac OSX](releases/download/Preview/kombine.osx.tar.gz) ) a place it on the path. Nothing else.
+Just grab the file for your platform ( [Windows](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.win.zip), [Linux](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.lnx.tar.gz) or [Mac OSX](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.osx.tar.gz) ) a place it on the path. Nothing else.
 
 That's all. No other dependencies. No other languages. You're done. That's the way we [wanted](doc/reasons.md).
 
 If you plan to use intellisense to edit your scripts maybe you need the reference assembly to be used as input for intellisense.
-You can take it from [here](releases/download/Preview/kombine.ref.zip). In that case refer to your IDE about requirements to support the language (C#) and how to activate / use the intellisense.
+You can take it from [here](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.ref.zip). In that case refer to your IDE about requirements to support the language (C#) and how to activate / use the intellisense.
 
-If you plan to debug your build scripts (yes, they can be debugged) you may require a dotnet debugger. Refer to your IDE/environement about requirements to support debug the language (C#) and how to use it. Since there is a bug in the dotnet debugger(s) that may impact you (regarding to debug a single file executable) we provide the unpacked versions as well so, if required, you can grab them here for [Windows](releases/download/Preview/kombine.debug.win.zip), [Linux](releases/download/Preview/kombine.debug.lnx.tar.gz) and [Mac OSX](releases/download/Preview/kombine.debug.osx.tar.gz)
+If you plan to debug your build scripts (yes, they can be debugged) you may require a dotnet debugger. Refer to your IDE/environement about requirements to support debug the language (C#) and how to use it. Since there is a bug in the dotnet debugger(s) that may impact you (regarding to debug a single file executable) we provide the unpacked versions as well so, if required, you can grab them here for [Windows](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.debug.win.zip), [Linux](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.debug.lnx.tar.gz) and [Mac OSX](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.debug.osx.tar.gz)
 
 Anyway, If you use [Visual Studio Code](https://code.visualstudio.com), take a look into the .vscode folder in the project since you can check it there about the launch/debug configurations for C#.
 
@@ -176,7 +176,7 @@ Don't forget to check out for the [API details](doc/api.md) or the [Examples](#e
 
 If your environment allows some form of "intellisense" (like Visual Studio Code) the most standard way is the following, but think that this depends on your environment. Maybe you need to place the reference assembly in an specific location or others. Refer to your environment documentation for intellisense options.
 
-The regular way is just add in your script a #r "mkb.dll" directive to the reference assembly of the tool. Grab the reference assembly from [here](releases/download/Preview/kombine.ref.zip) and put it alongside your script. Optionally add in your script the usings required for the intellisense to work.
+The regular way is just add in your script a #r "mkb.dll" directive to the reference assembly of the tool. Grab the reference assembly from [here](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.ref.zip) and put it alongside your script. Optionally add in your script the usings required for the intellisense to work.
 
 The usings with the reference for the intellisense could be something like:
 
@@ -195,7 +195,7 @@ Remember, this is not required to execute the script. Even more, kombine will ig
 There are no more rules. Rest is up to you. No constrainst, anything.
 Check the [API provided by the tool](doc/api.md) to get more information about builtin functionality.
 
-Download the reference assembly to be used for intellisense [here](releases/download/Preview/kombine.ref.zip)
+Download the reference assembly to be used for intellisense [here](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.ref.zip)
 
 ## Debugging your scripts
 
@@ -234,9 +234,9 @@ As a side note: In some cases the dotnet debugger [fails to execute](https://git
 The dotnet failure is reported for [different frameworks](https://github.com/dotnet/runtime/issues/84428) was suposed to be [fixed for dotnet 8](https://github.com/dotnet/runtime/pull/84965) but in fact, it is not.
 
 The self contained but not single file can be downloaded from here:<br>
-[Windows](releases/download/Preview/kombine.debug.win.zip)<br>
-[Linux](releases/download/Preview/kombine.debug.lnx.tar.gz)<br>
-[Mac OSX](releases/download/Preview/kombine.debug.osx.tar.gz)<br>
+[Windows](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.debug.win.zip)<br>
+[Linux](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.debug.lnx.tar.gz)<br>
+[Mac OSX](https://github.com/kollective-networks/kltv.kombine/releases/download/preview/kombine.debug.osx.tar.gz)<br>
 
 ## Executing child scripts and sharing values between your scripts
 

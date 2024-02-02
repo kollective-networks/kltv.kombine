@@ -1,4 +1,19 @@
 ## mkb ##
+# T:Kltv.Kombine.Api.Args
+ Simplify the access to the action arguments 
+
+##### M:Kltv.Kombine.Api.Args.Contains(System.String)
+ Returns if the value is pressent in the action arguments 
+- arg: Argument to test<br>
+Returns: True if was pressent, false otherwise.
+
+
+##### M:Kltv.Kombine.Api.Args.Get(System.Int32)
+ Returns the value of the argument at the given index. 
+- index: Index to retrieve<br>
+Returns: Argument or empty if out of bounds of the array.
+
+
 # T:Kltv.Kombine.Api.Compress.Zip
  Zip compression methods 
 

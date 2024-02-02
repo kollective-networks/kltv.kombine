@@ -3,5 +3,5 @@ bin
 obj
 out
 /**/mkb.dll
-examples/sdl2/**/*
+examples/sdl2/sdl.github/**/*
 

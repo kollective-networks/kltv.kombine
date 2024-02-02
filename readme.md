@@ -269,9 +269,9 @@ Export will take the content of the variable and set it on the internal environm
 KValue myvar = "value";
 myvar.Export("VAR");
 ```
-The content of "myvar", that is "value" will be available for:
--Child scripts if they use the Import method.
--Child processes launched by Exec or Tool if they take that environment variable called "VAR".
+The content of "myvar", that is "value" will be available for:<br>
+- Child scripts if they use the Import method.<br>
+- Child processes launched by Exec or Tool if they take that environment variable called "VAR".<br>
 
 It is posible then to setup environment variables for all the running child proceses.
 
@@ -284,7 +284,7 @@ In this case, myvar will be filled out with the value of the environment variabl
 ### Using Shared API
 
 Sometimes share a value is not enough and you want to share a more complex thing. 
-Thing for example in one real life case, the "compile_commands.json" for the clang intellisense. 
+Think for example in one real life case, the "compile_commands.json" for the clang intellisense. 
 Ideally you want your parent/master script to define where the compile_commands should be stored and next execute the diferent parts of your build, but each one adding / modifying the appropiate values in that specific "compile_commands".
 
 For that purpose you have:

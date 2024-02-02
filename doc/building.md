@@ -20,36 +20,37 @@ In the root of the repository a .vscode folder is present, so, if you use Visual
 
 Once you have cloned this repository and you have dotnet 8 installed, build Kombine is easy as:
 ```dotnet build``` or ```dotnet build -r yourplatform here```
-We provided a directory.build.props file so everything from build is stored into an "out" folder with the following structure.
+We provided a directory.build.props file so everything from build is stored into an "out" folder with the following structure:
 
-out/bin
-out/bin/linux-x64/debug
-out/bin/linux-x64/release
-out/bin/osx-64/debug
-out/bin/osx-64/release
-out/bin/win-64/debug
-out/bin/win-64/release
+out/bin<br>
+out/bin/linux-x64/debug<br>
+out/bin/linux-x64/release<br>
+out/bin/osx-64/debug<br>
+out/bin/osx-64/release<br>
+out/bin/win-64/debug<br>
+out/bin/win-64/release<br>
 
 By default it will build the debug configuration, you can pass -c Release to build the release one to the dotnet command line. By default it will build with the OS you're using but you can pass the -r your-runtime to specify which target OS you want to generate.
 
 ## Generating the packages
 
-For this case we use Kombine. There is one Kombine script in the root of the repository which supports two actions:
-"intellisense": This one copies the reference assembly to the example folders just to automatize when we're adding things to the API and we wanted to have them on intellisense quickly as well.
-"publish": This one builds in release for the three target OS (Windows, Linux and Mac OSX) the two flavors (unpacked and single file). It generates the diferent packages (.tar.gz / zip) including the reference assembly as well.
+For this case we use Kombine. There is one Kombine script in the root of the repository which supports two actions:<br>
+"intellisense": This one copies the reference assembly to the example folders just to automatize when we're adding things to the API and we wanted to have them on intellisense quickly as well.<br>
+"publish": This one builds in release for the three target OS (Windows, Linux and Mac OSX) the two flavors (unpacked and single file). It generates the diferent packages (.tar.gz / zip) including the reference assembly as well.<br>
 
 All the packages are dropped into /out/pkg/
 
-The publish action generates the configuration and updates the doc/api.md file with the latests changes using an xml to markdown extension which is on the scripts folder.
+The publish action generates the configuration and updates the doc/api.md file with the latests changes using an xml to markdown extension which is on the scripts folder (pretty simple and ugly yet)
 
 ## Source code structure
 
-Source structure is very intuitive.
-src/api contains what is exposed to the scripts (types and methods)
-src/cache the tiny code to manage built assemblies cache
-src/core the tool configuration and command line / script state
-src/exec the tool executor and script executor
-util/ has some extension methods and other things are not being used but lying there just in case.
+Source structure is very intuitive.<br>
+src/api contains what is exposed to the scripts (types and methods)<br>
+src/cache the tiny code to manage built assemblies cache<br>
+src/core the tool configuration and command line / script state<br>
+src/exec the tool executor and script executor<br>
+util/ has some extension methods and other things are not being used but lying there just in case.<br>
 
+Any extension is welcome.
 
 [Back to the readme](../readme.md)

@@ -51,6 +51,9 @@ This is the complete (desired) feature list and current state
 	:heavy_check_mark: Explicit conversion from KList to KValue (Flatten) <br>
 	:heavy_check_mark: Explicit conversion from KList to string (Flatten) <br>
 	:heavy_check_mark: Explicit conversion from KList to string[]<br>
+- Action Arguments API<br>
+	:heavy_check_mark: Contains function for the action arguments<br>
+	:heavy_check_mark: Get function for the action arguments<br>
 - Sharing API<br>
 	:heavy_check_mark: Share objects for child scripts<br>
 - Registry API<br>

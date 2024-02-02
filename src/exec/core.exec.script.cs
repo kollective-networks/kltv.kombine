@@ -120,6 +120,9 @@ string CurrentToolFolder { get { return Folders.CurrentToolFolder; } }
 			//
 			ClassName =Path.GetFileNameWithoutExtension(Script) + "_class";
 			AssemblyName = Path.GetFileNameWithoutExtension(Script) + "_assembly";
+			// Sanitize Class & AssemblyName since some characters are not allowed
+			ClassName = ClassName.Replace(".","_");
+			AssemblyName = AssemblyName.Replace(".","_");
 			ModuleName = Path.GetFileNameWithoutExtension(Script) + ".kscript.dll";
 			// Forces the assemblies to be loaded into memory (all of references)
 			Assembly a = Assembly.GetExecutingAssembly();

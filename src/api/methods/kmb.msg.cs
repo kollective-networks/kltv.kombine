@@ -23,11 +23,22 @@ namespace Kltv.Kombine.Api
 			// TODO: Add the rest of parameters to specify the output
 			LogLevel = Level;
 			// Disable cursor on the console
-			Console.CursorVisible = false;
+			try{
+				Console.CursorVisible = false;
+			}catch(Exception ex){
+				Msg.PrintErrorMod("Failed to disable cursor on the console:"+ex.Message, "Msg", LogLevels.Debug);
+			}
 		}
 
+		/// <summary>
+		/// Deinitializes the Msg static class.
+		/// </summary>
 		internal static void Deinitialize() {
-			Console.CursorVisible = true;
+			try {
+				Console.CursorVisible = true;
+			} catch(Exception ex){
+				Msg.PrintErrorMod("Failed to disable cursor on the console:"+ex.Message, "Msg", LogLevels.Debug);
+			}
 		}
 
 
@@ -274,10 +285,15 @@ namespace Kltv.Kombine.Api
 		/// We use the flag "used".
 		/// Indentation is only added if we already used the current level.
 		/// </summary>
-		static public void BeginIndent() {
-			if (cm_Used == true) {
+		/// <param name="bSkipNotUsed">Specify if the indentation should be skipped when not used.</param>
+		static public void BeginIndent(bool bSkipNotUsed = false) {
+			if (bSkipNotUsed == false) {
 				++cm_CurrentIndent;
-				cm_Used = false;
+			} else {
+				if (cm_Used == true) {
+					++cm_CurrentIndent;
+					cm_Used = false;
+				}
 			}
 		}
 

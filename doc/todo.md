@@ -10,4 +10,10 @@
 - Add tool capability to do garbage collection on the cache (non present scripts/non used)
 - Allow / deny dynamic assembly load on the script / skip the reference assembly if pressent
 
+- Remove the "used" from the Msg output.
+- Review output from compilers to make it compatible with error search / parsing from visual studio code
+- Functions to access to parent scripts paths
+- Functions to escape for command line
+- Function ToArgs like ToArray but with care with double quotes
+
 [Back to the readme](../readme.md)

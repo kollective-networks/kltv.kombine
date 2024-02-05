@@ -220,6 +220,8 @@ public class Clang {
 		// Check if we need to abort when failed
 		if (abortwhenfailed) {
 			if (res.Status == ToolStatus.Failed) {
+				// Save the compilation database if any prior to exit
+				compdb?.Save();
 				Msg.PrintAndAbort("Error: compilation operation failed");
 			}
 		}
@@ -227,9 +229,7 @@ public class Clang {
 			Msg.Print("Compile: Nothing has done. Everything up to date.");
 		}
 		// Update compdb
-		if (compdb != null) {
-			compdb.Save();
-		}
+		compdb?.Save();
 		return res;
 	}
 

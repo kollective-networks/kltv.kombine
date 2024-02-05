@@ -95,6 +95,7 @@ public static class Git {
 		}
 		args += "-q";
 		args += "--progress";
+		args += " --recurse-submodules";
 		args += uri;
 		args += path;
 		Exec("git",args.Flatten(),true);

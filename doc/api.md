@@ -455,6 +455,9 @@ Returns: The Jsonnode which contains the given property and value. Null otherwis
  Initializes the Msg static class. Note that parameters can be changed at runtime during the script execution so, inside the script you can raise the log level or change the output flags 
 - Level: Specify the log level<br>
 
+##### M:Kltv.Kombine.Api.Msg.Deinitialize
+ Deinitializes the Msg static class. 
+
 # T:Kltv.Kombine.Api.Msg.OutputDevices
 
 
@@ -584,8 +587,9 @@ Returns: The Jsonnode which contains the given property and value. Null otherwis
 - Message: <br>
 - Level: <br>
 
-##### M:Kltv.Kombine.Api.Msg.BeginIndent
+##### M:Kltv.Kombine.Api.Msg.BeginIndent(System.Boolean)
  Adds another level of indentation in the log output We use the flag "used". Indentation is only added if we already used the current level. 
+- bSkipNotUsed: Specify if the indentation should be skipped when not used.<br>
 
 ##### M:Kltv.Kombine.Api.Msg.EndIndent
  Removes one level of indentation in the log output 

@@ -41,6 +41,31 @@ namespace Kltv.Kombine.Api {
 		}
 
 		/// <summary>
+		/// Resolves a Glob pattern to a list of files.
+		/// It uses the current working directory as the base path to resolve the pattern.
+		/// </summary>
+		/// <param name="folder">Folder to be used as the base path.</param>
+		/// <param name="pattern">Pattern to be resolved</param>
+		/// <returns>A KList with the resolved files.</returns>
+		public static KList Glob(string folder,string pattern) {
+			Matcher matcher = new Matcher();
+			matcher.AddInclude(pattern);
+			DirectoryInfo d = new DirectoryInfo(folder);
+			DirectoryInfoWrapper dir = new DirectoryInfoWrapper(d);
+			PatternMatchingResult res = matcher.Execute(dir);
+			KList list = new KList();
+			if (res.HasMatches) {
+				foreach (FilePatternMatch p in res.Files) {
+					Msg.PrintMod("Detected file to include in glob: " + p.Path, "statics.glob", Msg.LogLevels.Verbose);
+					list.Add(p.Path);
+				}
+			}
+			return list;
+		}
+
+
+
+		/// <summary>
 		/// Returns the real path of the given path.
 		/// It is converted to the underlying OS if required.
 		/// If its a relative path, it is converted to an absolute path.

@@ -665,6 +665,13 @@ Returns: The object to use or null if doesn't exists.
 Returns: A KList with the resolved files.
 
 
+##### M:Kltv.Kombine.Api.Statics.Glob(System.String,System.String)
+ Resolves a Glob pattern to a list of files. It uses the current working directory as the base path to resolve the pattern. 
+- folder: Folder to be used as the base path.<br>
+- pattern: Pattern to be resolved<br>
+Returns: A KList with the resolved files.
+
+
 ##### M:Kltv.Kombine.Api.Statics.RealPath(Kltv.Kombine.Types.KValue)
  Returns the real path of the given path. It is converted to the underlying OS if required. If its a relative path, it is converted to an absolute path. 
 - path: Path to be evaluated.<br>

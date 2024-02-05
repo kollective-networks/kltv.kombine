@@ -236,11 +236,11 @@ public class Clang {
 
 
 	/// <summary>
-	/// 
+	/// Invokes the librarian to include the given objects into a static library.
 	/// </summary>
-	/// <param name="src"></param>
-	/// <param name="output"></param>
-	/// <returns></returns>
+	/// <param name="src">List of objects to be included</param>
+	/// <param name="output">Static library output</param>
+	/// <returns>Tool result with the execution.</returns>
 	public ToolResult Librarian(KList objs,KValue output, bool abortwhenfailed = true) {
 		// Create and configure the tool
 		Tool tool = new Tool("clang");
@@ -252,21 +252,27 @@ public class Clang {
 			// On linux/macOS we need to prefix the library with "lib"
 			output = output.WithNamePrefix("lib");
 		}
+		// Apply verbose for llvm-ar
+		KValue args = " rcs ";
+		if (Verbose)
+			args = " rcsv ";
 		// Go through the list of objects to add the ones that need to be added
 		string lobjs = string.Empty;
 		for (int a = 0; a != objs.Count(); a++) {
-			if (ShouldProcess(objs[a],output))
+			if (ShouldProcess(objs[a],output)){
+				Msg.Print("Adding object: "+objs[a]);
 				 lobjs += " "+objs[a];
+			}
 			 // Linux & OSX have a higher limit.
 			 // On Windows the theorical limit per process is 32767 but looks like hard limit to 8191. We use just 4K
 			 if (lobjs.Length > 4096) {
 				 // We need to split the command
-				 tool.QueueCommand(AR, " rcs " + output+" "+lobjs, objs[a], LibrarianTaskDone);
+				 tool.QueueCommand(AR, args + output+" "+lobjs, objs[a], LibrarianTaskDone);
 				 lobjs = string.Empty;
 			 }
 		}
 		if (string.IsNullOrEmpty(lobjs) == false) {
-			tool.QueueCommand(AR, " rcs " + output+" "+lobjs, objs[objs.Count()-1], LibrarianTaskDone);
+			tool.QueueCommand(AR, args + output+" "+lobjs, objs[objs.Count()-1], LibrarianTaskDone);
 		}
 		// Execute the commands and return the results
 		ToolResult res = tool.ExecuteCommands();
@@ -318,8 +324,24 @@ public class Clang {
 		switchesLD = SwitchesLD.Flatten().ReduceWhitespace();
 		// Create the required output folder for the binary
 		Folders.Create(output.AsFolder());
+		bool ShouldLink = false;
+		// Check for libraries changed
+		foreach(KValue lib in Libraries) {
+			foreach(KValue libdir in LibraryDirs) {
+				if (ShouldProcessLibrary(libdir+lib,output)) {
+					ShouldLink = true;
+					break;
+				}
+			}
+			if (ShouldLink)
+				break;
+		}
+		// No libraries changed, look into the objects as well.
+		if (!ShouldLink){
+			ShouldLink = ShouldProcess(objs, output);
+		}
 		// Compose the command line
-		if (ShouldProcess(objs, output)) {
+		if (ShouldLink) {
 			KValue args = "-fuse-ld=lld "+switchesLD+" "+ objs.Flatten()+" "+libdirs + " " + libs + " " + " -o " + output;
 			ToolResult res = tool.CommandSync(LD, args, output);
 			TaskDone("Linking",output,ref res);
@@ -389,8 +411,6 @@ public class Clang {
 		Msg.PrintTaskSuccess(" Ok");
 	}
 
-
-
 	/// <summary>
 	/// Checks if any of the given object list has been modified after the output file.
 	/// </summary>
@@ -438,6 +458,7 @@ public class Clang {
 			return false;
 		}
 		// Read the dependency file
+		// TODO: Beware of paths with spaces
 		KValue content = Files.ReadTextFile(depfile);
 		string a = content;
 		string[] delimiters = { " \\ ", " \\\r", " \\\n"," "};
@@ -470,6 +491,31 @@ public class Clang {
 		return false;
 	}
 
+	/// <summary>
+	/// Check if a library is newer than the output file
+	/// </summary>
+	/// <param name="src">Library candidate.</param>
+	/// <param name="obj">Executable output.</param>
+	/// <returns>True if build should be triggered. False otherwise</returns>
+	private bool ShouldProcessLibrary(KValue src, KValue obj) {
+		// Check if the library source file exists
+		if (Files.Exists(src) == false) {
+			// Library does not exist in this path, no triggering the build
+			return false;
+		}
+		// Check if the object file exists. If not exists, it should be built
+		if (Files.Exists(obj) == false) {
+			Msg.Print("File " + obj + " does not exists. It will be built.",Msg.LogLevels.Verbose);
+			return true;
+		}
+		if (Files.GetModifiedTime(src) > Files.GetModifiedTime(obj)) {
+			Msg.Print("Input library newer than output binary. It will be built.",Msg.LogLevels.Verbose);
+			return true;
+		}
+		// No dependencie file, source file is older, do not process
+		Msg.Print("Input library older than output binary. No build.",Msg.LogLevels.Verbose);
+		return false;
+	}
 
 	/// <summary>
 	/// Opens the compile commands file to be used in this tool.

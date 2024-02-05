@@ -144,6 +144,30 @@ namespace Kltv.Kombine.Types {
 		}
 
 		/// <summary>
+		/// Returns the parent folder of the value if can be consideer as path
+		/// </summary>
+		/// <returns>The parent folder or empty if cannot be converted.</returns>
+		public KValue GetParent(){
+			try{
+				DirectoryInfo? di = new DirectoryInfo(m_value);
+				if (di != null){
+					di = di.Parent;
+					if (di != null) {
+						string? item = di.FullName;
+						if (item != null) {
+							item = ConvertToUnixPath(item);
+							return new KValue() { m_value = item };
+						}
+					}
+				}
+			} catch (Exception ex){
+				Msg.PrintErrorMod("Error getting parent folder: "+ex.Message, ".value", Msg.LogLevels.Verbose);
+			}
+			return new KValue();
+		}
+
+
+		/// <summary>
 		/// Returns a new KValue with the name prefixed with the indicated prefix
 		/// TODO:  Review, is switch the back/forwd slash
 		/// </summary>

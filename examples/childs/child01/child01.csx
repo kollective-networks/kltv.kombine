@@ -21,6 +21,9 @@ int test(string[] args){
 	// no matter the relationship (parent,child,brother...)
 	Share.Register("myreg","mykey",RealPath("includes/"));
 
+	KValue parent = CurrentWorkingFolder;
+	parent = parent.GetParent();
+
 
 	return 0;
 }

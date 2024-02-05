@@ -563,9 +563,11 @@ Returns: The Jsonnode which contains the given property and value. Null otherwis
 - Level: Loglevel, by default, normal.<br>
 
 ##### M:Kltv.Kombine.Api.Msg.RawPrint(System.String,Kltv.Kombine.Api.Msg.LogLevels)
+ Raw print message to the console 
+- Message: Message to be printed.<br>
+- Level: Log level<br>
 
-- Message: <br>
-- Level: <br>
+>It skips colors and indentation
 
 ##### M:Kltv.Kombine.Api.Msg.PrintTask(System.String,Kltv.Kombine.Api.Msg.LogLevels)
 
@@ -957,6 +959,11 @@ Returns: True if its empty, false otherwise
 ##### M:Kltv.Kombine.Types.KValue.AsFolder
  Returns the value as is a folder without filename in case it is a file. 
 Returns: The folder value
+
+
+##### M:Kltv.Kombine.Types.KValue.GetParent
+ Returns the parent folder of the value if can be consideer as path 
+Returns: The parent folder or empty if cannot be converted.
 
 
 ##### M:Kltv.Kombine.Types.KValue.WithNamePrefix(System.String)

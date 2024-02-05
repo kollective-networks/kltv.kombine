@@ -226,10 +226,11 @@ namespace Kltv.Kombine.Api
 		}
 
 		/// <summary>
-		/// 
+		/// Raw print message to the console
 		/// </summary>
-		/// <param name="Message"></param>
-		/// <param name="Level"></param>
+		/// <param name="Message">Message to be printed.</param>
+		/// <param name="Level">Log level</param>
+		/// <remarks>It skips colors and indentation</remarks>
 		static public void RawPrint(string Message, LogLevels Level = LogLevels.Normal){
 			InternalPrint(Message, "", Level, ConsoleColor.Gray, true);
 		}
@@ -316,6 +317,7 @@ namespace Kltv.Kombine.Api
 			}
 			return indent;
 		}
+
 
 		#endregion
 

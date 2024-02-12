@@ -444,7 +444,11 @@ string CurrentToolFolder { get { return Folders.CurrentToolFolder; } }
 					Msg.PrintErrorMod("Errors found compiling the script: "+filename, ".exec.script");
 					Msg.BeginIndent();
 					foreach (Diagnostic res in BuildResults) {
-						Msg.PrintErrorMod(res.ToString()); 
+						if (res.IsWarningAsError){
+							Msg.PrintWarning(res.ToString());
+						} else{
+							Msg.PrintError(res.ToString()); 
+						}
 					}
 					Msg.EndIndent();
 					Msg.PrintErrorMod("Aborting.", ".exec.script");
@@ -536,12 +540,10 @@ string CurrentToolFolder { get { return Folders.CurrentToolFolder; } }
 				return null;
 			}
 			Msg.PrintMod("Compiling script.", ".exec.script", Msg.LogLevels.Debug);
-			// If debug, preprocesor to indicate the source file to use. Its needed to track source file from debugger.
-			if (Debug) {
-				Msg.PrintMod("Adding source file debug reference (invoked with -ksdbg)", ".exec.script", Msg.LogLevels.Debug);
-				string realfile = Path.GetFullPath(filename);
-				scriptText = scriptText.Insert(0, "#line 1 \"" + realfile + "\"\r\n");
-			}
+			// Preprocesor to indicate the source file to use. Its needed to track source file from debugger.
+			Msg.PrintMod("Adding source file debug reference (invoked with -ksdbg)", ".exec.script", Msg.LogLevels.Debug);
+			string realfile = Path.GetFullPath(filename);
+			scriptText = scriptText.Insert(0, "#line 1 \"" + realfile + "\"\r\n");
 			return scriptText;
 		}
 

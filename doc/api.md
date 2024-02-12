@@ -678,11 +678,12 @@ Returns: A KList with the resolved files.
 Returns: Realpath returned
 
 
-##### M:Kltv.Kombine.Api.Statics.Kombine(System.String,System.String,System.String[],System.Boolean,System.Boolean)
+##### M:Kltv.Kombine.Api.Statics.Kombine(System.String,System.String,System.String[],System.Boolean,System.Boolean,System.Boolean)
  Executes a child Kombine script. This method do not spawn a new process, it just executes the script in the current process. To exchange information check for import/export methods on kvalues and the shared object api. 
 - script: script to be executed.<br>
 - action: action to be executed.<br>
 - args: parameters to the action.<br>
+- exitonerror: if true, exits the script on error.<br>
 - changedir: if true, changes the current working directory to the script folder.<br>
 - search: if true, search for the script in different routes.<br>
 Returns: The return code from the script execution.

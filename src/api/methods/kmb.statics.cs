@@ -63,8 +63,6 @@ namespace Kltv.Kombine.Api {
 			return list;
 		}
 
-
-
 		/// <summary>
 		/// Returns the real path of the given path.
 		/// It is converted to the underlying OS if required.
@@ -92,16 +90,24 @@ namespace Kltv.Kombine.Api {
 		/// <param name="script">script to be executed.</param>
 		/// <param name="action">action to be executed.</param>
 		/// <param name="args">parameters to the action.</param>
+		/// <param name="exitonerror">if true, exits the script on error.</param>
 		/// <param name="changedir">if true, changes the current working directory to the script folder.</param>
 		/// <param name="search">if true, search for the script in different routes.</param>
 		/// <returns>The return code from the script execution.</returns>
-		public static int Kombine(string script,string action, string[]? args = null,bool changedir = true,bool search=true) {
+		public static int Kombine(string script,string action, string[]? args = null,bool exitonerror = true, bool changedir = true,bool search=true) {
 			if (search == true) {
 				string? found = Folders.ResolveFilename(script);
 				if (found != null)
 					script = found;
 			}
-			return KombineMain.RunScript(script, action, args, changedir);
+			int retCode =  KombineMain.RunScript(script, action, args, changedir);
+			if (exitonerror){
+				if (retCode != 0){
+					Msg.PrintAndAbortMod("Script execution returned error: "+script+" exitcode:"+retCode,".statics.kombine",Msg.LogLevels.Verbose);
+					return retCode;
+				}
+			}
+			return retCode;
 		}
 
 		/// <summary>

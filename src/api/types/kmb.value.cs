@@ -102,6 +102,41 @@ namespace Kltv.Kombine.Types {
 		}
 
 		/// <summary>
+		/// Converts the KValue to a list of arguments
+		/// It will split the string by spaces, but it will keep the quoted strings as one argument.
+		/// </summary>
+		/// <returns>The created list with the arguments</returns>
+		public KList ToArgs(){
+			KList list = new KList();
+			string[] delimiters = { " " };
+			string[] b = m_value.Split(delimiters,StringSplitOptions.RemoveEmptyEntries);
+			bool inquote = false;
+			string current = "";
+			foreach(string item in b){
+				if (item.Contains("\"")){
+					if (inquote){
+						current += " "+item;
+						list.Add(current);
+						current = "";
+						inquote = false;
+						continue;
+					} else{
+						current = item;
+						inquote = true;
+						continue;
+					}
+				}
+				if (!inquote){
+					list.Add(item);
+				} else{
+					current += " "+item;
+				}
+			}
+			return list;
+		}
+
+
+		/// <summary>
 		/// If the value can be considered as a file, it will return the file name with extension changed
 		/// </summary>
 		/// <param name="n">New extension to be applied</param>

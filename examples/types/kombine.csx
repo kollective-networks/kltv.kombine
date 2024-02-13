@@ -97,6 +97,16 @@ if (d.HasExtension("out")){
 KValue f = d.WithNamePrefix("lib");
 Msg.Print("Now the filename is: "+f);
 
+KValue paramstest = " param1 param2 param3 \"param4 with spaces\" param5";
+KList parlist = paramstest.ToArgs();
+
+
+
+KValue g = "my \"value\"";
+g = ArgEscape(g);
+Msg.Print("Escaped value: "+g);
+
+
 // We just define one function to be used as an action.
 int test(string[] args) {
 

@@ -28,9 +28,8 @@ This is the complete (desired) feature list and current state
 	:heavy_check_mark: HasExtension returns if the value can be intepreted as file and has a given extension<br>
 	:heavy_check_mark: GetHashCode64 returns an immutable hash code in 64bits for the value<br>
 	:heavy_check_mark: IsEmpty returns if its empty or not<br>
-	:heavy_check_mark: ToArray method to return a KList from space separated or indicating separators<br>
-	:heavy_check_mark: Export KValue to environment for child scripts and processes<br>
-	:heavy_check_mark: Import KValue from environment with default value if is not present<br>
+	:heavy_check_mark: ToArray method to return a KList from space separated or indicating separators<br>:heavy_check_mark: ToArgs method to return a KList from space separated respecting double quotes<br>:heavy_check_mark: Export KValue to environment for child scripts and processes<br>
+	:heavy_check_mark: Import KValue from environment with default value if is not present<br>:heavy_check_mark: Static function to escape KValues to be used in command line<br>
 	
 - KList Type<br>
 	:heavy_check_mark: Static array initializer<br>

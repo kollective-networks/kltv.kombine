@@ -165,6 +165,18 @@ namespace Kltv.Kombine.Api {
 		}
 
 		/// <summary>
+		/// Function to escape parameters for command line processing
+		/// </summary>
+		/// <param name="arg">argument to be escaped</param>
+		/// <returns>the escaped argument</returns>
+		public static string ArgEscape(string arg) {
+			// Right now just escapes the double quote
+			string result = arg.Replace("\"","\\\"");
+			return result;
+		}
+
+
+		/// <summary>
 		/// Cast an object to another type trying to copy as much as possible.
 		/// </summary>
 		/// <typeparam name="T">Returned type</typeparam>

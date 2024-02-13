@@ -245,6 +245,9 @@ Returns: An string with the current working folder.
 ##### P:Kltv.Kombine.Api.Folders.CurrentScriptFolder
  Returns the current script folder 
 
+##### P:Kltv.Kombine.Api.Folders.ParentScriptFolder
+ Returns the parent script folder if any or empty if none. 
+
 # T:Kltv.Kombine.Api.Folders.FolderPair
 
 
@@ -719,6 +722,12 @@ Returns: Exitcode from the command.
 Returns: Exitcode from the command.
 
 
+##### M:Kltv.Kombine.Api.Statics.ArgEscape(System.String)
+ Function to escape parameters for command line processing 
+- arg: argument to be escaped<br>
+Returns: the escaped argument
+
+
 ##### M:Kltv.Kombine.Api.Statics.Cast``1(System.Object)
  Cast an object to another type trying to copy as much as possible. 
 - myobj: Object to be casted<br>
@@ -940,7 +949,7 @@ Returns: True if its on the list, false otherwise.
 - name: Name to be set on the environment<br>
 
 ##### M:Kltv.Kombine.Types.KValue.Import(System.String,System.String)
- Import a value from the environment 
+ Import a value from the environment. If there is no default value and the variable is not found, it will abort the script. 
 - name: Name of the variable to be recovered from environment<br>
 - defvalue: Optional default value in case the environement variable is not present.<br>
 Returns: The variable value
@@ -1291,8 +1300,11 @@ Returns:
 Returns: PortableExecutableReference or null if was not posible.
 
 
+##### P:Kltv.Kombine.KombineScript.ParentScript
+ Holds the parent script if any 
+
 ##### F:Kltv.Kombine.KombineScript.State
- Holds the script state That includes: -Precompiled binary -Targets with sources state -Custom script data 
+ Holds the script state That includes: -Precompiled binary -Custom script data 
 
 ##### P:Kltv.Kombine.KombineScript.ClassName
  Class name for the script. It will be the script name plus _class sufix 

@@ -9,7 +9,6 @@
 - Extend to support xml formats
 - Add tool capability to do garbage collection on the cache (non present scripts/non used)
 - Allow / deny dynamic assembly load on the script / skip the reference assembly if present
-- Functions to escape for command line
-- Function ToArgs like ToArray but with care with double quotes
 
 [Back to the readme](../readme.md)
+

@@ -972,6 +972,11 @@ Returns: The KList array
 Returns: The KList array
 
 
+##### M:Kltv.Kombine.Types.KValue.ToArgs
+ Converts the KValue to a list of arguments It will split the string by spaces, but it will keep the quoted strings as one argument. 
+Returns: The created list with the arguments
+
+
 ##### M:Kltv.Kombine.Types.KValue.WithExtension(System.String)
  If the value can be considered as a file, it will return the file name with extension changed 
 - n: New extension to be applied<br>

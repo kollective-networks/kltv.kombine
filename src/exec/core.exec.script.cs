@@ -24,10 +24,14 @@ namespace Kltv.Kombine {
 	internal partial class KombineScript {
 
 		/// <summary>
+		/// Holds the parent script if any
+		/// </summary>
+		public KombineScript? ParentScript { get; internal set; } = null;
+
+		/// <summary>
 		/// Holds the script state
 		/// That includes:
 		///		-Precompiled binary
-		///		-Targets with sources state
 		///		-Custom script data
 		/// </summary>
 		internal readonly KombineState State = new();
@@ -97,6 +101,7 @@ namespace Kltv.Kombine {
 string CurrentWorkingFolder { get { return Folders.CurrentWorkingFolder; } }
 string CurrentScriptFolder { get { return Folders.CurrentScriptFolder; } }
 string CurrentToolFolder { get { return Folders.CurrentToolFolder; } }
+string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 
 ";
 		/// <summary>

@@ -36,7 +36,8 @@ namespace Kltv.Kombine.Types {
 		}
 
 		/// <summary>
-		/// Import a value from the environment
+		/// Import a value from the environment.
+		/// If there is no default value and the variable is not found, it will abort the script.
 		/// </summary>
 		/// <param name="name">Name of the variable to be recovered from environment</param>
 		/// <param name="defvalue">Optional default value in case the environement variable is not present.</param>
@@ -53,6 +54,7 @@ namespace Kltv.Kombine.Types {
 				return new KValue() { m_value = defvalue };
 			}
 			Msg.PrintMod("Fetching variable: " + name + " no result. Empty.", ".value", Msg.LogLevels.Verbose);
+			Msg.PrintAndAbortMod("Variable not found and no default value. Aborting", ".value");
 			return new KValue();
 		}
 

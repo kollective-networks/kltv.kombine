@@ -8,8 +8,7 @@
 - Add capability to open and configure a http server to receive web hooks from git and act as a build server
 - Extend to support xml formats
 - Add tool capability to do garbage collection on the cache (non present scripts/non used)
-- Allow / deny dynamic assembly load on the script / skip the reference assembly if pressent
-- Functions to access to parent scripts paths
+- Allow / deny dynamic assembly load on the script / skip the reference assembly if present
 - Functions to escape for command line
 - Function ToArgs like ToArray but with care with double quotes
 

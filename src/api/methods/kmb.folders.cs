@@ -246,7 +246,22 @@ namespace Kltv.Kombine.Api {
 					return KombineMain.CurrentRunningScript.ScriptPath;
 				Msg.PrintWarningMod("Script folder requested but no script folder can be fetched like no script is running.", ".folders", Msg.LogLevels.Normal);
 				return string.Empty;
-			}}
+			}
+		}
+
+		/// <summary>
+		/// Returns the parent script folder if any or empty if none.
+		/// </summary>
+		public static string ParentScriptFolder { get{
+				if (KombineMain.CurrentRunningScript != null){
+					if (KombineMain.CurrentRunningScript.ParentScript != null){
+						return KombineMain.CurrentRunningScript.ParentScript.ScriptPath;
+					}
+				}
+				Msg.PrintWarningMod("Script folder requested but no script folder can be fetched like no script is running.", ".folders", Msg.LogLevels.Normal);
+				return string.Empty;
+			}
+		}
 
 		#endregion
 

@@ -125,6 +125,8 @@ namespace Kltv.Kombine {
 			}
 			// Create a new script instance
 			KombineScript main = new KombineScript(script,path, Config.BuildDebug);
+			// Set the parent script (if any) on the new one
+			main.ParentScript = CurrentRunningScript;
 			// Set the current running script
 			KombineScript? kombineScript = CurrentRunningScript;
 			CurrentRunningScript = main;

@@ -14,11 +14,26 @@ using Kltv.Kombine.Api;
 
 namespace Kltv.Kombine.Types {
 
+	/// <summary>
+	/// KList class.
+	/// It is a regular list with helper functions to be used in build environemnts.
+	/// </summary>
 	public class KList: IEnumerable<KValue> {
 
 		private List<KValue> m_list = new List<KValue>();
 
+		/// <summary>
+		/// Default constructor
+		/// </summary>
 		public KList() {
+		}
+
+		/// <summary>
+		/// Copy constructor
+		/// </summary>
+		/// <param name="other">The object to be copied</param>
+		public KList(KList other){
+			m_list = new List<KValue>(other.m_list);
 		}
 
 		/// <summary>
@@ -224,6 +239,7 @@ namespace Kltv.Kombine.Types {
 			}
 		}
 
+	
 		public static KList operator+(KList a, KList b) {
 			a.m_list.AddRange(b.m_list);
 			return a;

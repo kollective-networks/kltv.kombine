@@ -9,6 +9,7 @@
 using Kltv.Kombine.Types;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 using Microsoft.Extensions.FileSystemGlobbing;
+using System.Reflection;
 
 namespace Kltv.Kombine.Api {
 
@@ -162,5 +163,33 @@ namespace Kltv.Kombine.Api {
 			Tool.ToolResult result = tool.CommandSync(command, args, null);
 			return result.ExitCode;
 		}
+
+		/// <summary>
+		/// Cast an object to another type trying to copy as much as possible.
+		/// </summary>
+		/// <typeparam name="T">Returned type</typeparam>
+		/// <param name="myobj">Object to be casted</param>
+		/// <returns>A new created object of the new type or null if invalid.</returns>
+		public static T? Cast<T>(object? myobj) {
+			if (myobj == null)
+				return default(T);
+			Type objectType = myobj.GetType();
+			Type target = typeof(T);
+			var x = Activator.CreateInstance(target, false);
+			var z = from source in objectType.GetMembers().ToList()
+				where source.MemberType == MemberTypes.Property select source ;
+			var d = from source in target.GetMembers().ToList()
+				where source.MemberType == MemberTypes.Property select source;
+			List<MemberInfo> members = d.Where(memberInfo => d.Select(c => c.Name)
+			.ToList().Contains(memberInfo.Name)).ToList();
+			PropertyInfo? propertyInfo;
+			object? value;
+			foreach (var memberInfo in members) {
+				propertyInfo = typeof(T).GetProperty(memberInfo.Name);
+				value = myobj.GetType().GetProperty(memberInfo.Name)?.GetValue(myobj,null);
+				propertyInfo?.SetValue(x,value,null);
+			}   
+			return (T?)x;
+		}  
 	}
 }

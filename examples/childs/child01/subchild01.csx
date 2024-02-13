@@ -6,10 +6,32 @@
 
 ---------------------------------------------------------------------------------------------------------*/
 
-int test(string[] args){
 
+
+class TestObject{
+	public string Name {get;set;} = string.Empty;
+	public KValue Value {get;set;} = string.Empty;
+	public KList List {get;set;} = new KList();
+}
+
+
+int test(string[] args){
+	// ----------------------------------------------------------
+	// Test import an object
+	TestObject? obj = Cast<TestObject>(Share.Get("myobj"));
+	if (obj != null) {
+		Msg.Print("Object name: "+obj.Name);
+		Msg.Print("Object value: "+obj.Value);
+		obj.Name = "myname changed2";
+	} else {
+		Msg.PrintError("Failed to import object");
+	}
+	// ----------------------------------------------------------
+	// Test importing a value
 	KValue myvar = KValue.Import("myvar","i didn't receive the value");
 	Msg.Print("Hello from sub script 01 with value "+myvar);
+	// ----------------------------------------------------------
+	// Test importing another value
 	KValue another = KValue.Import("another","the another is not present");
 	Msg.Print("We have another value as well: "+another);
 	return 0;

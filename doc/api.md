@@ -719,6 +719,12 @@ Returns: Exitcode from the command.
 Returns: Exitcode from the command.
 
 
+##### M:Kltv.Kombine.Api.Statics.Cast``1(System.Object)
+ Cast an object to another type trying to copy as much as possible. 
+- myobj: Object to be casted<br>
+Returns: A new created object of the new type or null if invalid.
+
+
 # T:Kltv.Kombine.Api.Tool
  Wraps a tool interaction (status / result / launch / version) 
  Encapsulated in the tool class we have the tool results 
@@ -850,6 +856,16 @@ Returns: ToolResult type with partial execution information.
 
 ##### P:Kltv.Kombine.Api.Tool.ToolResult.Id
  Holds a user given Id for the command launched 
+
+# T:Kltv.Kombine.Types.KList
+ KList class. It is a regular list with helper functions to be used in build environemnts. 
+
+##### M:Kltv.Kombine.Types.KList.#ctor
+ Default constructor 
+
+##### M:Kltv.Kombine.Types.KList.#ctor(Kltv.Kombine.Types.KList)
+ Copy constructor 
+- other: The object to be copied<br>
 
 ##### M:Kltv.Kombine.Types.KList.Flatten
  Flatten the list into a single string 

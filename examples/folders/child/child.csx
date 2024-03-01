@@ -20,5 +20,5 @@ int test(string[] args){
 	// Execute the script using the back searching functionality
 	Kombine("folder1/parent.csx","test");
 
-	return 0;
+	return -1;
 }

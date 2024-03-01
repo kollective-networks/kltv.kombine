@@ -212,7 +212,7 @@ namespace Kltv.Kombine
 		/// </summary>
 		public static void ShowBanner() {
 			Msg.Print("");
-			Msg.Print("Kombine Build Engine");
+			Msg.Print("Kombine Build Engine "+KombineMain.Version.Major+"."+KombineMain.Version.Minor+"."+KombineMain.Version.Build);
 			Msg.Print("Copyrigth(C) Kollective Networks 2022. All rights reserved.");
 			Msg.Print("");
 		}

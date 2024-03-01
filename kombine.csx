@@ -20,6 +20,10 @@
 int publish(string[] args){
 	int ExitCode; 
 
+	// Apply the version number
+	// ------------------------------------------------------------------------------------------
+	ApplyVersionNumber();
+
 	// Windows
 	// ------------------------------------------------------------------------------------------
 	Msg.Print("Building for windows");
@@ -72,11 +76,13 @@ int publish(string[] args){
 	Msg.Print("[MacOS] Compress the single file tool");		
 	Compress.Tar.CompressFile("out/pub/osx-x64/release/mkb","out/pkg/kombine.osx.tar.gz");
 	// ------------------------------------------------------------------------------------------
+	RestoreVersionNumber();
 	Msg.Print("Done!");
 	return 0;
 }
 
 public int intellisense(string[] args){
+
 	Msg.Print("Generating intellisense");
 	Msg.Print("Building for windows");
 	if (Host.IsWindows()){
@@ -94,4 +100,27 @@ public int intellisense(string[] args){
 	}	
 	Msg.Print("Done!");
 	return 0;
+}
+
+public void ApplyVersionNumber(){
+	Files.Copy("src/version.cs","src/version.cs.bak");
+	string file = "src/version.cs";
+	string content = Files.ReadTextFile(file);
+	content = content.Replace("[BUILD]",GetVersionBuildNumber());
+	Files.WriteTextFile(file,content);
+}
+
+public void RestoreVersionNumber(){
+	Files.Delete("src/version.cs");
+	Files.Move("src/version.cs.bak","src/version.cs");
+}
+
+public string GetVersionBuildNumber() {
+	DateTime currentTime = DateTime.UtcNow;
+	long now = ((DateTimeOffset)currentTime).ToUnixTimeSeconds();			
+	DateTime currentYear = new DateTime(DateTime.Now.Year, 1, 1);
+	long year = ((DateTimeOffset)currentYear).ToUnixTimeSeconds();
+	long bn = now - year;
+	string buildNumber = "24" + (bn / 60).ToString("D6");
+	return buildNumber;
 }

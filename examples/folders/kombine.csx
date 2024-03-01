@@ -15,6 +15,8 @@ using static Kltv.Kombine.Api.Tool;
 
 // Builtin properties with useful folders
 //-------------------------------------------------
+Msg.Print("Builtin properties with useful folders");
+Msg.Print("-------------------------------------------------------------------");
 Msg.Print("Current Working Folder: "+CurrentWorkingFolder);
 Msg.Print("Current Script Folder: "+CurrentScriptFolder);
 Msg.Print("Current Tool Folder: "+CurrentToolFolder);
@@ -26,12 +28,14 @@ int test(string[] args){
 	// Folder & file search
 	//-------------------------------------------------
 
+	Msg.Print("Folder & file search");
+	Msg.Print("-------------------------------------------------------------------");
 	// search forward including a relative path
 	KValue filefound = Folders.SearchForwardPath("src/file1.txt");
-	Msg.Print("File found: "+filefound);
+	Msg.Print("Search forward. File found: "+filefound);
 	// search forward without including a relative path
 	filefound = Folders.SearchForwardPath("file1.txt");
-	Msg.Print("File found: "+filefound);
+	Msg.Print("Search forward. File found: "+filefound);
 	Msg.Print("Execute child to test folders from child");
 	Kombine("child/child.csx","test");
 	Msg.Print("Execute it again but letting the system to search for the script");
@@ -39,6 +43,8 @@ int test(string[] args){
 
 	// File Operations
 	// -------------------------------------------------
+	Msg.Print("File Operations");
+	Msg.Print("-------------------------------------------------------------------");	
 	KValue content = "This is my rifle, is my life";
 	Msg.Print("Writing file");
 	Files.WriteTextFile("file2.txt",content);
@@ -57,6 +63,8 @@ int test(string[] args){
 
 	// Zip Operations
 	//-------------------------------------------------
+	Msg.Print("File Zip Operations");
+	Msg.Print("-------------------------------------------------------------------");	
 	Compress.Zip.CompressFolder("child", "test.zip");
 	Folders.Create("testfolder");
 	Compress.Zip.Decompress("test.zip", "testfolder/");
@@ -76,6 +84,9 @@ int test(string[] args){
 	Files.Delete("test3.zip");
 	Files.Delete("test4.zip");
 
+	Msg.Print("File Tar.gz Operations");
+	Msg.Print("-------------------------------------------------------------------");	
+
 	Compress.Tar.CompressFolder("child", "test.tar.gz");
 	Compress.Tar.CompressFolders(new string[]{"child","folder1"}, "test2.tar.gz");
 	Folders.Create("testfolder");
@@ -93,6 +104,10 @@ int test(string[] args){
 	Files.Delete("test4.tar.gz");
 	
 
+	Msg.Print("File Tar.bz2 Operations");
+	Msg.Print("-------------------------------------------------------------------");	
+
+	
 
 	// Folder operations
 	//-------------------------------------------------

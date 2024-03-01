@@ -37,13 +37,17 @@ namespace Kltv.Kombine {
 		internal static void Action(string[] args) {
 			if (args.Length == 0) {
 				Msg.PrintErrorMod("No arguments specified. Exiting.", ".cache");
+				return;
 			}
 			if (args[0] == "clear") {
 				Msg.Print("[*] Deleting all cache folders.");
 				Folders.Delete(CacheFolder,true);
 			}
 			if (args[0] == "help") {
+				Msg.BeginIndent();
+				Msg.Print("");
 				Msg.Print("kcache clear: Deletes all cache folders.");
+				Msg.EndIndent();
 			}
 		}
 

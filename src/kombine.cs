@@ -14,7 +14,7 @@ namespace Kltv.Kombine {
 	/// <summary>
 	/// Kombine main class
 	/// </summary>
-	internal static class KombineMain {
+	internal static partial class KombineMain {
 
 		/// <summary>
 		/// 
@@ -38,8 +38,8 @@ namespace Kltv.Kombine {
 		/// 
 		/// kversion: Shows tool version and exit
 		/// khelp: Show this help and exit
-		/// kconfig: Manages the tool configuration (check on config)
-		/// kcache: Manages the tool cache (check on cache)
+		/// kconfig: Manages the tool configuration (not yet implemented)
+		/// kcache: Manages the tool cache (not fully implemented)
 		/// 
 		/// [action parameters]
 		/// They are optional and belongs to the specified action. In case of scripts,they are passed to the
@@ -67,7 +67,7 @@ namespace Kltv.Kombine {
 				return 0;
 			}
 			if (Config.Action == "kversion") {
-
+				Config.ShowBanner();
 				Msg.Deinitialize();
 				return 0;
 			}
@@ -77,7 +77,7 @@ namespace Kltv.Kombine {
 				return 0;
 			}
 			if (Config.Action == "kconfig") {
-
+				Msg.PrintErrorMod("Not yet implemented", ".main");
 				Msg.Deinitialize();
 				return 0;
 			}

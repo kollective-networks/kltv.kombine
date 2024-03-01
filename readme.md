@@ -102,10 +102,11 @@ The parameters are intended for the tool itself. It regulates if the script will
 
 The script output is more intended to debug the script (without attach a debugger) since in verbose or debug it will drop in the console information lines about what is being processed (inner messages from the tool itself) so, for example, if you use a "Glob" and you want to check what the "Glob" detected, just place the output as debug and you will see the log lines.
 
-The common is:<br>
-	- Normal will output only your messages in your script.<br>
-	- Verbose will output like normal but also information from the functions you call.<br>
-	- Debug as verbose but also debug information from the tool itself.<br>
+The common is:
+
+- Normal will output only your messages in your script.
+- Verbose will output like normal but also information from the functions you call.
+- Debug as verbose but also debug information from the tool itself.
 
 Action is the function that will be executed in your script, check out on [Script Structure](#script-structure-and-execution)
 Anyway there are other actions that are reserved for the tool itself and they're builtin the tool like kconfig and kcache.
@@ -154,16 +155,16 @@ The cache is intended to have its own garbage collection system, so, in any Komb
 
 We tried also to make it the simpler as posible, for example, to define a list:
 ```
-KList	src = "my item1";
-		src += "my item2"
+KList   src = "my item1";
+        src += "my item2"
 ```
 or
 ```
-KList	src = new() { "item1", "item2" };
+KList   src = new() { "item1", "item2" };
 ```
 And you can remove as well like:
 ```
-KList	src = new() { "item1", "item2" };
+KList   src = new() { "item1", "item2" };
         src -= "item2";
 ```
 This is particular useful for example when you deal with command line parameters and you need to add/remove them.

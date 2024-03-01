@@ -4,8 +4,9 @@
 
 This is the complete (planned) feature list and current state
 
+| Feature Area                              | Feature Description                                          |
+| :---------------------------------------- | :----------------------------------------------------------- |
 | Script Output                             | :heavy_check_mark: Print with debug levels                   |
-| ----------------------------------------- | ------------------------------------------------------------ |
 |                                           | :heavy_check_mark: Print with color Errors and Warnings      |
 |                                           | :heavy_check_mark: Print with module information for debug   |
 |                                           | :heavy_check_mark: Print task messages with colors for done/warning/error |

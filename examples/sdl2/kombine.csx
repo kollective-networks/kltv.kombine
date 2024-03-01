@@ -5,8 +5,8 @@
 	(C)Kollective Networks 2022
 
 ---------------------------------------------------------------------------------------------------------*/
-#load "scripts/clang.csx"
-#load "scripts/git.csx"
+#load "extensions/clang.csx"
+#load "extensions/git.csx"
 
 KValue Name = "sdl2";
 KValue OutputBin = KValue.Import("OutputBin","out/bin/");
@@ -62,20 +62,20 @@ int build(string[] args){
 	// You can override here parameters for the tool
 	// like the compiler executable, the extensions, etc
 	// Check the Clang class for more information
-	clang.SwitchesCC = CFlags;
-	clang.SwitchesCXX = CxxFlags;
-	clang.SwitchesLD = LinkerFlags;
-	clang.Defines = Defines;
-	clang.IncludeDirs = Includes;
-	clang.LibraryDirs = LibraryDirs;
-	clang.Libraries = Libraries;
+	clang.Options.SwitchesCC = CFlags;
+	clang.Options.SwitchesCXX = CxxFlags;
+	clang.Options.SwitchesLD = LinkerFlags;
+	clang.Options.Defines = Defines;
+	clang.Options.IncludeDirs = Includes;
+	clang.Options.LibraryDirs = LibraryDirs;
+	clang.Options.Libraries = Libraries;
 	clang.OpenCompileCommands("out/tmp/compile_commands.json");	
 	// Generate the list of object files to be used as output
-	KList objs = src.WithExtension(clang.ObjectExtension).WithPrefix(OutputTmp);
+	KList objs = src.WithExtension(clang.Options.ObjectExtension).WithPrefix(OutputTmp);
 	// And compile the sources
 	clang.Compile(src, objs);
 	// Use the librarian to generate a static library
-	clang.Librarian(objs, OutputLib + Name + clang.LibExtension);
+	clang.Librarian(objs, OutputLib + Name + clang.Options.LibExtension);
 	Msg.PrintTask("Building static library: " + Name +" ");
 	Msg.PrintTaskSuccess(" done");
 	return 0;

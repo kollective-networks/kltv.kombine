@@ -6,7 +6,7 @@
 
 ---------------------------------------------------------------------------------------------------------*/
 
-#load "scripts/clang.csx"
+#load "extensions/clang.csx"
 
 // Set this project name
 //
@@ -55,20 +55,20 @@ int build(string[] args){
 	clang.OpenCompileCommands("out/tmp/compile_commands.json");	
 	// Compile
 	// -------------------------------------------------------
-	clang.IncludeDirs = Includes;
-	clang.Defines = Defines;
-	clang.SwitchesCC = CFlags;
-	clang.SwitchesCXX = CxxFlags;
+	clang.Options.IncludeDirs = Includes;
+	clang.Options.Defines = Defines;
+	clang.Options.SwitchesCC = CFlags;
+	clang.Options.SwitchesCXX = CxxFlags;
 	// Generate the list of object files to be used as output
-	KList objs = src.WithExtension(clang.ObjectExtension).WithPrefix(OutputTmp);
+	KList objs = src.WithExtension(clang.Options.ObjectExtension).WithPrefix(OutputTmp);
 	// And compile the sources
 	clang.Compile(src, objs);
 	// Linker (we pass to the linker we shall generate a shared library)
 	// -----------------------------------------------------------------
-	clang.LibraryDirs = LibraryDirs;
-	clang.Libraries = Libraries;
-	clang.SwitchesLD = LinkerFlags;
-	clang.Linker(objs, OutputBin + Name + clang.SharedExtension,true);
+	clang.Options.LibraryDirs = LibraryDirs;
+	clang.Options.Libraries = Libraries;
+	clang.Options.SwitchesLD = LinkerFlags;
+	clang.Linker(objs, OutputBin + Name + clang.Options.SharedExtension,true);
 	Msg.PrintTask("Building shared library: " + Name +" ");
 	Msg.PrintTaskSuccess(" done");
 	return 0;
@@ -82,8 +82,9 @@ int build(string[] args){
 int clean(string[] args){
 	Msg.Print("Cleaning artifacts for shared library: "+Name);
 	Clang clang = new Clang();
-	KList objs = src.WithExtension(clang.ObjectExtension).WithPrefix(OutputTmp);
-	KValue output = OutputBin + Name + clang.SharedExtension;
+	// This is just an example but you can just use Folders.Delete and destroy all the artifacts as well.
+	KList objs = src.WithExtension(clang.Options.ObjectExtension).WithPrefix(OutputTmp);
+	KValue output = OutputBin + Name + clang.Options.SharedExtension;
 	clang.Clean(objs,output);
 	return 0;
 }

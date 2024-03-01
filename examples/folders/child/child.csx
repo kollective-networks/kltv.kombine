@@ -19,6 +19,5 @@ int test(string[] args){
 	Msg.Print("File found: "+filefound);
 	// Execute the script using the back searching functionality
 	Kombine("folder1/parent.csx","test");
-
-	return -1;
+	return 0;
 }

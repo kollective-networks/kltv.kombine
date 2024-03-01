@@ -19,42 +19,39 @@ using static Kltv.Kombine.Api.Tool;
 /// <param name="args"></param>
 /// <returns></returns>
 int test(string[] args){
+	Msg.Print("");
 	Msg.Print("Testing scripts: ");
+	Msg.Print("");
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("Testing: simple");
-	if (Kombine("simple/kombine.csx","build",args) != 0) 
-		return -1;
-	if (Kombine("simple/kombine.csx","clean",args) != 0) 
-		return -1;
+	Kombine("simple/kombine.csx","build",args);
+	Kombine("simple/kombine.csx","clean",args);
 	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
 	Msg.Print("Testing: types");
-	if (Kombine("types/kombine.csx","test",args) != 0) 
-		return -1;
+	Kombine("types/kombine.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
-	Msg.Print("Testing: childs");	
-	if (Kombine("childs/kombine.csx","test",args) != 0) 
-		return -1;
+	Msg.Print("");
+	Msg.Print("Testing: childrens");	
+	Kombine("child/kombine.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
 	Msg.Print("Testing: files & folders & compression");
-	if (Kombine("folders/kombine.csx","test",args) != 0) 
-		return -1;
+	Kombine("folders/kombine.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
 	Msg.Print("Testing: network");
-	if (Kombine("network/kombine.csx","test",args) != 0) 
-		return -1;
+	Kombine("network/kombine.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
 	Msg.Print("Testing: clang");
-	if (Kombine("clang/kombine.csx","build",args) != 0) 
-		return -1;
-	if (Kombine("clang/kombine.csx","clean",args) != 0) 
-		return -1;
-	if (Kombine("clang/kombine.csx","help",args) != 0) 
-		return -1;
+	Kombine("clang/kombine.csx","build",args);
+	Kombine("clang/kombine.csx","clean",args);
+	Kombine("clang/kombine.csx","help",args);
 	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
 	Msg.Print("Testing: sdl2");
-	if (Kombine("sdl2/kombine.csx","build",args) != 0) 
-		return -1;
-	if (Kombine("sdl2/kombine.csx","clean",args) != 0) 
-		return -1;
+	Kombine("sdl2/kombine.csx","build",args);
+	Kombine("sdl2/kombine.csx","clean",args);
 	return 0;
 }

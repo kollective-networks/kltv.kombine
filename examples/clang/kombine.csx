@@ -5,7 +5,8 @@
 	(C)Kollective Networks 2022
 
 ---------------------------------------------------------------------------------------------------------*/
-#load "scripts/clang.csx"
+#load "extensions/clang.csx"
+
 #r "mkb.dll"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
@@ -45,15 +46,14 @@ int build(string[] args){
 		Msg.Print("[!] This script is running with root privileges.");
 	}
 	Msg.Print("----------------------------------------------------------");
+	// You can check the return code to throw custom messages
 	if (Kombine("lib/mylib.csx","build",args) != 0) {
 		Msg.PrintError("Failed to build static library");
 		return -1;
 	}
 	Msg.Print("----------------------------------------------------------");
-	if (Kombine("exe/mybin.csx","build",args) != 0) {
-		Msg.PrintError("Failed to build binary");
-		return -1;
-	}
+	// Or just use the default values to let the script fail on error
+	Kombine("exe/mybin.csx","build",args);
 	Msg.Print("----------------------------------------------------------");
 	if (Kombine("dll/mydll.csx","build",args) != 0) {
 		Msg.PrintError("Failed to build shared library");

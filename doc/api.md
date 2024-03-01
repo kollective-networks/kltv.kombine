@@ -54,37 +54,41 @@ Returns: True if operation was okey. False otherwise
 # T:Kltv.Kombine.Api.Compress.Tar
  Tar compression methods 
 
-##### M:Kltv.Kombine.Api.Compress.Tar.CompressFolder(System.String,System.String,System.Boolean,System.Boolean)
+##### M:Kltv.Kombine.Api.Compress.Tar.CompressFolder(System.String,System.String,System.Boolean,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
  Compress a single folder into a tar.gz file. 
 - folderPath: Folder to be compressed<br>
 - outputFile: Output tar.gz file<br>
 - overwrite: If archive should be overwriten, default true<br>
 - includeFolder: If true, include the folder in the tar.gz file.<br>
+- compressionType: Compression type, default gzip<br>
 Returns: True if fine, false otherwise.
 
 
-##### M:Kltv.Kombine.Api.Compress.Tar.CompressFolders(System.String[],System.String,System.Boolean,System.Boolean)
+##### M:Kltv.Kombine.Api.Compress.Tar.CompressFolders(System.String[],System.String,System.Boolean,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
  Compress a list of folders into a tar.gz file. 
 - folderPaths: Folders to be compressed<br>
 - outputFile: Output tar.gz file<br>
 - overwrite: If archive should be overwriten, default true<br>
-- includeFolder: If true, include the folders in the tar.gz file.<br>
+- includeFolder: If true, include the given folders in the tar.gz file and not only the folder contents an descentants.<br>
+- compressionType: Compression type, default gzip<br>
 Returns: True if fine, false otherwise.
 
 
-##### M:Kltv.Kombine.Api.Compress.Tar.CompressFile(System.String,System.String,System.Boolean)
+##### M:Kltv.Kombine.Api.Compress.Tar.CompressFile(System.String,System.String,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
  Compress a single file into a tar.gz file. 
 - filePath: File to be compressed<br>
 - outputFile: Output tar.gz file<br>
 - overwrite: If archive should be overwriten, default true<br>
+- compressionType: Compression type, default gzip<br>
 Returns: True if fine, false otherwise.
 
 
-##### M:Kltv.Kombine.Api.Compress.Tar.Decompress(System.String,System.String,System.Boolean)
+##### M:Kltv.Kombine.Api.Compress.Tar.Decompress(System.String,System.String,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
  Decompress a tar.gz file into a folder. 
 - tarPath: Tar.gz file to decompress<br>
 - outputFolder: Output folder<br>
 - overwrite: If archive should be overwriten, default true<br>
+- compressionType: Compression type, default gzip<br>
 Returns: True if fine, false otherwise.
 
 
@@ -1090,6 +1094,25 @@ Returns: the new value
 Returns: True if we can use it. False otherwise.
 
 
+##### M:Kltv.Kombine.Cache.IsIncludeCached(System.String)
+ Returns if the script is cached and it could be used. 
+- includename: URI for the script to lookup in the cache<br>
+Returns: true if we've one copy there. false otherwise
+
+
+##### M:Kltv.Kombine.Cache.GetIncludeCached(System.String)
+ Get the include name from the cache to be used in source resolver. 
+- includename: URI for the script<br>
+Returns: filename to use
+
+
+##### M:Kltv.Kombine.Cache.SetIncludeCached(System.String,System.String)
+ Set the include in the cache. 
+- includename: URI origin of the script.<br>
+- content: Content of the script<br>
+Returns: The filename used to store it on the cache or empty if error.
+
+
 ##### M:Kltv.Kombine.Cache.LoadScriptCached(System.String)
  Load a cached script. 
 - scriptname: Filename for the script to be loaded.<br>
@@ -1103,9 +1126,10 @@ Returns: A byte array with the contents or null if failed.
 Returns: True if saving was okey. False otherwise.
 
 
-##### M:Kltv.Kombine.Cache.ConvertFilename(System.String)
+##### M:Kltv.Kombine.Cache.ConvertFilename(System.String,System.Boolean)
  Converts the given scriptname into a filename for the cache. 
 - scriptname: Script name to be converted<br>
+- include: If true, the filename indicates cached include. Script object otherwise.<br>
 Returns: The resulting name including cache path
 
 
@@ -1188,6 +1212,9 @@ Returns: true if was a kombine parameter, false otherwise
 
 
 ##### F:Kltv.Kombine.Constants.Ext_Compiled
+
+
+##### F:Kltv.Kombine.Constants.Ext_IncludeCache
 
 
 ##### F:Kltv.Kombine.Constants.Art_Folder
@@ -1586,7 +1613,7 @@ Returns: True, valid process was checked, false otherwise.
  Kombine main class 
 
 ##### M:Kltv.Kombine.KombineMain.Main
- Kombine Parameters: mkb [parameters] [action] [action parameters] [parameters] They are optional and can be any of the following: -ksdbg: Script will include debug information so script debugging will be possible -ksrb or -ksrebuild: Script will be rebuilded even if it is cached -ko:silent or -ko:s : Output will be silent -ko:normal or -ko:n : Output will be normal -ko:verbose or -ko:v : Output will be verbose -ko:debug or -ko:d : Output will be debug -kfile: Indicates which script file we should execute (default kombine.csx) [action] Action to be executed. If not specified the default action is "khelp" The action is used to specify which function in the script should be called after evaluation but there are some reserved actions for the tool itself which cannot be used for the scripts: kversion: Shows tool version and exit khelp: Show this help and exit kconfig: Manages the tool configuration (check on config) kcache: Manages the tool cache (check on cache) [action parameters] They are optional and belongs to the specified action. In case of scripts,they are passed to the executed function as parameters. 
+ Kombine Parameters: mkb [parameters] [action] [action parameters] [parameters] They are optional and can be any of the following: -ksdbg: Script will include debug information so script debugging will be possible -ksrb or -ksrebuild: Script will be rebuilded even if it is cached -ko:silent or -ko:s : Output will be silent -ko:normal or -ko:n : Output will be normal -ko:verbose or -ko:v : Output will be verbose -ko:debug or -ko:d : Output will be debug -kfile: Indicates which script file we should execute (default kombine.csx) [action] Action to be executed. If not specified the default action is "khelp" The action is used to specify which function in the script should be called after evaluation but there are some reserved actions for the tool itself which cannot be used for the scripts: kversion: Shows tool version and exit khelp: Show this help and exit kconfig: Manages the tool configuration (not yet implemented) kcache: Manages the tool cache (not fully implemented) [action parameters] They are optional and belongs to the specified action. In case of scripts,they are passed to the executed function as parameters. 
  ------------------------------------------------------------------------------------------------------------- 
 ##### M:Kltv.Kombine.KombineMain.RunScript(System.String,System.String,System.String[],System.Boolean)
  Executes one script 

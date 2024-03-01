@@ -16,7 +16,7 @@
 // The full path could be on the filesystem or an URL
 // So you can fetch your common scripts from your own repository.
 // -----------------------------------------------------------------------
-#load "scripts/clang.csx"
+#load "extensions/clang.csx"
 
 
 // In this example we just define some variables to be used in the script globally
@@ -65,13 +65,13 @@ int build(string[] args){
 	// You can override here parameters for the tool
 	// like the compiler executable, the extensions, etc
 	// Check the Clang class for more information
-	clang.SwitchesCC = CFlags;
-	clang.SwitchesCXX = CxxFlags;
-	clang.SwitchesLD = LinkerFlags;
-	clang.Defines = Defines;
-	clang.IncludeDirs = Includes;
-	clang.LibraryDirs = LibraryDirs;
-	clang.Libraries = Libraries;
+	clang.Options.SwitchesCC = CFlags;
+	clang.Options.SwitchesCXX = CxxFlags;
+	clang.Options.SwitchesLD = LinkerFlags;
+	clang.Options.Defines = Defines;
+	clang.Options.IncludeDirs = Includes;
+	clang.Options.LibraryDirs = LibraryDirs;
+	clang.Options.Libraries = Libraries;
 
 	clang.OpenCompileCommands("out/tmp/compile_commands.json");	
 
@@ -88,17 +88,12 @@ int build(string[] args){
 	if (Host.IsWindows()) {
 		// Do something
 	}
-	// You can download and extract files in this action or another one to prepare your build 
-	// without rely on different commands by platform
-	//
-	// Http.DownloadFile("https://bit.ly/1GB-testfile", "out/test.bin");
-	//
 	// Generate the list of object files to be used as output
-	KList objs = src.WithExtension(clang.ObjectExtension).WithPrefix(OutputTmp);
+	KList objs = src.WithExtension(clang.Options.ObjectExtension).WithPrefix(OutputTmp);
 	// And compile the sources
 	clang.Compile(src, objs);
 	// Use the librarian to generate a static library
-	clang.Librarian(objs, OutputLib + Name + clang.LibExtension);
+	clang.Librarian(objs, OutputLib + Name + clang.Options.LibExtension);
 	Msg.PrintTask("Building static library: " + Name +" ");
 	Msg.PrintTaskSuccess(" done");
 	return 0;
@@ -112,8 +107,9 @@ int build(string[] args){
 int clean(string[] args){
 	Msg.Print("Cleaning artifacts for static library: "+Name);
 	Clang clang = new Clang();
-	KList objs = src.WithExtension(clang.ObjectExtension).WithPrefix(OutputTmp);
-	KValue output = OutputLib + Name + clang.LibExtension;
+	// This is just an example but you can just use Folders.Delete and destroy all the artifacts as well.
+	KList objs = src.WithExtension(clang.Options.ObjectExtension).WithPrefix(OutputTmp);
+	KValue output = OutputLib + Name + clang.Options.LibExtension;
 	clang.Clean(objs,output);
 	return 0;
 }

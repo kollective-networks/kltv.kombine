@@ -5,6 +5,7 @@
 	(C)Kollective Networks 2022
 
 ---------------------------------------------------------------------------------------------------------*/
+#load "https://raw.githubusercontent.com/kollective-networks/kltv.kombine/main/extensions/clang.csx"
 
 #r "mkb.dll"
 using Kltv.Kombine.Api;
@@ -18,7 +19,7 @@ int test(string[] args){
 	bool result;
 
 	Msg.Print("Testing GetDocument");
-	KValue message = Http.GetDocument("https://raw.githubusercontent.com/neuecc/MarkdownGenerator/master/VSDocParser.cs");
+	KValue message = Http.GetDocument("https://raw.githubusercontent.com/kollective-networks/kltv.kombine/main/extensions/clang.csx");
 	Msg.Print("Message is: "+message.ToString());
 
 	Msg.Print("Testing download");

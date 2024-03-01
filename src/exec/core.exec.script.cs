@@ -266,6 +266,10 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 					return -1;
 				}
 				if (ex.InnerException != null) {
+					if (ex.InnerException is ScriptAbortException){
+						// Silence this one since we already anounce it
+						return -1;
+					}
 					Msg.PrintErrorMod("Script exception: " + ex.InnerException.Message, ".exec.script");
 				}
 				Msg.PrintErrorMod("Failed executing script: " + ex.Message, ".exec.script");

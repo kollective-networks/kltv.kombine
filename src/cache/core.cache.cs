@@ -104,6 +104,44 @@ namespace Kltv.Kombine {
 			return true;
 		}
 
+		/// <summary>
+		/// Returns if the script is cached and it could be used.
+		/// </summary>
+		/// <param name="includename">URI for the script to lookup in the cache</param>
+		/// <returns>true if we've one copy there. false otherwise</returns>
+		internal static bool IsIncludeCached(string includename){
+			string filename = ConvertFilename(includename,true);
+			if (Files.Exists(filename)) {
+				return true;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Get the include name from the cache to be used in source resolver.
+		/// </summary>
+		/// <param name="includename">URI for the script</param>
+		/// <returns>filename to use</returns>
+		internal static string GetIncludeCached(string includename){
+			string filename = ConvertFilename(includename,true);
+			return filename;
+		}
+
+		/// <summary>
+		/// Set the include in the cache.
+		/// </summary>
+		/// <param name="includename">URI origin of the script.</param>
+		/// <param name="content">Content of the script</param>
+		/// <returns>The filename used to store it on the cache or empty if error.</returns>
+		internal static string SetIncludeCached(string includename, string content){
+			string filename = ConvertFilename(includename,true);
+			if (Files.WriteTextFile(filename,content) == false){
+				Msg.PrintErrorMod("Failed to save include to cache: "+includename,".cache");
+				return string.Empty;
+			}
+			return filename;
+		}
+
 
 		/// <summary>
 		/// Load a cached script.
@@ -143,8 +181,9 @@ namespace Kltv.Kombine {
 		/// Converts the given scriptname into a filename for the cache.
 		/// </summary>
 		/// <param name="scriptname">Script name to be converted</param>
+		/// <param name="include">If true, the filename indicates cached include. Script object otherwise.</param>
 		/// <returns>The resulting name including cache path</returns>
-		internal static string ConvertFilename(string scriptname) {
+		internal static string ConvertFilename(string scriptname,bool include = false) {
 			// since we want a hash of the scriptname no matter if its invoked
 			// as relative path, absolute or just the name, we will use the complete filename
 			// as the key for the cache.
@@ -156,8 +195,15 @@ namespace Kltv.Kombine {
 			}
 			foreach (byte b in GetHash)
 				sb.Append(b.ToString("X2").ToLower());
-			string hashedName = sb + Constants.Ext_Compiled;
-			string filename = Path.Combine(CacheStates, hashedName);
+			string hashedName;
+			string filename;
+			if (include){
+				hashedName = sb + Constants.Ext_IncludeCache;
+				filename  = Path.Combine(CacheScripts, hashedName);
+			} else {
+				hashedName = sb + Constants.Ext_Compiled;
+				filename  = Path.Combine(CacheStates, hashedName);
+			}
 			return Path.GetFullPath(filename);
 		}
 

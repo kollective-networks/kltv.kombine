@@ -102,7 +102,7 @@ This is the complete (planned) feature list and current state
 |                                           | :x: Execute child scripts creating a new process             |
 |                                           | :x: Execute child scripts creating a new process (with auto search) |
 |                                           | :heavy_check_mark: Include other scripts from your own from filesystem (with auto search) |
-|                                           | :x: Include other scripts from your own from http source     |
+|                                           | :heavy_check_mark: Include other scripts from your own from HTTP source |
 | Tool execution                            | :heavy_check_mark: Execute a process (simple, fetching only exit code) |
 |                                           | :x: Execute a process using shell                            |
 |                                           | :heavy_check_mark: Execute a process in sync way fetching all the results |

@@ -486,6 +486,20 @@ namespace Kltv.Kombine.Api {
 		/// <returns>Place where is found or null if any.</returns>
 		internal static string? ResolveFilename(string path){
 			string? look = null;
+
+			// Check if its an URL
+			if (path.StartsWith("http://") || path.StartsWith("https://")){
+				KValue content = Http.GetDocument(path);
+				if (content.IsEmpty()){
+					Msg.PrintWarningMod("Failed to fetch: " + path+" trying to use cache.", ".folders", Msg.LogLevels.Verbose);
+					if (Cache.IsIncludeCached(path)) {
+						return Cache.GetIncludeCached(path);
+					}
+					Msg.PrintWarningMod("Failed to fetch: " + path + " and no cache found.", ".folders", Msg.LogLevels.Verbose);
+					return null;
+				}				
+				return Cache.SetIncludeCached(path, content);
+			}
 			// Check if its an absolute path
 			if (Path.IsPathRooted(path) == true) {
 				Msg.PrintMod("ResolveReference for absolute path:"+path,".folders", Msg.LogLevels.Debug);

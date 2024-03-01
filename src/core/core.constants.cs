@@ -61,6 +61,11 @@ namespace Kltv.Kombine {
 		/// </summary>
 		public const string Ext_Compiled =			@".dat";
 
+		/// <summary>
+		/// 
+		/// </summary>
+		public const string Ext_IncludeCache =		@".cache";
+
 
 		// Output Artifacts Folders
 		// ----------------------------------------------------------------

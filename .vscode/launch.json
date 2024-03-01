@@ -20,7 +20,7 @@
 				"program": "",
 			},
 			"args": [ "-ksdbg","-ko:v","-ksrb", "test" ],
-			"cwd": "${workspaceFolder}/examples/",
+			"cwd": "${workspaceFolder}/examples/folders/",
 			"stopAtEntry": false,
 			"console": "integratedTerminal",
 			"justMyCode": false,

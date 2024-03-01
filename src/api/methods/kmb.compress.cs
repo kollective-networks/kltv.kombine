@@ -11,6 +11,8 @@ using System.Data;
 using System.IO;
 using System.IO.Compression;
 using System.Formats.Tar;
+using ICSharpCode.SharpZipLib.BZip2;
+
 
 namespace Kltv.Kombine.Api {
 
@@ -127,6 +129,11 @@ namespace Kltv.Kombine.Api {
 		/// </summary>
 		public static class Tar {
 
+			public enum TarCompressionType {
+				Gzip,
+				Bzip2
+			}
+
 			/// <summary>
 			/// Compress a single folder into a tar.gz file.
 			/// </summary>
@@ -134,9 +141,10 @@ namespace Kltv.Kombine.Api {
 			/// <param name="outputFile">Output tar.gz file</param>
 			/// <param name="overwrite">If archive should be overwriten, default true</param>
 			/// <param name="includeFolder">If true, include the folder in the tar.gz file.</param>
+			/// <param name="compressionType">Compression type, default gzip</param>
 			/// <returns>True if fine, false otherwise.</returns>
-			public static bool CompressFolder(string folderPath, string outputFile,bool overwrite = true,bool includeFolder = true) {
-				return CompressFolders(new string[] { folderPath }, outputFile,overwrite);
+			public static bool CompressFolder(string folderPath, string outputFile,bool overwrite = true,bool includeFolder = true, TarCompressionType compressionType = TarCompressionType.Gzip) {
+				return CompressFolders(new string[] { folderPath }, outputFile,overwrite,includeFolder,compressionType);
 			}
 
 			/// <summary>
@@ -145,17 +153,33 @@ namespace Kltv.Kombine.Api {
 			/// <param name="folderPaths">Folders to be compressed</param>
 			/// <param name="outputFile">Output tar.gz file</param>
 			/// <param name="overwrite">If archive should be overwriten, default true</param>
-			/// <param name="includeFolder">If true, include the folders in the tar.gz file.</param>
+			/// <param name="includeFolder">If true, include the given folders in the tar.gz file and not only the folder contents an descentants.</param>
+			/// <param name="compressionType">Compression type, default gzip</param>
 			/// <returns>True if fine, false otherwise.</returns>
-			public static bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true,bool includeFolder = true) {
+			public static bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true,bool includeFolder = true, TarCompressionType compressionType = TarCompressionType.Gzip) {
+				Msg.PrintMod("Compressing folders: " + string.Join(", ", folderPaths), ".compress", Msg.LogLevels.Verbose);
 				// Check if the file exists and delete it if it does
 				if (overwrite == true && Files.Exists(outputFile)) {
+					Msg.PrintMod("Overwriting file: " + outputFile, ".compress", Msg.LogLevels.Verbose);
 					Files.Delete(outputFile);
 				}
 				// Create the tar.gz file
+				Stream? gz = null; 
+				FileStream? fs = null;
 				try	{
-					using (FileStream fs = new FileStream(outputFile, FileMode.Create))
-					using (GZipStream gz = new GZipStream(fs, CompressionMode.Compress)) 
+					fs = new FileStream(outputFile, FileMode.Create);
+					if (compressionType == TarCompressionType.Gzip)
+						gz = new GZipStream(fs, CompressionMode.Compress) as Stream;
+					if (compressionType == TarCompressionType.Bzip2)
+						gz = new BZip2OutputStream(fs) as Stream;
+					if (gz == null){
+						Msg.PrintErrorMod("Error tar compressing folders: Unknown compression type", ".compress", Msg.LogLevels.Verbose);
+						if (fs != null){
+							fs.Close();
+							fs.Dispose();
+						}
+						return false;
+					}
 					using (TarWriter tar = new TarWriter(gz)){
 						foreach(string folder in folderPaths) {
 							string[] files = Directory.GetFiles(folder, "*", SearchOption.AllDirectories);
@@ -165,19 +189,32 @@ namespace Kltv.Kombine.Api {
 							foreach (string file in files) {
 								string f;
 								if (includeFolder == true){
-									f = Path.GetRelativePath(folder, file);
-								} else{
 									f = file;
+								} else{
+									f = Path.GetRelativePath(folder, file);
 								}
 								// Important: In windows backslashes are used as path separator, but tar files use forward slashes
 								string f2 = f.Replace("\\", "/");	
+								Msg.PrintMod("Compressing file: " + f2, ".compress", Msg.LogLevels.Verbose);
 								tar.WriteEntry(file, f2);
 							}					
 						}
 					}
+					gz.Close();
+					gz.Dispose();
+					fs.Close();
+					fs.Dispose();
 					return true;
 				} catch (System.Exception ex) {
 					Msg.PrintErrorMod("Error tar compressing folders: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
+					if (gz != null) {
+						gz.Close();
+						gz.Dispose();
+					}
+					if (fs != null) {
+						fs.Close();
+						fs.Dispose();
+					}					
 					return false;
 				}
 			}
@@ -188,24 +225,53 @@ namespace Kltv.Kombine.Api {
 			/// <param name="filePath">File to be compressed</param>
 			/// <param name="outputFile">Output tar.gz file</param>
 			/// <param name="overwrite">If archive should be overwriten, default true</param>
+			///	<param name="compressionType">Compression type, default gzip</param>
 			/// <returns>True if fine, false otherwise.</returns>
-			public static bool CompressFile(string filePath, string outputFile,bool overwrite = true) {
+			public static bool CompressFile(string filePath, string outputFile,bool overwrite = true,TarCompressionType compressionType = TarCompressionType.Gzip) {
+				Msg.PrintMod("Compressing file: " + filePath, ".compress", Msg.LogLevels.Verbose);
 				// Check if the file exists and delete it if it does
 				if (overwrite == true && Files.Exists(outputFile)) {
+					Msg.PrintMod("Overwriting file: " + outputFile, ".compress", Msg.LogLevels.Verbose);
 					Files.Delete(outputFile);
 				}
 				// Create the tar.gz file
+				FileStream? fs = null;
+				Stream? gz = null;
 				try	{
-					using (FileStream fs = new FileStream(outputFile, FileMode.Create))
-					using (GZipStream gz = new GZipStream(fs, CompressionMode.Compress)) 
+					fs = new FileStream(outputFile, FileMode.Create);
+					if (compressionType == TarCompressionType.Gzip)
+						gz = new GZipStream(fs, CompressionMode.Compress) as Stream;
+					if (compressionType == TarCompressionType.Bzip2)
+						gz = new BZip2OutputStream(fs) as Stream;
+					if (gz == null){
+						Msg.PrintErrorMod("Error tar compressing folders: Unknown compression type", ".compress", Msg.LogLevels.Verbose);
+						if (fs != null){
+							fs.Close();
+							fs.Dispose();
+						}
+						return false;
+					}					
 					using (TarWriter tar = new TarWriter(gz)){
 						// Important: In windows backslashes are used as path separator, but tar files use forward slashes
 						string f2 = Path.GetFileName(filePath);	
+						Msg.PrintMod("Compressing file: " + f2, ".compress", Msg.LogLevels.Verbose);
 						tar.WriteEntry(filePath, f2);
 					}
+					gz.Close();
+					gz.Dispose();
+					fs.Close();
+					fs.Dispose();
 					return true;
 				} catch (System.Exception ex) {
 					Msg.PrintErrorMod("Error tar compressing file: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
+					if (gz != null) {
+						gz.Close();
+						gz.Dispose();
+					}
+					if (fs != null) {
+						fs.Close();
+						fs.Dispose();
+					}					
 					return false;
 				}
 			}
@@ -216,15 +282,45 @@ namespace Kltv.Kombine.Api {
 			/// <param name="tarPath">Tar.gz file to decompress</param>
 			/// <param name="outputFolder">Output folder</param>
 			/// <param name="overwrite">If archive should be overwriten, default true</param>
+			/// <param name="compressionType">Compression type, default gzip</param>
 			/// <returns>True if fine, false otherwise.</returns>
-			public static bool Decompress(string tarPath, string outputFolder,bool overwrite = true) {
+			public static bool Decompress(string tarPath, string outputFolder,bool overwrite = true,TarCompressionType compressionType = TarCompressionType.Gzip) {
+				// Create the tar.gz file
+				FileStream? fs = null;
+				Stream? gz = null;			
 				try {
-					using (FileStream fs = new FileStream(tarPath, FileMode.Open))
-					using (GZipStream gz = new GZipStream(fs, CompressionMode.Decompress))
-						TarFile.ExtractToDirectory(gz,outputFolder,overwrite);
+					//using (FileStream fs = new FileStream(tarPath, FileMode.Open))
+					//using (GZipStream gz = new GZipStream(fs, CompressionMode.Decompress))
+
+					fs = new FileStream(tarPath, FileMode.Open);
+					if (compressionType == TarCompressionType.Gzip)
+						gz = new GZipStream(fs, CompressionMode.Decompress) as Stream;
+					if (compressionType == TarCompressionType.Bzip2)
+						gz = new BZip2InputStream(fs) as Stream;
+					if (gz == null){
+						Msg.PrintErrorMod("Error tar decompressing file: Unknown compression type", ".compress", Msg.LogLevels.Verbose);
+						if (fs != null){
+							fs.Close();
+							fs.Dispose();
+						}
+						return false;
+					}						
+					TarFile.ExtractToDirectory(gz,outputFolder,overwrite);
+					gz.Close();
+					gz.Dispose();
+					fs.Close();
+					fs.Dispose();					
 					return true;
 				} catch (System.Exception ex) {
-					Msg.PrintErrorMod("Error tar decompressing folders: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
+					Msg.PrintErrorMod("Error tar decompressing file: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
+					if (gz != null) {
+						gz.Close();
+						gz.Dispose();
+					}
+					if (fs != null) {
+						fs.Close();
+						fs.Dispose();
+					}							
 					return false;
 				}
 			}

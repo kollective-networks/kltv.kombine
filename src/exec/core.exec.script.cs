@@ -78,7 +78,8 @@ namespace Kltv.Kombine {
 			"Kltv.Kombine.Types",
 			"Kltv.Kombine.Api",
 			"Kltv.Kombine.Api.Tool",
-			"Kltv.Kombine.Api.Statics"
+			"Kltv.Kombine.Api.Statics",
+			"Kltv.Kombine.Api.Compress.Tar",
 		};
 
 		/// <summary>

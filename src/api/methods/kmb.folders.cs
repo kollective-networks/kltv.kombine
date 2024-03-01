@@ -265,7 +265,6 @@ namespace Kltv.Kombine.Api {
 
 		#endregion
 
-
 		#region Folder Copy Operations
 		
 
@@ -430,6 +429,7 @@ namespace Kltv.Kombine.Api {
 					Msg.PrintMod("BackPath search found this: " + look, ".folders", Msg.LogLevels.Verbose);
 					return Path.GetFullPath(look);
 				}
+				Msg.PrintMod("BackPath search not found in: " + look, ".folders", Msg.LogLevels.Debug);
 				cpath = di.FullName;
 			}
 			Msg.PrintMod("BackPath search failed for: " + filename, ".folders", Msg.LogLevels.Verbose);
@@ -461,6 +461,7 @@ namespace Kltv.Kombine.Api {
 						Msg.PrintMod("ForwardPath search found this: " + look, ".folders", Msg.LogLevels.Verbose);
 						return Path.GetFullPath(look);
 					}
+					Msg.PrintMod("ForwardPath search not found in: " + look, ".folders", Msg.LogLevels.Debug);
 				} 
 			}catch(Exception ex){
 				Msg.PrintWarningMod("ForwardPath search failed for: " + filename + " error: " + ex.Message, ".folders",Msg.LogLevels.Verbose);

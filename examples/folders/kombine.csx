@@ -15,6 +15,7 @@ using static Kltv.Kombine.Api.Tool;
 
 // Builtin properties with useful folders
 //-------------------------------------------------
+Msg.Print("");
 Msg.Print("Builtin properties with useful folders");
 Msg.Print("-------------------------------------------------------------------");
 Msg.Print("Current Working Folder: "+CurrentWorkingFolder);
@@ -23,11 +24,9 @@ Msg.Print("Current Tool Folder: "+CurrentToolFolder);
 
 
 int test(string[] args){
-	Msg.Print("Folder testing");
-
 	// Folder & file search
 	//-------------------------------------------------
-
+	Msg.Print("");
 	Msg.Print("Folder & file search");
 	Msg.Print("-------------------------------------------------------------------");
 	// search forward including a relative path
@@ -43,6 +42,7 @@ int test(string[] args){
 
 	// File Operations
 	// -------------------------------------------------
+	Msg.Print("");
 	Msg.Print("File Operations");
 	Msg.Print("-------------------------------------------------------------------");	
 	KValue content = "This is my rifle, is my life";
@@ -63,6 +63,7 @@ int test(string[] args){
 
 	// Zip Operations
 	//-------------------------------------------------
+	Msg.Print("");
 	Msg.Print("File Zip Operations");
 	Msg.Print("-------------------------------------------------------------------");	
 	Compress.Zip.CompressFolder("child", "test.zip");
@@ -84,16 +85,26 @@ int test(string[] args){
 	Files.Delete("test3.zip");
 	Files.Delete("test4.zip");
 
+
+	// Tar.gz Operations
+	//-------------------------------------------------
+	Msg.Print("");
 	Msg.Print("File Tar.gz Operations");
 	Msg.Print("-------------------------------------------------------------------");	
 
 	Compress.Tar.CompressFolder("child", "test.tar.gz");
 	Compress.Tar.CompressFolders(new string[]{"child","folder1"}, "test2.tar.gz");
+	Compress.Tar.CompressFolder("child","test3.tar.gz",true,false);
+	Compress.Tar.CompressFolders(new string[]{"child","folder1"}, "test4.tar.gz",true,false);
 	Folders.Create("testfolder");
 	Compress.Tar.Decompress("test.tar.gz", "testfolder/");
 	Compress.Tar.Decompress("test2.tar.gz", "testfolder/");
+	Compress.Tar.Decompress("test3.tar.gz", "testfolder/");
+	Compress.Tar.Decompress("test4.tar.gz", "testfolder/");
 	Files.Delete("test.tar.gz");
 	Files.Delete("test2.tar.gz");	
+	Files.Delete("test3.tar.gz");
+	Files.Delete("test4.tar.gz");
 	Folders.Delete("testfolder",true);
 
 	Files.Copy("folder1/src/file1.txt","test.txt");
@@ -104,10 +115,33 @@ int test(string[] args){
 	Files.Delete("test4.tar.gz");
 	
 
+	// Tar.bz2 Operations
+	//-------------------------------------------------
+	Msg.Print("");
 	Msg.Print("File Tar.bz2 Operations");
 	Msg.Print("-------------------------------------------------------------------");	
 
-	
+	Compress.Tar.CompressFolder("child", "test.tar.bz2",true,true,TarCompressionType.Bzip2);
+	Compress.Tar.CompressFolders(new string[]{"child","folder1"}, "test2.tar.bz2",true,true,TarCompressionType.Bzip2);
+	Compress.Tar.CompressFolder("child","test3.tar.bz2",true,false,TarCompressionType.Bzip2);
+	Compress.Tar.CompressFolders(new string[]{"child","folder1"}, "test4.tar.bz2",true,false,TarCompressionType.Bzip2);
+	Folders.Create("testfolder");
+	Compress.Tar.Decompress("test.tar.bz2", "testfolder/",true,TarCompressionType.Bzip2);
+	Compress.Tar.Decompress("test2.tar.bz2", "testfolder/",true,TarCompressionType.Bzip2);
+	Compress.Tar.Decompress("test3.tar.bz2", "testfolder/",true,TarCompressionType.Bzip2);
+	Compress.Tar.Decompress("test4.tar.bz2", "testfolder/",true,TarCompressionType.Bzip2);
+	Files.Delete("test.tar.bz2");
+	Files.Delete("test2.tar.bz2");	
+	Files.Delete("test3.tar.bz2");
+	Files.Delete("test4.tar.bz2");
+	Folders.Delete("testfolder",true);
+
+	Files.Copy("folder1/src/file1.txt","test.txt");
+	Compress.Tar.CompressFile("folder1/src/file1.txt","test3.tar.bz2",true,TarCompressionType.Bzip2);
+	Compress.Tar.CompressFile("test.txt","test4.tar.bz2",true,TarCompressionType.Bzip2);
+	Files.Delete("test.txt");
+	Files.Delete("test3.tar.bz2");
+	Files.Delete("test4.tar.bz2");
 
 	// Folder operations
 	//-------------------------------------------------

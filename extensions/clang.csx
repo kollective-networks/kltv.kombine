@@ -195,11 +195,28 @@ public class Clang {
 		KValue defines = string.Empty;
 		KValue switchesCC = string.Empty;
 		KValue switchesCXX = string.Empty;
+	
 		// We add the clang switches to the arguments automatically
-		foreach (KValue v in Options.IncludeDirs)
+		Msg.Print("Include paths:");
+		Msg.BeginIndent();
+		foreach (KValue v in Options.IncludeDirs){
+			if (v.IsEmpty()){
+				Msg.PrintAndAbort("Error: empty include directory found.");
+			}
 			includes += "-I" + v + " ";
-		foreach (KValue v in Options.Defines)
+			Msg.Print(v);
+		}
+		Msg.EndIndent();
+		Msg.Print("Defines:");
+		Msg.BeginIndent();
+		foreach (KValue v in Options.Defines){
+			if (v.IsEmpty()){
+				Msg.PrintAndAbort("Error: empty define found.");
+			}
 			defines += "-D" + v + " ";
+			Msg.Print(v);
+		}
+		Msg.EndIndent();
 		// Sanitize
 		includes = includes.ReduceWhitespace();
 		defines = defines.ReduceWhitespace();
@@ -209,6 +226,8 @@ public class Clang {
 		}
 		switchesCC = Options.SwitchesCC.Flatten().ReduceWhitespace();
 		switchesCXX = Options.SwitchesCXX.Flatten().ReduceWhitespace();
+		Msg.Print("Switches for C compiler: "+switchesCC);
+		Msg.Print("Switches for C++ compiler: "+switchesCXX);
 		// Create and configure the tool
 		Tool tool = new Tool("clang");
 		// Set the number of concurrent commands to be executed
@@ -328,10 +347,26 @@ public class Clang {
 		KValue libdirs = string.Empty;
 		KValue libs = string.Empty;
 		KValue switchesLD = string.Empty;
-		foreach (KValue v in Options.LibraryDirs)
+		Msg.Print("Library paths:");
+		Msg.BeginIndent();
+		foreach (KValue v in Options.LibraryDirs){
+			if (v.IsEmpty()){
+				Msg.PrintAndAbort("Error: empty library directory found.");
+			}
+			Msg.Print(v);
 			libdirs += "-L" + v + " ";
-		foreach (KValue v in Options.Libraries)
+		}
+		Msg.EndIndent();
+		Msg.Print("Libraries:");
+		Msg.BeginIndent();
+		foreach (KValue v in Options.Libraries){
+			if (v.IsEmpty()){
+				Msg.PrintAndAbort("Error: empty library found.");
+			}
+			Msg.Print(v);
 			libs += "-l" + v + " ";
+		}
+		Msg.EndIndent();
 		libdirs = libdirs.ReduceWhitespace();
 		libs = libs.ReduceWhitespace();
 		if (Options.Verbose) {
@@ -345,6 +380,7 @@ public class Clang {
 			output = output.WithNamePrefix("lib");
 		}
 		switchesLD = Options.SwitchesLD.Flatten().ReduceWhitespace();
+		Msg.Print("Switches for Linker: "+switchesLD);
 		// Create the required output folder for the binary
 		Folders.Create(output.AsFolder());
 		bool ShouldLink = false;
@@ -368,6 +404,11 @@ public class Clang {
 			KValue args = "-fuse-ld=lld "+switchesLD+" "+ objs.Flatten()+" "+libdirs + " " + libs + " " + " -o " + output;
 			ToolResult res = tool.CommandSync(Options.LD, args, output);
 			TaskDone("Linking",output,ref res);
+			if (abortwhenfailed) {
+				if (res.Status == ToolStatus.Failed) {
+					Msg.PrintAndAbort("Error: linking operation failed");
+				}
+			}			
 			return res;
 		}
 		Msg.Print("Linker: Nothing has done. Everything up to date.");
@@ -632,7 +673,7 @@ public class Clang {
 				Options.AR = opt.AR;
 				Options.CExtension = opt.CExtension;
 				Options.CppExtension = opt.CppExtension;
-				Options.IncludeDirs = opt.IncludeDirs;
+				Options.IncludeDirs = new KList(opt.IncludeDirs);
 				Options.Defines = new KList(opt.Defines);
 				Options.SwitchesCC = new KList(opt.SwitchesCC);
 				Options.SwitchesCXX = new KList(opt.SwitchesCXX);

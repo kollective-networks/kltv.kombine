@@ -19,6 +19,16 @@ namespace Kltv.Kombine {
 	internal class ChildProcess {
 
 		/// <summary>
+		/// This will be triggered if the user pressed ctrl+z so all executions will be skipped
+		/// </summary>
+		static public bool AbortExecution { get; private set; } = false;
+
+		/// <summary>
+		/// Static lock object to protect the list of running processes
+		/// </summary>
+		static object CurrentRunningProcessesLock = new object();
+		
+		/// <summary>
 		/// Static list of running processes
 		/// </summary>
 		static private List<ChildProcess> CurrentRunningProcesses = new List<ChildProcess>();
@@ -27,14 +37,22 @@ namespace Kltv.Kombine {
 		/// Destroys a childprocess instance. Is just intended to kill the child process if we exit
 		/// </summary>
 		static public void KillAllChilds(){
-			foreach(ChildProcess proc in CurrentRunningProcesses) {
-				try{
-					Msg.PrintMod("Destroying ChildProcess: " + proc.Name, ".exec", Msg.LogLevels.Debug);
-					proc.Kill();
-				} catch(Exception ex){
-					Msg.PrintMod("Error destroying ChildProcess: " + proc.Name + " Message: " + ex.Message, ".exec", Msg.LogLevels.Debug);
+			// Signal to not accept more executions
+			AbortExecution = true;
+			// Lock the current running processes list and start killing
+			lock(CurrentRunningProcessesLock) {
+				Msg.PrintMod("Destroying all ChildProcesses", ".exec", Msg.LogLevels.Debug);
+				foreach(ChildProcess proc in CurrentRunningProcesses) {
+					try{
+						Msg.PrintMod("Destroying ChildProcess: " + proc.Name, ".exec", Msg.LogLevels.Debug);
+						proc.Kill();
+					} catch(Exception ex){
+						Msg.PrintMod("Error destroying ChildProcess: " + proc.Name + " Message: " + ex.Message, ".exec", Msg.LogLevels.Debug);
+					}
 				}
+				CurrentRunningProcesses.Clear();
 			}
+			Msg.PrintMod("Destroying all ChildProcesses completed", ".exec", Msg.LogLevels.Debug);
 		}
 
 		/// <summary>
@@ -260,6 +278,10 @@ namespace Kltv.Kombine {
 		/// <param name="KillPrevious">If previous process instances should be killed</param>
 		/// <returns>True if the process was launched, false otherwise.</returns>
 		public bool Launch(bool KillPrevious = false) {
+			if (AbortExecution){
+				Msg.PrintMod("Abort execution signal received. Skipping process: " + this.Name, ".exec", Msg.LogLevels.Debug);
+				return false;
+			}
 			//
 			// Remove already launched processes with the same name if required
 			//
@@ -338,26 +360,30 @@ namespace Kltv.Kombine {
 					//
 					ProcessHandle.StartInfo = ProcessInfo;
 					try {
-						// Try to start the process
-						if (ProcessHandle.Start() == false) {
-							ProcessHandle.Dispose();
-							return false;
-						}
-						// Add the process to the list of running processes
-						CurrentRunningProcesses.Add(this);
-						// If we're using shell, we cannot capture.
-						if (!UseShell) {
-							// If we're not using the shell, start reading the stderr / stdout of the child process
-							if (OutputCapture){
-								if (OutputCharCapture){
-									Outstreams?.StartProcessOutputRead();
-								} else {
-									ProcessHandle.BeginErrorReadLine();
-									ProcessHandle.BeginOutputReadLine();
+						// Lock the current running processes list and start the process
+						lock(CurrentRunningProcessesLock) {
+							// Try to start the process
+							if (ProcessHandle.Start() == false) {
+								ProcessHandle.Dispose();
+								return false;
+							}
+							// Add the process to the list of running processes
+							Msg.PrintMod("Adding process to the list of running processes: " + this.Name, ".exec", Msg.LogLevels.Debug);
+							CurrentRunningProcesses.Add(this);
+							// If we're using shell, we cannot capture.
+							if (!UseShell) {
+								// If we're not using the shell, start reading the stderr / stdout of the child process
+								if (OutputCapture){
+									if (OutputCharCapture){
+										Outstreams?.StartProcessOutputRead();
+									} else {
+										ProcessHandle.BeginErrorReadLine();
+										ProcessHandle.BeginOutputReadLine();
+									}
 								}
 							}
+							ProcessStartTime = ProcessHandle.StartTime;
 						}
-						ProcessStartTime = ProcessHandle.StartTime;
 					} catch (Exception ex) {
 						Msg.PrintWarningMod("Error when executing a requested tool: " + this.Name,".exec");
 						Msg.PrintWarningMod("Error Message: " + ex.Message,".exec");
@@ -408,13 +434,16 @@ namespace Kltv.Kombine {
 			Msg.PrintMod("Calling delegate: " + this.Name, ".exec", Msg.LogLevels.Debug);
 			// Call delegate if defined
 			OnProcessExit?.Invoke(this);
-			// Dispose the process handle if required
-			if (ProcessHandle != null) {
-				ProcessHandle.Dispose();
-				ProcessHandle = null;
-			}
 			// Remove the process from the process list
-			CurrentRunningProcesses.Remove(this);
+			// It will be held from start adding to the list and setting initial parameters
+			lock (CurrentRunningProcessesLock) {			
+				// Dispose the process handle if required
+				if (ProcessHandle != null) {
+					ProcessHandle.Dispose();
+					ProcessHandle = null;
+				}
+				CurrentRunningProcesses.Remove(this);
+			}
 		}
 
 		/// <summary>

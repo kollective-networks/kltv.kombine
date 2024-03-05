@@ -100,6 +100,10 @@ namespace Kltv.Kombine.Api {
 		/// </summary>
 		private object Lock = new object();
 
+		/// <summary>
+		/// Flag to indicate if we need to cancel further executions, clear and exit inmediately
+		/// </summary>
+		private bool CancelExecution = false;
 
 		/// <summary>
 		/// Launch a tool in sync way. 
@@ -214,8 +218,15 @@ namespace Kltv.Kombine.Api {
 				return ToolResult.DefaultNoChanges();
 			}
 			Msg.PrintMod("Starting async commands.", ".tool", Msg.LogLevels.Debug);
+			// Reset the cancel execution flag
+			CancelExecution = false;
 			// Execute all the commands but wait for the concurrent build limit
 			foreach (AsyncCommand c in asyncCommands) {
+				if (CancelExecution == true) {
+					Msg.PrintMod("Canceling execution of async commands.", ".tool", Msg.LogLevels.Debug);
+					ChildProcess.KillAllChilds();
+					break;
+				}
 				CommandAsync(c.cmd, c.args, c.callback, c.id);
 				CommandAsyncWaitAll(ConcurrentCommands);
 			}
@@ -323,8 +334,17 @@ namespace Kltv.Kombine.Api {
 			ToolResult res = new(proc.GetOutput(), proc.GetErrors(), status, proc.ExitCode, proc.Id);
 			// Lock the output
 			lock (Lock) {
-				// Call the delegate if any and let it modify the result if required
-				(proc.UserData as CommandAsyncResults)?.Invoke(ref res);
+				try {
+					// Call the delegate if any and let it modify the result if required
+					(proc.UserData as CommandAsyncResults)?.Invoke(ref res);
+				} catch (Exception ex) {
+					if (ex is ScriptAbortException){
+						// Signalize to cancel further executions and try to kill the ongoing ones
+						CancelExecution = true;
+					} else {
+						Msg.PrintErrorMod("Script exception: " + ex.Message, ".exec.script");
+					}
+				}
 				// And finally append the result to our tasks just if its required to be evaluated later
 				if (asyncCommands != null) {
 					foreach (AsyncCommand cmd in asyncCommands) {
@@ -344,14 +364,18 @@ namespace Kltv.Kombine.Api {
 		/// </summary>
 		public void CommandAsyncWaitAll(uint Limit = 0) {
 			UInt64 Pending = Interlocked.Read(ref PendingAsyncTasks);
-			// TODO: Add some mechanism so this can be interrupted by timeout
-			// TODO: Commented code is present only for concurrency debug.
 			while (Pending > Limit) {
-				//Msg.PrintMod("Waiting for pending tasks to finish. Pending: " + PendingAsyncTasks.ToString(),".tool",Msg.LogLevels.Debug);
 				Thread.Sleep(10);
 				Pending = Interlocked.Read(ref PendingAsyncTasks);
+				if (CancelExecution == true) {
+					Msg.PrintMod("Canceling execution of async commands.", ".tool", Msg.LogLevels.Debug);
+					break;
+				}
+				if (ChildProcess.AbortExecution == true) {
+					Msg.PrintMod("Canceling execution of async commands. (AbortExecution)", ".tool", Msg.LogLevels.Debug);
+					break;
+				}
 			}
-			//Msg.PrintMod("Nothing to wait. Pending: " + Pending +" Limit:"+Limit, ".tool", Msg.LogLevels.Debug);
 		}
 	}
 }

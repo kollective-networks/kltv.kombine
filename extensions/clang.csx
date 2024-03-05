@@ -240,23 +240,26 @@ public class Clang {
 		for (int a = 0; a != src.Count(); a++) {
 			KValue cmd = string.Empty;
 			KValue args = string.Empty;
+			// Fetch the absolute paths
+			KValue srcf = RealPath(src[a]);
+			KValue objf = RealPath(obj[a]);
 			// Note: We can check here for argument lenght just in case we need to use response files due to 
 			// command line lenght limitations.
 			// Create the arguments
 			if (src[a].HasExtension(Options.CExtension)){
 				cmd = Options.CC;
-				args = "-c -MMD "+includes+" "+defines+" "+switchesCC+" "+ src[a] + " -o " + obj[a];
+				args = "-c -MMD "+includes+" "+defines+" "+switchesCC+" "+ srcf + " -o " + objf;
 			}else if (src[a].HasExtension(Options.CppExtension)){
 				cmd = Options.CXX;
-				args = "-c -MMD "+includes+" "+defines+" "+switchesCXX+" " + src[a] + " -o " + obj[a];
+				args = "-c -MMD "+includes+" "+defines+" "+switchesCXX+" " + srcf + " -o " + objf;
 			}else{
 				Msg.PrintWarning("Error: file " + src[a] + " has an unknown extension. Skipped.");
 				continue;
 			}
 			// Commpile commands are added / switched in any case if they're active.
-			AddCompileCommands(cmd+" "+args,src[a],obj[a]);
-			if (ShouldProcess(src[a], obj[a]) || rebuild) {
-				tool.QueueCommand(cmd, args, src[a], CompileTaskDone);
+			AddCompileCommands(cmd+" "+args,srcf,objf);
+			if (ShouldProcess(srcf, objf) || rebuild) {
+				tool.QueueCommand(cmd, args, srcf, CompileTaskDone);
 			}
 		}
 		// Execute the commands and return the results
@@ -455,6 +458,7 @@ public class Clang {
 				if (s2 != string.Empty)
 					Msg.PrintError(s2);
 			}
+			Msg.PrintAndAbort("Error: " + task + " " + element + " failed.");
 			Msg.EndIndent();			
 			return;
 		}

@@ -130,6 +130,12 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			ClassName = ClassName.Replace(".","_");
 			AssemblyName = AssemblyName.Replace(".","_");
 			ModuleName = Path.GetFileNameWithoutExtension(Script) + ".kscript.dll";
+		}
+
+		/// <summary>
+		/// Load all the references for the script
+		/// </summary>
+		internal void LoadReferences(){
 			// Forces the assemblies to be loaded into memory (all of references)
 			if (ParentScript == null){
 				Msg.PrintMod("Loading all referenced assemblies into memory.", ".exec.script", Msg.LogLevels.Debug);

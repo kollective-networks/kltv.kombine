@@ -127,6 +127,8 @@ namespace Kltv.Kombine {
 			KombineScript main = new KombineScript(script,path, Config.BuildDebug);
 			// Set the parent script (if any) on the new one
 			main.ParentScript = CurrentRunningScript;
+			// Load the references
+			main.LoadReferences();
 			// Set the current running script
 			KombineScript? kombineScript = CurrentRunningScript;
 			CurrentRunningScript = main;

@@ -791,6 +791,9 @@ Returns: A new created object of the new type or null if invalid.
 ##### F:Kltv.Kombine.Api.Tool.Lock
  Internal object to lock the tool for output order. 
 
+##### F:Kltv.Kombine.Api.Tool.CancelExecution
+ Flag to indicate if we need to cancel further executions, clear and exit inmediately 
+
 ##### M:Kltv.Kombine.Api.Tool.CommandSync(System.String,System.String[],System.Object)
  Launch a tool in sync way. 
 - cmd: Command to launch<br>
@@ -1371,6 +1374,9 @@ Returns: PortableExecutableReference or null if was not posible.
 - Scriptpath: Path where the script is.<br>
 - Debug: If we should activate debug options for the script.<br>
 
+##### M:Kltv.Kombine.KombineScript.LoadReferences
+ Load all the references for the script 
+
 ##### M:Kltv.Kombine.KombineScript.Execute(System.String,System.String[])
  Executes the script given by filename. It will try first to load it from the saved state (precompiled one) If not, it will be compiled. 
 - Action: Action to be executed in the script.<br>
@@ -1433,6 +1439,12 @@ Returns: The resolved path or null if cannot be resolved.
 
 # T:Kltv.Kombine.ChildProcess
  Helper class to execute and obtain results from third party child processes 
+
+##### P:Kltv.Kombine.ChildProcess.AbortExecution
+ This will be triggered if the user pressed ctrl+z so all executions will be skipped 
+
+##### F:Kltv.Kombine.ChildProcess.CurrentRunningProcessesLock
+ Static lock object to protect the list of running processes 
 
 ##### F:Kltv.Kombine.ChildProcess.CurrentRunningProcesses
  Static list of running processes 

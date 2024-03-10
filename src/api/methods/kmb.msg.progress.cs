@@ -27,21 +27,26 @@ namespace Kltv.Kombine.Api {
 		private bool disposed = false;
 		private int animationIndex = 0;
 
+		private bool initialized = false;
+
 		public ProgressBar() {
 			timer = new Timer(TimerHandler);
-
-			// A progress bar is only for temporary display in a console window.
-			// If the console output is redirected to a file, draw nothing.
-			// Otherwise, we'll end up with a lot of garbage in the target file.
-			if (!Console.IsOutputRedirected) {
-				ResetTimer();
-			}
 		}
 
 		public void Report(double value) {
 			// Make sure value is in [0..1] range
 			value = Math.Max(0, Math.Min(1, value));
 			Interlocked.Exchange(ref currentProgress, value);
+			// A progress bar is only for temporary display in a console window.
+			// If the console output is redirected to a file, draw nothing.
+			// Otherwise, we'll end up with a lot of garbage in the target file.
+			if (!Console.IsOutputRedirected) {
+				// Fire up when we start reporting progress
+				if (!initialized) {
+					initialized = true;
+					ResetTimer();
+				}
+			}			
 		}
 
 		private void TimerHandler(object? state) {
@@ -55,7 +60,6 @@ namespace Kltv.Kombine.Api {
 					percent,
 					animation[animationIndex++ % animation.Length]);
 				UpdateText(text);
-
 				ResetTimer();
 			}
 		}

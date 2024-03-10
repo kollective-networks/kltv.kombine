@@ -263,7 +263,7 @@ namespace Kltv.Kombine.Api {
 				}
 				var contentLength = response.Content.Headers.ContentLength;
 				if (!contentLength.HasValue) {
-					/// TODO: To be checked if this is the best way to handle this
+					// TODO: To be checked if this is the best way to handle this
 					Msg.PrintWarningMod("Progress reporting is not available for this download.",".http",Msg.LogLevels.Verbose);
 					using (var download = response.Content.ReadAsStream()) {
 						download.CopyTo(destination);

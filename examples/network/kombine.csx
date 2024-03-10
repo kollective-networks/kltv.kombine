@@ -18,6 +18,11 @@ int test(string[] args){
 	// Test a regular download
 	bool result;
 
+	Msg.Print("Testing download without progress");
+	result = Http.DownloadFile("https://gsdview.appspot.com/chromium-browser-official/chromium-122.0.6261.94.tar.xz","out/test.tar.xz");
+
+
+
 	Msg.Print("Testing GetDocument");
 	KValue message = Http.GetDocument("https://raw.githubusercontent.com/kollective-networks/kltv.kombine/main/extensions/clang.csx");
 	Msg.Print("Message is: "+message.ToString());

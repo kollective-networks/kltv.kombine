@@ -6,6 +6,8 @@
 
 ---------------------------------------------------------------------------------------------------------*/
 
+using System.Net;
+
 namespace Kltv.Kombine.Api {
 
 	/// <summary>
@@ -209,14 +211,68 @@ namespace Kltv.Kombine.Api {
 		/// <returns>A task that can be awaited.</returns>
 		internal static async Task DownloadDataAsync(this HttpClient client, string requestUrl, Stream destination, Http.ProgressBarChanged? progress = null, CancellationToken cancellationToken = default(CancellationToken)) {
 			using (var response = await client.GetAsync(requestUrl, HttpCompletionOption.ResponseHeadersRead)) {
-				var contentLength = response.Content.Headers.ContentLength;
-				using (var download = await response.Content.ReadAsStreamAsync()) {
-					if (progress is null || !contentLength.HasValue) {
-						Msg.PrintWarningMod("Progress reporting is not available for this download.",".http",Msg.LogLevels.Verbose);
-						await download.CopyToAsync(destination);
+				if ( (response.StatusCode == HttpStatusCode.Found) || 
+					 (response.StatusCode == HttpStatusCode.Moved) || 
+					 (response.StatusCode == HttpStatusCode.Redirect) || 
+					 (response.StatusCode == HttpStatusCode.TemporaryRedirect) || 
+					 (response.StatusCode == HttpStatusCode.PermanentRedirect) ) {
+					Msg.PrintWarningMod("The requested url has been redirected to: "+response.Headers.Location,".http",Msg.LogLevels.Verbose);
+					if (response.Headers is null){
+						Msg.PrintWarningMod("The requested url has been redirected but no headers were provided.",".http",Msg.LogLevels.Verbose);
 						return;
 					}
-					await download.CopyToAsync(destination,contentLength.Value, 81920, progress, cancellationToken);
+					if (response.Headers.Location is null){
+						Msg.PrintWarningMod("The requested url has been redirected but no location was provided.",".http",Msg.LogLevels.Verbose);
+						return;
+					}
+					await client.DownloadDataAsync(response.Headers.Location.AbsoluteUri, destination, progress, cancellationToken);
+					return;
+				}  else if (response.StatusCode == HttpStatusCode.NoContent) {
+					Msg.PrintWarningMod("The requested url has no content.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.NotFound) {
+					Msg.PrintWarningMod("The requested url was not found.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.Unauthorized) {
+					Msg.PrintWarningMod("The requested url requires authentication.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.Forbidden) {
+					Msg.PrintWarningMod("The requested url is forbidden.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.InternalServerError) {
+					Msg.PrintWarningMod("The requested url has an internal server error.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.ServiceUnavailable) {
+					Msg.PrintWarningMod("The requested url is unavailable.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.BadGateway) {
+					Msg.PrintWarningMod("The requested url has a bad gateway.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.GatewayTimeout) {
+					Msg.PrintWarningMod("The requested url has a gateway timeout.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.RequestTimeout) {
+					Msg.PrintWarningMod("The requested url has a request timeout.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable) {
+					Msg.PrintWarningMod("The requested url has a range not satisfiable.",".http",Msg.LogLevels.Verbose);
+					return;
+				} else if (response.StatusCode == HttpStatusCode.NotImplemented) {
+					Msg.PrintWarningMod("The requested url has not been implemented.",".http",Msg.LogLevels.Verbose);
+					return;
+				}
+				var contentLength = response.Content.Headers.ContentLength;
+				if (!contentLength.HasValue) {
+					/// TODO: To be checked if this is the best way to handle this
+					Msg.PrintWarningMod("Progress reporting is not available for this download.",".http",Msg.LogLevels.Verbose);
+					using (var download = response.Content.ReadAsStream()) {
+						download.CopyTo(destination);
+						return;
+					}
+				} else {
+					using (var download = await response.Content.ReadAsStreamAsync()) {
+						await download.CopyToAsync(destination,contentLength.Value, 81920, progress, cancellationToken);
+					}
 				}
 			}
 		}

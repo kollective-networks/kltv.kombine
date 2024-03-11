@@ -27,7 +27,6 @@ namespace Kltv.Kombine.Api {
 			return FSAPI.FolderExist(folder);
 		}
 
-
 		/// <summary>
 		/// Move a folder from source to destination
 		/// </summary>
@@ -36,6 +35,7 @@ namespace Kltv.Kombine.Api {
 		/// <returns></returns>
 		public static bool Move(KValue src,KValue dst) {
 			try {
+				Msg.PrintMod("Moving folder: " + src + " to: " + dst, ".folders", Msg.LogLevels.Verbose);
 				Directory.Move(src, dst);
 				return true;
 			} catch(Exception ex) {
@@ -51,6 +51,7 @@ namespace Kltv.Kombine.Api {
 		/// <returns>True if okey. False otherwise.</returns>
 		public static bool Create(KValue folder) {
 			try {
+				Msg.PrintMod("Creating folder: " + folder, ".folders", Msg.LogLevels.Verbose);
 				Directory.CreateDirectory(folder);
 				return true;
 			} catch (Exception ex) {
@@ -66,6 +67,7 @@ namespace Kltv.Kombine.Api {
 		/// <returns>True if okey. False otherwise.</returns>
 		public static bool Create(string folder) {
 			try {
+				Msg.PrintMod("Creating folder: " + folder, ".folders", Msg.LogLevels.Verbose);
 				Directory.CreateDirectory(folder);
 				return true;
 			} catch (Exception ex) {

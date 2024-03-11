@@ -173,7 +173,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				return -1;
 			}
 			// Save the action parameters
-			ActionParameters = ActionParameters ?? Array.Empty<string>();
+			this.ActionParameters = ActionParameters ?? Array.Empty<string>();
 			//
 			// Check state / fetch from cache
 			//
@@ -187,8 +187,9 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 					Msg.PrintMod("No previous state or old. Triggering rebuild.", ".exec.script", Msg.LogLevels.Debug);
 					if (ParentWasRebuilt) {
 						Msg.PrintMod("Parent script was rebuilt. Triggering rebuild.", ".exec.script", Msg.LogLevels.Debug);
-						WasRebuilt = true;
 					}
+					// Mark ourselves as rebuilt because we will do it due to cache miss or by parent changed
+					WasRebuilt = true;
 				}
 				if (Compile(Scriptfile,DebugBuild) == false) {
 					Msg.PrintErrorMod("There was errors building the script. Aborting.", ".exec.script");

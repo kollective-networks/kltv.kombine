@@ -180,6 +180,9 @@ namespace Kltv.Kombine.Api {
 							};
 							string nextFileName = string.Empty;
 							while (tar.MoveToNextEntry()) {
+								// Skip pax global header
+								if (tar.Entry.Key.Contains("pax_global_header"))
+									continue;
 								// @PaxHeader contains attributes and also the filename is its bigger than 100 chars
 								// It may contain multiple file names just to create empty folders
 								if (tar.Entry.Key.Contains("@PaxHeader")) {

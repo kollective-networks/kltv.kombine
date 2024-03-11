@@ -17,19 +17,9 @@ namespace Kltv.Kombine {
 		
 			public static string Major = "1";
 
-			public static string Minor = "0";
+			public static string Minor = "1";
 
 			public static string Build = "[BUILD]";
-		}
-
-		public static string GetVersionBuildNumber() {
-			DateTime currentTime = DateTime.UtcNow;
-			long now = ((DateTimeOffset)currentTime).ToUnixTimeSeconds();			
-			DateTime currentYear = new DateTime(DateTime.Now.Year, 1, 1);
-			long year = ((DateTimeOffset)currentYear).ToUnixTimeSeconds();
-			long bn = now - year;
-			string buildNumber = "24" + (bn / 60).ToString("D6");
-			return buildNumber;
 		}
 	}
 }

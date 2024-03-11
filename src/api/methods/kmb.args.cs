@@ -17,6 +17,21 @@ namespace Kltv.Kombine.Api {
 	public static class Args{
 
 		/// <summary>
+		/// Returns if the script or parent was rebuilded
+		/// </summary>
+		public static bool WasRebuilded {
+			get {
+				if (KombineMain.CurrentRunningScript == null)
+					return false;
+				if (KombineMain.CurrentRunningScript.WasRebuilt)
+					return true;
+				if (KombineMain.CurrentRunningScript.ParentWasRebuilt)
+					return true;
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// Returns if the value is pressent in the action arguments
 		/// </summary>
 		/// <param name="arg">Argument to test</param>

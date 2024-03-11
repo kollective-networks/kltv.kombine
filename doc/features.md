@@ -57,6 +57,7 @@ This is the complete (planned) feature list and current state
 |                                           | :heavy_check_mark: Get function for the action arguments (Starting Script) |
 |                                           | :heavy_check_mark: Contains function for the action arguments (Current Script) |
 |                                           | :heavy_check_mark: Get function for the action arguments (Current Script) |
+|                                           | :heavy_check_mark: WasRebuilded to fetch state for the current script or parent (to trigger rebuild on compilations) |
 | Sharing API                               | :heavy_check_mark: Share objects for child scripts           |
 |                                           | :heavy_check_mark: Object property caster for different types |
 | Registry API                              | :heavy_check_mark: Register values for script execution in all scopes (propagated for all the following executions) |

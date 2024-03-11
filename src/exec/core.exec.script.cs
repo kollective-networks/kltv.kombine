@@ -72,6 +72,16 @@ namespace Kltv.Kombine {
 		internal bool DebugBuild { get; private set; } = false;
 
 		/// <summary>
+		/// Signals if the script was rebuilt (due to script changed or by version, not forced)
+		/// </summary>
+		internal bool WasRebuilt { get; private set; } = false;
+
+		/// <summary>
+		/// Signals if the parent script was rebuilt (due to script changed or by version, not forced)
+		/// </summary>
+		internal bool ParentWasRebuilt { get; set; } = false;
+
+		/// <summary>
 		///	 Automatic usings for the script to be included
 		/// </summary>
 		private string[] Usings { get; set; } = new string[] {
@@ -167,14 +177,18 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			//
 			// Check state / fetch from cache
 			//
-			if ( (State.FetchCache(Scriptfile) == false) || (Config.Rebuild == true) ) {
+			if ( (State.FetchCache(Scriptfile) == false) || (Config.Rebuild == true) || (ParentWasRebuilt) ) {
 				//
 				// There is no previous state saved. We will try to build the script
 				// 
 				if (Config.Rebuild){
 					Msg.PrintMod("Rebuild forced. Triggering rebuild.", ".exec.script", Msg.LogLevels.Debug);
 				} else {
-					Msg.PrintMod("No previous state. Triggering rebuild.", ".exec.script", Msg.LogLevels.Debug);
+					Msg.PrintMod("No previous state or old. Triggering rebuild.", ".exec.script", Msg.LogLevels.Debug);
+					if (ParentWasRebuilt) {
+						Msg.PrintMod("Parent script was rebuilt. Triggering rebuild.", ".exec.script", Msg.LogLevels.Debug);
+						WasRebuilt = true;
+					}
 				}
 				if (Compile(Scriptfile,DebugBuild) == false) {
 					Msg.PrintErrorMod("There was errors building the script. Aborting.", ".exec.script");

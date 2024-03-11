@@ -136,6 +136,8 @@ namespace Kltv.Kombine {
 			if (kombineScript != null) {
 				main.State.Environment = kombineScript.State.Environment.Clone();
 				main.State.SharedObjects = kombineScript.State.SharedObjects.Clone();
+				// Mark also if the parent has been rebuilt
+				main.ParentWasRebuilt = kombineScript.WasRebuilt;
 			}
 			// If its not the first script (is a nested one) add indentation
 			if (kombineScript != null)

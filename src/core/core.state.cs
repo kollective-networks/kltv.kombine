@@ -57,8 +57,7 @@ namespace Kltv.Kombine {
 					return false;
 				} else {
 					// Load the script
-					Deserialize();
-					return true;
+					return Deserialize();
 				}
 			} else {
 				Msg.PrintMod("State is already in memory.", ".exec.state", Msg.LogLevels.Debug);
@@ -96,7 +95,7 @@ namespace Kltv.Kombine {
 			// Set Signature and version
 			//
 			stateFile.Signature = 0x000020001;
-			stateFile.Version = 0x00010000;
+			stateFile.Version = KombineMain.Version.Major + "." + KombineMain.Version.Minor + "." + KombineMain.Version.Build;
 			// Fetch file time from the script and save it to serialize
 			//
 			stateFile.ScriptModifiedTime = File.GetLastWriteTimeUtc(scriptfilename).ToBinary();
@@ -121,6 +120,16 @@ namespace Kltv.Kombine {
 			}
 			stateFile = BinaryPack.BinaryConverter.Deserialize<StateFile>(result);
 			Msg.PrintMod("Loaded cached state file.", ".exec.state", Msg.LogLevels.Debug);
+			// Check the version because maybe the script was cached but for a previous Kombine version
+			// and that could trigger errors.
+			if (stateFile.Signature != 0x000020001) {
+				Msg.PrintWarningMod("State file signature is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+				return false;
+			}
+			if (stateFile.Version != KombineMain.Version.Major + "." + KombineMain.Version.Minor + "." + KombineMain.Version.Build) {
+				Msg.PrintWarningMod("State file version is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+				return false;
+			}
 			return true;
 		}
 
@@ -159,7 +168,7 @@ namespace Kltv.Kombine {
 			/// Version of the state file (just in case we need to discard older ones due to update) 
 			/// Current: 0x00010000;
 			/// </summary>
-			public long				Version;
+			public string			Version;
 			/// <summary>
 			/// Script modification time in EPOCH
 			/// </summary>

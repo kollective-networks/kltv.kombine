@@ -168,7 +168,7 @@ namespace Kltv.Kombine {
 			/// Version of the state file (just in case we need to discard older ones due to update) 
 			/// Current: 0x00010000;
 			/// </summary>
-			public string			Version;
+			public string			Version = "invalid";
 			/// <summary>
 			/// Script modification time in EPOCH
 			/// </summary>

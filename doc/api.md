@@ -1,6 +1,9 @@
 ## mkb ##
 # T:Kltv.Kombine.Api.Args
- Simplify the access to the action arguments 
+ Simplify the access to the action arguments (current script) 
+
+##### P:Kltv.Kombine.Api.Args.WasRebuilded
+ Returns if the script or parent was rebuilded 
 
 ##### M:Kltv.Kombine.Api.Args.Contains(System.String)
  Returns if the value is pressent in the action arguments 
@@ -12,6 +15,82 @@ Returns: True if was pressent, false otherwise.
  Returns the value of the argument at the given index. 
 - index: Index to retrieve<br>
 Returns: Argument or empty if out of bounds of the array.
+
+
+# T:Kltv.Kombine.Api.EntryArgs
+ Simplify the access to the action arguments (starting script) 
+
+##### M:Kltv.Kombine.Api.EntryArgs.Contains(System.String)
+ Returns if the value is pressent in the action arguments 
+- arg: Argument to test<br>
+Returns: True if was pressent, false otherwise.
+
+
+##### M:Kltv.Kombine.Api.EntryArgs.Get(System.Int32)
+ Returns the value of the argument at the given index. 
+- index: Index to retrieve<br>
+Returns: Argument or empty if out of bounds of the array.
+
+
+# T:Kltv.Kombine.Api.Compress
+ Compress methods 
+
+# T:Kltv.Kombine.Api.Compress.Tar
+ Tar compression methods 
+
+# T:Kltv.Kombine.Api.Compress.Tar.TarCompressionType
+ Tar compression types 
+
+##### F:Kltv.Kombine.Api.Compress.Tar.TarCompressionType.None
+ No compression, just tar file 
+
+##### F:Kltv.Kombine.Api.Compress.Tar.TarCompressionType.Gzip
+ .tar.gz extension 
+
+##### F:Kltv.Kombine.Api.Compress.Tar.TarCompressionType.Bzip2
+ .tar.bz2 extension 
+
+##### F:Kltv.Kombine.Api.Compress.Tar.TarCompressionType.Lzma
+ .tar.lz extension 
+
+##### F:Kltv.Kombine.Api.Compress.Tar.TarCompressionType.Lzma2
+ .tar.xz extension 
+
+##### M:Kltv.Kombine.Api.Compress.Tar.CompressFolder(System.String,System.String,System.Boolean,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
+ Compress a single folder into a tar file. 
+- folderPath: Folder to be compressed<br>
+- outputFile: Output tar file<br>
+- overwrite: If archive should be overwriten, default true<br>
+- includeFolder: If true, include the folder in the tar file.<br>
+- compressionType: Compression type, default gzip<br>
+Returns: True if fine, false otherwise.
+
+
+##### M:Kltv.Kombine.Api.Compress.Tar.CompressFolders(System.String[],System.String,System.Boolean,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
+ Compress a list of folders into a tar file. 
+- folderPaths: Folders to be compressed<br>
+- outputFile: Output tar file<br>
+- overwrite: If archive should be overwriten, default true<br>
+- includeFolder: If true, include the given folders in the tar file and not only the folder contents an descentants.<br>
+- compressionType: Compression type, default gzip<br>
+Returns: True if fine, false otherwise.
+
+
+##### M:Kltv.Kombine.Api.Compress.Tar.CompressFile(System.String,System.String,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
+ Compress a single file into a tar file. 
+- filePath: File to be compressed<br>
+- outputFile: Output tar file<br>
+- overwrite: If archive should be overwriten, default true<br>
+- compressionType: Compression type, default gzip<br>
+Returns: True if fine, false otherwise.
+
+
+##### M:Kltv.Kombine.Api.Compress.Tar.Decompress(System.String,System.String,System.Boolean)
+ Decompress a tar file into a folder. 
+- tarPath: Tar file to decompress<br>
+- outputFolder: Output folder<br>
+- overwrite: If archive(s) should be overwriten, default true<br>
+Returns: True if fine, false otherwise.
 
 
 # T:Kltv.Kombine.Api.Compress.Zip
@@ -49,47 +128,6 @@ Returns: True if the operation was fine, false otherwise
 - outputFolder: Output folder<br>
 - overwrite: True if file should be overwritten, default true.<br>
 Returns: True if operation was okey. False otherwise
-
-
-# T:Kltv.Kombine.Api.Compress.Tar
- Tar compression methods 
-
-##### M:Kltv.Kombine.Api.Compress.Tar.CompressFolder(System.String,System.String,System.Boolean,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
- Compress a single folder into a tar.gz file. 
-- folderPath: Folder to be compressed<br>
-- outputFile: Output tar.gz file<br>
-- overwrite: If archive should be overwriten, default true<br>
-- includeFolder: If true, include the folder in the tar.gz file.<br>
-- compressionType: Compression type, default gzip<br>
-Returns: True if fine, false otherwise.
-
-
-##### M:Kltv.Kombine.Api.Compress.Tar.CompressFolders(System.String[],System.String,System.Boolean,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
- Compress a list of folders into a tar.gz file. 
-- folderPaths: Folders to be compressed<br>
-- outputFile: Output tar.gz file<br>
-- overwrite: If archive should be overwriten, default true<br>
-- includeFolder: If true, include the given folders in the tar.gz file and not only the folder contents an descentants.<br>
-- compressionType: Compression type, default gzip<br>
-Returns: True if fine, false otherwise.
-
-
-##### M:Kltv.Kombine.Api.Compress.Tar.CompressFile(System.String,System.String,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
- Compress a single file into a tar.gz file. 
-- filePath: File to be compressed<br>
-- outputFile: Output tar.gz file<br>
-- overwrite: If archive should be overwriten, default true<br>
-- compressionType: Compression type, default gzip<br>
-Returns: True if fine, false otherwise.
-
-
-##### M:Kltv.Kombine.Api.Compress.Tar.Decompress(System.String,System.String,System.Boolean,Kltv.Kombine.Api.Compress.Tar.TarCompressionType)
- Decompress a tar.gz file into a folder. 
-- tarPath: Tar.gz file to decompress<br>
-- outputFolder: Output folder<br>
-- overwrite: If archive should be overwriten, default true<br>
-- compressionType: Compression type, default gzip<br>
-Returns: True if fine, false otherwise.
 
 
 # T:Kltv.Kombine.Api.Files
@@ -1353,11 +1391,20 @@ Returns: PortableExecutableReference or null if was not posible.
 ##### P:Kltv.Kombine.KombineScript.Scriptfile
  The script filename to be executed 
 
+##### P:Kltv.Kombine.KombineScript.ActionParameters
+ Action parameters to be attached in action execution 
+
 ##### P:Kltv.Kombine.KombineScript.ScriptPath
  The script path. Used to resolve #load directives in the script among others 
 
 ##### P:Kltv.Kombine.KombineScript.DebugBuild
  If we should execute a debug build 
+
+##### P:Kltv.Kombine.KombineScript.WasRebuilt
+ Signals if the script was rebuilt (due to script changed or by version, not forced) 
+
+##### P:Kltv.Kombine.KombineScript.ParentWasRebuilt
+ Signals if the parent script was rebuilt (due to script changed or by version, not forced) 
 
 ##### P:Kltv.Kombine.KombineScript.Usings
  Automatic usings for the script to be included 

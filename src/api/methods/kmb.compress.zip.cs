@@ -10,9 +10,6 @@ using Kltv.Kombine.Types;
 using System.Data;
 using System.IO;
 using System.IO.Compression;
-using System.Formats.Tar;
-using ICSharpCode.SharpZipLib.BZip2;
-
 
 namespace Kltv.Kombine.Api {
 

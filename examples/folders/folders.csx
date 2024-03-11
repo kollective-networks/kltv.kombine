@@ -24,6 +24,7 @@ Msg.Print("Current Tool Folder: "+CurrentToolFolder);
 
 
 int test(string[] args){
+
 	// Folder & file search
 	//-------------------------------------------------
 	Msg.Print("");
@@ -85,7 +86,6 @@ int test(string[] args){
 	Files.Delete("test3.zip");
 	Files.Delete("test4.zip");
 
-
 	// Tar.gz Operations
 	//-------------------------------------------------
 	Msg.Print("");
@@ -113,7 +113,6 @@ int test(string[] args){
 	Files.Delete("test.txt");
 	Files.Delete("test3.tar.gz");
 	Files.Delete("test4.tar.gz");
-	
 
 	// Tar.bz2 Operations
 	//-------------------------------------------------
@@ -126,10 +125,10 @@ int test(string[] args){
 	Compress.Tar.CompressFolder("child","test3.tar.bz2",true,false,TarCompressionType.Bzip2);
 	Compress.Tar.CompressFolders(new string[]{"child","folder1"}, "test4.tar.bz2",true,false,TarCompressionType.Bzip2);
 	Folders.Create("testfolder");
-	Compress.Tar.Decompress("test.tar.bz2", "testfolder/",true,TarCompressionType.Bzip2);
-	Compress.Tar.Decompress("test2.tar.bz2", "testfolder/",true,TarCompressionType.Bzip2);
-	Compress.Tar.Decompress("test3.tar.bz2", "testfolder/",true,TarCompressionType.Bzip2);
-	Compress.Tar.Decompress("test4.tar.bz2", "testfolder/",true,TarCompressionType.Bzip2);
+	Compress.Tar.Decompress("test.tar.bz2", "testfolder/",true);
+	Compress.Tar.Decompress("test2.tar.bz2", "testfolder/",true);
+	Compress.Tar.Decompress("test3.tar.bz2", "testfolder/",true);
+	Compress.Tar.Decompress("test4.tar.bz2", "testfolder/",true);
 	Files.Delete("test.tar.bz2");
 	Files.Delete("test2.tar.bz2");	
 	Files.Delete("test3.tar.bz2");
@@ -142,6 +141,17 @@ int test(string[] args){
 	Files.Delete("test.txt");
 	Files.Delete("test3.tar.bz2");
 	Files.Delete("test4.tar.bz2");
+
+	// Tar.xz Operations
+	//-------------------------------------------------
+	Msg.Print("");
+	Msg.Print("File Tar.xz Operations (Decompression only)");
+	Msg.Print("-------------------------------------------------------------------");
+	Folders.Create("testfolder");
+	Compress.Tar.Decompress("test.files/test.tar.xz", "testfolder/",true);
+	Folders.Delete("testfolder",true);	
+
+
 
 	// Folder operations
 	//-------------------------------------------------

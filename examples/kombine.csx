@@ -37,7 +37,7 @@ int test(string[] args){
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: files & folders & compression");
-	Kombine("folders/kombine.csx","test",args);
+	Kombine("folders/folders.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: network");

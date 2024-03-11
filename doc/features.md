@@ -100,6 +100,7 @@ This is the complete (planned) feature list and current state
 |                                           | :heavy_check_mark: Search for a file path back               |
 |                                           | :heavy_check_mark: Search for a file path forward            |
 |                                           | :heavy_check_mark: RealPath static function to retrieve the real underlying path of a relative/absolute path |
+|                                           | :heavy_check_mark: Move a folder                             |
 | Script execution                          | :heavy_check_mark: Execute child scripts without creating a new process |
 |                                           | :heavy_check_mark: Execute child scripts without creating a new process (with auto search) |
 |                                           | :x: Execute child scripts creating a new process             |

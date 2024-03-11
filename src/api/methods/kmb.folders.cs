@@ -27,6 +27,23 @@ namespace Kltv.Kombine.Api {
 			return FSAPI.FolderExist(folder);
 		}
 
+
+		/// <summary>
+		/// Move a folder from source to destination
+		/// </summary>
+		/// <param name="src">source path for the folder</param>
+		/// <param name="dst">destination path for the folder</param>
+		/// <returns></returns>
+		public static bool Move(KValue src,KValue dst) {
+			try {
+				Directory.Move(src, dst);
+				return true;
+			} catch(Exception ex) {
+				Msg.PrintWarningMod("Failed moving folder: " + src + " to: " + dst + " error: " + ex.Message, ".folders",Msg.LogLevels.Verbose);
+				return false;
+			}
+		}
+
 		/// <summary>
 		/// Create a single folder
 		/// </summary>

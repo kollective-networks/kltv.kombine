@@ -24,7 +24,6 @@ Msg.Print("Current Tool Folder: "+CurrentToolFolder);
 
 
 int test(string[] args){
-
 	// Folder & file search
 	//-------------------------------------------------
 	Msg.Print("");
@@ -155,6 +154,11 @@ int test(string[] args){
 
 	// Folder operations
 	//-------------------------------------------------
+	Folders.Create("testfolder");
+	Files.Copy("folder1/src/file1.txt", "testfolder/test.txt");
+	Folders.Move("testfolder","testfolder2");
+	Folders.Delete("testfolder2",true);
+
 
 	return 0;
 }

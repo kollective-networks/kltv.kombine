@@ -214,6 +214,13 @@ Returns: True if both files are equal. False otherwise
 Returns: True if exists, false otherwise.
 
 
+##### M:Kltv.Kombine.Api.Folders.Move(Kltv.Kombine.Types.KValue,Kltv.Kombine.Types.KValue)
+ Move a folder from source to destination 
+- src: source path for the folder<br>
+- dst: destination path for the folder<br>
+Returns: 
+
+
 ##### M:Kltv.Kombine.Api.Folders.Create(Kltv.Kombine.Types.KValue)
  Create a single folder 
 - folder: Folder to be created.<br>

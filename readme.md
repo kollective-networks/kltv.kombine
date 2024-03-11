@@ -1,19 +1,25 @@
 # Kombine Build System
 
-#### [Overview](#overview)
-#### [Features](#features)
-#### [Feature state](doc/features.md)
-#### [Download and Installation](#download-and-installation)
-#### [Usage](#usage)
-#### [Script structure and execution](#script-structure-and-execution)
-#### [Executing child scripts](#executing-child-scripts-and-sharing-values-between-your-scripts)
-#### [Simple example](#the-most-simple-example-execute-a-tool-and-fetch-the-results)
-#### [Extending Kombine](#extending-kombine)
-#### [Requirements to create Kombine](doc/reasons.md)
-#### [Building the Kombine tool](doc/building.md)
-#### [API reference](doc/api.md)
-#### [TODO List](doc/todo.md)
-#### [License](#license)
+- [Overview](#-overview)
+- [Features](#-features)
+- [Feature state](doc/features.md)
+- [Download and Installation](#-download-and-installation)
+- [Usage](#-usage)
+- [Script structure and execution](#script-structure-and-execution)
+   * [Enable intellisense in your editor](#enable-intellisense-in-your-editor)
+   * [Debugging your scripts](#debugging-your-scripts)
+- [Executing child scripts and sharing values between your scripts](#executing-child-scripts-and-sharing-values-between-your-scripts)
+   * [Using Import/Export](#-using-importexport)
+   * [Using Shared API](#-using-shared-api)
+   * [Using Registry API](#-using-registry-api)
+- [The most simple example, execute a tool and fetch the results](#-the-most-simple-example-execute-a-tool-and-fetch-the-results)
+- [Extending Kombine](#-extending-kombine)
+- [Requirements to create Kombine](doc/reasons.md)
+- [Building the Kombine tool](doc/building.md)
+- [API reference](doc/api.md)
+- [TODO List](doc/todo.md)
+- [License](#-license)
+
 
 ## Overview
 
@@ -200,7 +206,7 @@ Check the [API provided by the tool](doc/api.md) to get more information about b
 
 Download the reference assembly to be used for intellisense [here](https://github.com/kollective-networks/kltv.kombine/releases/latest/download/kombine.ref.zip)
 
-## Debugging your scripts
+### Debugging your scripts
 
 It is possible to debug your scripts. With just for example, using VSCode and the dotnet debugger. You only need to set your launch.json to execute the tool with the script with the appropiate parameters, set a breakpoint in your script code and that's all. Of course, never forget to pass the -ksdbg flag in this case to generate debug information on the script :)
 

@@ -17,20 +17,21 @@ using static Kltv.Kombine.Api.Tool;
 int test(string[] args){
 	// Test a regular download
 	bool result;
-
-	Msg.Print("Testing download without progress");
-	result = Http.DownloadFile("https://gsdview.appspot.com/chromium-browser-official/chromium-122.0.6261.94.tar.xz","out/test.tar.xz");
-
-
-
+	Msg.Print("");
 	Msg.Print("Testing GetDocument");
+	Msg.Print("---------------------------------------------------------------");
 	KValue message = Http.GetDocument("https://raw.githubusercontent.com/kollective-networks/kltv.kombine/main/extensions/clang.csx");
 	Msg.Print("Message is: "+message.ToString());
-
+	
+	Msg.Print("---------------------------------------------------------------");
+	Msg.Print("");
 	Msg.Print("Testing download");
+	Msg.Print("---------------------------------------------------------------");
 	result = Http.DownloadFile("https://bit.ly/1GB-testfile", "out/test.bin");
 
+	Msg.Print("");
 	Msg.Print("Testing multiple downloads");
+	Msg.Print("---------------------------------------------------------------");
 	KList uris = new KList();
 	uris.Add("https://bit.ly/1GB-testfile");
 	uris.Add("https://bit.ly/1GB-testfile");

@@ -259,7 +259,7 @@ public class Clang {
 			// Commpile commands are added / switched in any case if they're active.
 			AddCompileCommands(cmd+" "+args,srcf,objf);
 			if (ShouldProcess(srcf, objf) || rebuild) {
-				tool.QueueCommand(cmd, args, srcf, CompileTaskDone);
+				tool.QueueCommand(cmd, args, src[a], CompileTaskDone);
 			}
 		}
 		// Execute the commands and return the results

@@ -175,7 +175,7 @@ namespace Kltv.Kombine.Api {
 						ReaderOptions r = new SharpCompress.Readers.ReaderOptions();
 						using (var tar = ReaderFactory.Open(fs,r)) {
 							ExtractionOptions exOp = new ExtractionOptions() { ExtractFullPath = true, Overwrite = overwrite };
-							exOp.WriteSymbolicLink += (sender, e) => {
+							exOp.WriteSymbolicLink = (sender, e) => {
 								Msg.PrintMod("Symbolic Links not supported: " + e, ".compress", Msg.LogLevels.Verbose);
 							};
 							string nextFileName = string.Empty;

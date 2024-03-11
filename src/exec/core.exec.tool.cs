@@ -412,31 +412,32 @@ namespace Kltv.Kombine {
 		/// <param name="sender">Sender object</param>
 		/// <param name="e">Event arguments</param>
 		private void ExitedExecutionHandler(object? sender, System.EventArgs e) {
-			Msg.PrintMod("Process exited: " + this.Name, ".exec", Msg.LogLevels.Debug);
-			ProcessExited = true;
-			if (ProcessHandle != null) {
-				// Even if we're on the exit callback we need to wait because stderr / stdout maybe are not flushed
-				// so, if we don't wait we will miss output lines for processes which runs quickly
-				Msg.PrintMod("Waiting for process to exit (flushing): " + this.Name, ".exec", Msg.LogLevels.Debug);
-				ProcessHandle.WaitForExit();
-				Msg.PrintMod("Fetching exitcode: " + this.Name, ".exec", Msg.LogLevels.Debug);
-				ExitCode = ProcessHandle.ExitCode;
-				Msg.PrintMod("Fetching process time: " + this.Name, ".exec", Msg.LogLevels.Debug);
-				ProcessTime = (long)Math.Round((ProcessHandle.ExitTime - ProcessStartTime).TotalMilliseconds);
-				Msg.PrintMod("Process running time: "+ ProcessTime+"ms", ".exec", Msg.LogLevels.Debug);
-			} else {
-				// If the process was null, we signalize a normal error return code.
-				Msg.PrintWarningMod("Process was null when exiting: " + this.Name, ".exec");
-				ExitCode = -1;
-				ProcessTime = -1;
-			}
-			Msg.PrintMod("Process exited with code: " + ExitCode + " and time: " + ProcessTime, ".exec", Msg.LogLevels.Debug);
-			Msg.PrintMod("Calling delegate: " + this.Name, ".exec", Msg.LogLevels.Debug);
-			// Call delegate if defined
-			OnProcessExit?.Invoke(this);
-			// Remove the process from the process list
-			// It will be held from start adding to the list and setting initial parameters
-			lock (CurrentRunningProcessesLock) {			
+			// We lock the list of running processes to avoid concurrency issues
+			// because the process can exit so quickly and we are still in the process launch
+			lock (CurrentRunningProcessesLock) {
+				Msg.PrintMod("Process exited: " + this.Name, ".exec", Msg.LogLevels.Debug);
+				ProcessExited = true;
+				if (ProcessHandle != null) {
+					// Even if we're on the exit callback we need to wait because stderr / stdout maybe are not flushed
+					// so, if we don't wait we will miss output lines for processes which runs quickly
+					Msg.PrintMod("Waiting for process to exit (flushing): " + this.Name, ".exec", Msg.LogLevels.Debug);
+					ProcessHandle.WaitForExit();
+					Msg.PrintMod("Fetching exitcode: " + this.Name, ".exec", Msg.LogLevels.Debug);
+					ExitCode = ProcessHandle.ExitCode;
+					Msg.PrintMod("Fetching process time: " + this.Name, ".exec", Msg.LogLevels.Debug);
+					ProcessTime = (long)Math.Round((ProcessHandle.ExitTime - ProcessStartTime).TotalMilliseconds);
+					Msg.PrintMod("Process running time: "+ ProcessTime+"ms", ".exec", Msg.LogLevels.Debug);
+				} else {
+					// If the process was null, we signalize a normal error return code.
+					Msg.PrintWarningMod("Process was null when exiting: " + this.Name, ".exec");
+					ExitCode = -1;
+					ProcessTime = -1;
+				}
+				Msg.PrintMod("Process exited with code: " + ExitCode + " and time: " + ProcessTime, ".exec", Msg.LogLevels.Debug);
+				Msg.PrintMod("Calling delegate: " + this.Name, ".exec", Msg.LogLevels.Debug);
+				// Call delegate if defined
+				OnProcessExit?.Invoke(this);
+				// Remove the process from the process list
 				// Dispose the process handle if required
 				if (ProcessHandle != null) {
 					ProcessHandle.Dispose();

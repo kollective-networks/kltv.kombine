@@ -53,8 +53,10 @@ This is the complete (planned) feature list and current state
 |                                           | :heavy_check_mark: Explicit conversion from KList to string (Flatten) |
 |                                           | :heavy_check_mark: Explicit conversion from KList to string[] |
 |                                           | :heavy_check_mark: Copy Constructor to duplicate a KList     |
-| Action Arguments API                      | :heavy_check_mark: Contains function for the action arguments |
-|                                           | :heavy_check_mark: Get function for the action arguments     |
+| Action Arguments API                      | :heavy_check_mark: Contains function for the action arguments (Starting Script) |
+|                                           | :heavy_check_mark: Get function for the action arguments (Starting Script) |
+|                                           | :heavy_check_mark: Contains function for the action arguments (Current Script) |
+|                                           | :heavy_check_mark: Get function for the action arguments (Current Script) |
 | Sharing API                               | :heavy_check_mark: Share objects for child scripts           |
 |                                           | :heavy_check_mark: Object property caster for different types |
 | Registry API                              | :heavy_check_mark: Register values for script execution in all scopes (propagated for all the following executions) |
@@ -110,7 +112,7 @@ This is the complete (planned) feature list and current state
 |                                           | :heavy_check_mark: Add a process into a queue to be executed |
 |                                           | :heavy_check_mark: Limit the number of concurrent process we shall launch |
 |                                           | :heavy_check_mark: Execute the queued processes fetching all the results (in delegate or when returned) |
-| Compresion API                            | :heavy_check_mark: Compress a folder into a zip file         |
+| Compression API                           | :heavy_check_mark: Compress a folder into a zip file         |
 |                                           | :heavy_check_mark: Compress folders into a zip file          |
 |                                           | :heavy_check_mark: Compress a file into a zip file           |
 |                                           | :heavy_check_mark: Uncompress a zip file                     |
@@ -122,6 +124,11 @@ This is the complete (planned) feature list and current state
 |                                           | :heavy_check_mark: Compress folders into a tar.bz2 file      |
 |                                           | :heavy_check_mark: Compress a file into a tar.bz2 file       |
 |                                           | :heavy_check_mark: Uncompress a tar.bz2 file                 |
+|                                           | :heavy_check_mark: Compress a folder into a tar.lz file      |
+|                                           | :heavy_check_mark: Compress folders into a tar.lz file       |
+|                                           | :heavy_check_mark: Compress a file into a tar.lz file        |
+|                                           | :heavy_check_mark: Uncompress a tar.lz file                  |
+|                                           | :heavy_check_mark: Uncompress a tar.xz file                  |
 | Network API                               | :heavy_check_mark: Download a file from HTTP source (GET)    |
 |                                           | :heavy_check_mark: Download multiple files from HTTP sources (GET) |
 |                                           | :x: Upload a file to HTTP destination (POST/PUT/PATCH)       |

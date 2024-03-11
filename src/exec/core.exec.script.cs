@@ -57,6 +57,11 @@ namespace Kltv.Kombine {
 		internal string Scriptfile { get; private set; } = string.Empty;
 
 		/// <summary>
+		/// Action parameters to be attached in action execution
+		/// </summary>
+		internal string[] ActionParameters { get; private set; } = new string[0];
+
+		/// <summary>
 		/// The script path. Used to resolve #load directives in the script among others
 		/// </summary>
 		internal string ScriptPath { get; set; } = string.Empty;
@@ -157,6 +162,8 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				Msg.PrintErrorMod("Invalid script filename. Aborting.", ".exec.script");
 				return -1;
 			}
+			// Save the action parameters
+			ActionParameters = ActionParameters ?? Array.Empty<string>();
 			//
 			// Check state / fetch from cache
 			//

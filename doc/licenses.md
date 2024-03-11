@@ -1,8 +1,8 @@
 
 
-MIT https://www.nuget.org/packages/SharpZipLib/1.4.2
+MIT https://www.nuget.org/packages/SharpCompress/0.36.0
 
-MIT https://www.nuget.org/packages/Microsoft.Extensions.FileSystemGlobbing/7.0.0
+MIT https://www.nuget.org/packages/Microsoft.Extensions.FileSystemGlobbing/8.0.0
 
 MIT https://www.nuget.org/packages/BinaryPack/1.0.3
 

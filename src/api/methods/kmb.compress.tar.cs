@@ -14,6 +14,7 @@ using SharpCompress.Writers.Tar;
 using SharpCompress.Writers;
 using SharpCompress.Readers.Tar;
 using SharpCompress.Readers;
+using System.Reflection.PortableExecutable;
 
 
 namespace Kltv.Kombine.Api {
@@ -171,15 +172,71 @@ namespace Kltv.Kombine.Api {
 				// Check if the file exists and delete it if it does
 				try {
 					using (var fs = new FileStream(tarPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
-
-						using (var tar = ReaderFactory.Open(fs, new SharpCompress.Readers.ReaderOptions())) {
-							// Check ExtractionOptions (can preserve mod time, attributes, etc)
-							tar.WriteAllToDirectory(outputFolder, new ExtractionOptions() { ExtractFullPath = true, Overwrite = overwrite });
+						ReaderOptions r = new SharpCompress.Readers.ReaderOptions();
+						using (var tar = ReaderFactory.Open(fs,r)) {
+							ExtractionOptions exOp = new ExtractionOptions() { ExtractFullPath = true, Overwrite = overwrite };
+							exOp.WriteSymbolicLink += (sender, e) => {
+								Msg.PrintMod("Symbolic Links not supported: " + e, ".compress", Msg.LogLevels.Verbose);
+							};
+							string nextFileName = string.Empty;
+							while (tar.MoveToNextEntry()) {
+								// @PaxHeader contains attributes and also the filename is its bigger than 100 chars
+								// It may contain multiple file names just to create empty folders
+								if (tar.Entry.Key.Contains("@PaxHeader")) {
+									// Stream the file to memory stream
+									using (MemoryStream ms = new MemoryStream()) {
+										tar.WriteEntryTo(ms);
+										ms.Position = 0;
+										// Read the memory stream
+										using (StreamReader? sr = new StreamReader(ms)) {
+											string? line;
+											while ((line = sr.ReadLine()) != null) {
+												if (line.Contains("path=")) {
+													nextFileName = line.Substring(line.IndexOf("path=") + 5);
+													if (nextFileName.EndsWith("/")) {
+														// Is a empty folder. Create it
+														string? folder = Path.GetDirectoryName(outputFolder + Path.DirectorySeparatorChar + nextFileName);
+														if (folder != null)
+															Folders.Create(folder);
+														nextFileName = string.Empty;
+													} 
+												}
+											}
+											sr.Close();
+										}
+										ms.Close();
+									}
+									continue;
+								}
+								try {
+									if (!tar.Entry.IsDirectory) {
+										// Beware, check the existence of a defined filename but also if it matches the entry
+										if ( (nextFileName != string.Empty) && (nextFileName.StartsWith(tar.Entry.Key) ) ) {
+											Msg.PrintMod("Unpacking file (long): " + nextFileName, ".compress", Msg.LogLevels.Verbose);
+											string? folder = Path.GetDirectoryName(outputFolder + Path.DirectorySeparatorChar + nextFileName);
+											if (folder != null)
+												Folders.Create(folder);
+											tar.WriteEntryToFile(outputFolder + Path.DirectorySeparatorChar + nextFileName, exOp);
+											nextFileName = string.Empty;
+										} else {
+											Msg.PrintMod("Unpacking file: " + tar.Entry.Key, ".compress", Msg.LogLevels.Verbose);
+											tar.WriteEntryToDirectory(outputFolder, exOp);
+										}
+									} else {
+										// If its a folder, just create it
+										string? folder = Path.GetDirectoryName(outputFolder + Path.DirectorySeparatorChar + tar.Entry.Key);
+										if (folder != null)
+											Folders.Create(folder);
+									}
+								} catch (System.Exception ex) {
+									Msg.PrintErrorMod("Error tar decompressing file: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
+								}
+							}
 						}
 					}
 					return true;
 				} catch (System.Exception ex) {
-					Msg.PrintErrorMod("Error tar compressing folders: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
+					Msg.PrintErrorMod("Error tar decompressing archive: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
 					return false;
 				}				
 			}

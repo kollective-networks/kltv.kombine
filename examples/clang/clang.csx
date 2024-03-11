@@ -33,7 +33,6 @@ OutputLib.Export("OutputLib");
 /// <returns>Exiting code</returns>
 int build(string[] args){
 	Msg.Print("Building example: ");
-
 	// Open the compile commands file
 	// and leave it prepared for the build process
 	Clang clang = new Clang();

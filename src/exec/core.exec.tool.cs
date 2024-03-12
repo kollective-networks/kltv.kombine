@@ -148,7 +148,7 @@ namespace Kltv.Kombine {
 		/// <summary>
 		/// Class to intercept the output streams in raw format without altering the contents.
 		/// </summary>
-		ChildProcessOutput? Outstreams = null;
+		private ChildProcessOutput? Outstreams = null;
 
 		/// <summary>
 		///  Constructs a new Child process object
@@ -247,6 +247,7 @@ namespace Kltv.Kombine {
 						// We kill descendants as well.
 						ProcessHandle.Kill(true);
 						ProcessHandle.Dispose();
+						ProcessHandle = null;
 					}
 				} catch (Exception ex) {
 					Msg.PrintWarningMod("Error when killing a requested tool: " + this.Name + " Message:"+ex.Message, ".exec");
@@ -364,7 +365,9 @@ namespace Kltv.Kombine {
 						lock(CurrentRunningProcessesLock) {
 							// Try to start the process
 							if (ProcessHandle.Start() == false) {
+								Msg.PrintWarningMod("Error when executing a requested tool: " + this.Name, ".exec");
 								ProcessHandle.Dispose();
+								ProcessHandle = null;
 								return false;
 							}
 							// Add the process to the list of running processes
@@ -387,9 +390,10 @@ namespace Kltv.Kombine {
 					} catch (Exception ex) {
 						Msg.PrintWarningMod("Error when executing a requested tool: " + this.Name,".exec");
 						Msg.PrintWarningMod("Error Message: " + ex.Message,".exec");
-						if (ProcessHandle != null)
+						if (ProcessHandle != null){
 							ProcessHandle.Dispose();
-						ProcessHandle = null;
+							ProcessHandle = null;
+						}
 						return false;
 					}
 					return true;
@@ -415,6 +419,13 @@ namespace Kltv.Kombine {
 			// We lock the list of running processes to avoid concurrency issues
 			// because the process can exit so quickly and we are still in the process launch
 			lock (CurrentRunningProcessesLock) {
+				if (ProcessExited == true){
+					// This handler looks like it could be called twice
+					// Reason is unkonwn yet.
+					// https://stackoverflow.com/questions/26728952/why-does-the-process-exited-event-fire-two-times
+					Msg.PrintMod("Process already exited: " + this.Name, ".exec", Msg.LogLevels.Debug);
+					return;
+				}
 				Msg.PrintMod("Process exited: " + this.Name, ".exec", Msg.LogLevels.Debug);
 				ProcessExited = true;
 				if (ProcessHandle != null) {

@@ -9,6 +9,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
+using System.Threading;
 using Kltv.Kombine.Api;
 
 namespace Kltv.Kombine {
@@ -39,19 +40,26 @@ namespace Kltv.Kombine {
 		static public void KillAllChilds(){
 			// Signal to not accept more executions
 			AbortExecution = true;
-			// Lock the current running processes list and start killing
-			lock(CurrentRunningProcessesLock) {
-				Msg.PrintMod("Destroying all ChildProcesses", ".exec", Msg.LogLevels.Debug);
-				foreach(ChildProcess proc in CurrentRunningProcesses) {
-					try{
-						Msg.PrintMod("Destroying ChildProcess: " + proc.Name, ".exec", Msg.LogLevels.Debug);
-						proc.Kill();
-					} catch(Exception ex){
-						Msg.PrintMod("Error destroying ChildProcess: " + proc.Name + " Message: " + ex.Message, ".exec", Msg.LogLevels.Debug);
-					}
-				}
-				CurrentRunningProcesses.Clear();
+			// Lock the current running processes list and take a copy.
+			//			
+			List<ChildProcess> crp;
+			lock (CurrentRunningProcessesLock) {
+				crp = new List<ChildProcess>(CurrentRunningProcesses);
 			}
+			// Now start killing and let the exitng handler to do the rest against the global list
+			// If not we can cause a deadlock between our lock and the process object lock
+			// No more processes will be added into the list because we've set the abort signal
+			//
+			Msg.PrintMod("Destroying all ChildProcesses", ".exec", Msg.LogLevels.Debug);
+			foreach(ChildProcess proc in crp) {
+				try{
+					Msg.PrintMod("Destroying ChildProcess: " + proc.Name, ".exec", Msg.LogLevels.Debug);
+					proc.Kill();
+				} catch(Exception ex){
+					Msg.PrintMod("Error destroying ChildProcess: " + proc.Name + " Message: " + ex.Message, ".exec", Msg.LogLevels.Debug);
+				}
+			}
+			crp.Clear();
 			Msg.PrintMod("Destroying all ChildProcesses completed", ".exec", Msg.LogLevels.Debug);
 		}
 

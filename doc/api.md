@@ -785,19 +785,24 @@ Returned type
 Returns: A new created object of the new type or null if invalid.
 
 
-##### M:Kltv.Kombine.Api.Statics.Version
-
-Returns: 
-
-
-##### M:Kltv.Kombine.Api.Statics.MajorVersion
-
-Returns: 
+##### M:Kltv.Kombine.Api.Statics.MkbVersion
+ Retuns the Kombine version string. 
+Returns: The string in dot formated
 
 
-##### M:Kltv.Kombine.Api.Statics.MinorVersion
+##### M:Kltv.Kombine.Api.Statics.MkbMajorVersion
+ Returns the major version number. 
+Returns: The major version
 
-Returns: 
+
+##### M:Kltv.Kombine.Api.Statics.MkbMinorVersion
+ Returns the minor version number. 
+Returns: The minor version
+
+
+##### M:Kltv.Kombine.Api.Statics.MkbHexVersion
+ Returns the najor+minor version as a hex value. 
+Returns: The version
 
 
 # T:Kltv.Kombine.Api.Tool

@@ -5,9 +5,9 @@
 	(C)Kollective Networks 2022
 
 ---------------------------------------------------------------------------------------------------------*/
+#r "mkb.dll"
 #load "extensions/clang.csx"
 
-#r "mkb.dll"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;

@@ -4,4 +4,5 @@ obj
 out
 /**/mkb.dll
 examples/sdl2/sdl.github/**/*
+examples/msys2/openssl/**/*
 

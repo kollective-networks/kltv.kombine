@@ -424,7 +424,13 @@ public class Clang {
 				Msg.PrintAndAbort("Error: empty library found.");
 			}
 			Msg.Print(v);
-			libs += "-l" + v + " ";
+			if (System.IO.Path.IsPathRooted(v.ToString())) {
+				// Full path to library
+				libs += v + " ";
+			} else {
+				// Just library name
+				libs += "-l" + v + " ";
+			}
 		}
 		Msg.EndIndent();
 		libdirs = libdirs.ReduceWhitespace();

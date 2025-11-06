@@ -516,7 +516,7 @@ namespace Kltv.Kombine.Api {
 					}
 					Msg.PrintWarningMod("Failed to fetch: " + path + " and no cache found.", ".folders", Msg.LogLevels.Verbose);
 					return null;
-				}				
+				}
 				return Cache.SetIncludeCached(path, content);
 			}
 			// Check if its an absolute path
@@ -533,7 +533,7 @@ namespace Kltv.Kombine.Api {
 				return Path.GetFullPath(path);
 			}
 			// Script directory
-			// 
+			//
 			look = Path.Combine(Folders.CurrentScriptFolder, path);
 			if ( (look != null) && (Files.Exists(look)) ) {
 				Msg.PrintMod("ResolveReference (ScriptDirectory):" + look, ".folders", Msg.LogLevels.Debug);

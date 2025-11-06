@@ -49,7 +49,7 @@ int build(string[] args){
 	// Download SDL2 library from github
 	if (Folders.Exists("sdl.github/")) {
 		Msg.Print("Updating SDL2 sources");
-		//Git.Pull("sdl.github/");
+		Git.Pull(CurrentScriptFolder+"/sdl.github/");
 	} else {
 		Msg.Print("Cloning SDL2 sources");
 		Git.Clone("https://github.com/libsdl-org/SDL.git","sdl.github/","release-2.30.x");

@@ -73,7 +73,7 @@ Msg.Print("The new list is: "+src6.Flatten());
 
 //
 // KValue examples
-// 
+//
 // --------------------------------------------------------------------------------------------------------------------
 KValue a = "my value";
 KValue b = "        my second value";

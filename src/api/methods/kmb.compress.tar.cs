@@ -57,7 +57,7 @@ namespace Kltv.Kombine.Api {
 			/// </summary>
 			/// <param name="folderPath">Folder to be compressed</param>
 			/// <param name="outputFile">Output tar file</param>
-			/// <param name="overwrite">If archive should be overwriten, default true</param>
+			/// <param name="overwrite">If archive should be overwritten, default true</param>
 			/// <param name="includeFolder">If true, include the folder in the tar file.</param>
 			/// <param name="compressionType">Compression type, default gzip</param>
 			/// <returns>True if fine, false otherwise.</returns>
@@ -70,7 +70,7 @@ namespace Kltv.Kombine.Api {
 			/// </summary>
 			/// <param name="folderPaths">Folders to be compressed</param>
 			/// <param name="outputFile">Output tar file</param>
-			/// <param name="overwrite">If archive should be overwriten, default true</param>
+			/// <param name="overwrite">If archive should be overwritten, default true</param>
 			/// <param name="includeFolder">If true, include the given folders in the tar file and not only the folder contents an descentants.</param>
 			/// <param name="compressionType">Compression type, default gzip</param>
 			/// <returns>True if fine, false otherwise.</returns>
@@ -165,7 +165,7 @@ namespace Kltv.Kombine.Api {
 			/// </summary>
 			/// <param name="tarPath">Tar file to decompress</param>
 			/// <param name="outputFolder">Output folder</param>
-			/// <param name="overwrite">If archive(s) should be overwriten, default true</param>
+			/// <param name="overwrite">If archive(s) should be overwritten, default true</param>
 			/// <returns>True if fine, false otherwise.</returns>
 			public static bool Decompress(string tarPath, string outputFolder,bool overwrite = true) {
 				Msg.PrintMod("Decompressing file: " + tarPath, ".compress", Msg.LogLevels.Verbose);
@@ -181,6 +181,8 @@ namespace Kltv.Kombine.Api {
 							string nextFileName = string.Empty;
 							while (tar.MoveToNextEntry()) {
 								// Skip pax global header
+								if  ( (tar.Entry == null) || (tar.Entry.Key == null))
+									continue;
 								if (tar.Entry.Key.Contains("pax_global_header"))
 									continue;
 								// @PaxHeader contains attributes and also the filename is its bigger than 100 chars

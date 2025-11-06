@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------------------
 
-	Kombine Makefile example
+	Kombine Test version functions
 
 	(C)Kollective Networks 2022
 
@@ -23,6 +23,10 @@ int test(string[] args){
 	Msg.Print("Testing scripts: ");
 	Msg.Print("");
 	Msg.Print("----------------------------------------------------------");
+	Msg.Print("Testing: base");
+	Kombine("base/mkb.version.csx","test",args);
+	Kombine("base/mkb.admin.csx","test",args);
+	Msg.Print("----------------------------------------------------------");
 	Msg.Print("Testing: simple");
 	Kombine("simple/simple.csx","build",args);
 	Kombine("simple/simple.csx","clean",args);
@@ -32,7 +36,7 @@ int test(string[] args){
 	Kombine("types/types.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
-	Msg.Print("Testing: childrens");	
+	Msg.Print("Testing: children");
 	Kombine("child/child.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
@@ -45,9 +49,10 @@ int test(string[] args){
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: clang");
-	Kombine("clang/clang.csx","build",args);
-	Kombine("clang/clang.csx","clean",args);
-	Kombine("clang/clang.csx","help",args);
+	Kombine("clang/clang.build.csx","build",args);
+	Kombine("clang/clang.build.csx","clean",args);
+	Kombine("clang/clang.build.csx","help",args);
+	Kombine("clang/clang.gendoc.csx","doc",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: sdl2");
@@ -55,3 +60,4 @@ int test(string[] args){
 	Kombine("sdl2/sdl2.csx","clean",args);
 	return 0;
 }
+

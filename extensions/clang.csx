@@ -38,9 +38,9 @@ public class Clang {
 			} else {
 				Msg.PrintAndAbort("Error: Unknown OS");
 			}
-			// Set the number of concurrent commands to be executed
-			// By default, the number of cores.
-			ConcurrentBuild = Host.ProcessorCount();			
+			/// Set the number of concurrent commands to be executed
+			/// By default, the number of cores.
+			ConcurrentBuild = Host.ProcessorCount();
 		}
 
 		/// <summary>
@@ -71,6 +71,11 @@ public class Clang {
 		public string AR { get; set; } = "llvm-ar";
 
 		/// <summary>
+		/// Resource tool name
+		/// </summary>
+		public string RC { get; set; } = "llvm-rc";
+
+		/// <summary>
 		/// C file extension to use
 		/// </summary>
 		public string CExtension { get; set; } = ".c";
@@ -79,6 +84,11 @@ public class Clang {
 		/// C++ file extension to use
 		/// </summary>
 		public string CppExtension { get; set; } = ".cpp";
+
+		/// <summary>
+		/// Resource file extension to use
+		/// </summary>
+		public string ResExtension { get; set; } = ".rc";
 
 		/// <summary>
 		/// List of include directories to use
@@ -143,7 +153,8 @@ public class Clang {
 		/// <summary>
 		/// Contains the recomended object extension for the current platform
 		/// </summary>
-		public string ObjectExtension { get; private set; } = ".o";		
+		public string ObjectExtension { get; private set; } = ".o";
+
 	}
 
 	/// <summary>
@@ -152,12 +163,31 @@ public class Clang {
 	public Clang() {
 		OpenSharedCompileOptions();
 		OpenSharedCompileCommands();
+		ProcessFile = null;
 	}
 
 	/// <summary>
 	/// Clang Compiler Options Container
 	/// </summary>
 	public ClangOptions Options { get; private set; } = new ClangOptions();
+
+
+	/// <summary>
+	/// Delegate used to be called when a file is about to be processed.
+	/// Useful to add parameters per file basis
+	/// </summary>
+	/// <param name="file">File about to be processed</param>
+	/// <returns>Argument to be added if any</returns>
+	public delegate string ProcessFileDelegate(string file);
+
+	/// <summary>
+	/// Event to be called when a file is about to be processed.
+	/// Useful to add parameters per file basis
+	/// </summary>
+	/// <param name="file">File about to be processed</param>
+	/// <returns>Argument to be added if any</returns>
+	public ProcessFileDelegate? ProcessFile;
+
 
 	/// <summary>
 	/// Clean the provided object list and output folder
@@ -181,7 +211,7 @@ public class Clang {
 	/// <param name="obj">Corresponding list of objects</param>
 	/// <param name="rebuild">If we should rebuild everything.</param>
 	public ToolResult Compile(KList src, KList obj, bool abortwhenfailed = true, bool rebuild = false) {
-		// Sanity checks over the parameters passed. 
+		// Sanity checks over the parameters passed.
 		if (src.Count() != obj.Count()) {
 			Msg.PrintAndAbort("Error: src and obj list must have the same number of elements");
 			return ToolResult.DefaultFailed();
@@ -190,12 +220,16 @@ public class Clang {
 			Msg.PrintAndAbort("Error: source or object list has duplicates.");
 			return ToolResult.DefaultFailed();
 		}
+		if (Args.WasRebuilded) {
+			Msg.Print("Script was rebuilt we will rebuild as well. Forcing rebuild.",Msg.LogLevels.Verbose);
+			rebuild = true;
+		}
 		// Prepare includes & defines & switches
 		KValue includes = string.Empty;
 		KValue defines = string.Empty;
 		KValue switchesCC = string.Empty;
 		KValue switchesCXX = string.Empty;
-	
+
 		// We add the clang switches to the arguments automatically
 		Msg.Print("Include paths:");
 		Msg.BeginIndent();
@@ -226,13 +260,23 @@ public class Clang {
 		}
 		switchesCC = Options.SwitchesCC.Flatten().ReduceWhitespace();
 		switchesCXX = Options.SwitchesCXX.Flatten().ReduceWhitespace();
-		Msg.Print("Switches for C compiler: "+switchesCC);
-		Msg.Print("Switches for C++ compiler: "+switchesCXX);
+		Msg.Print("Switches for C compiler: ");
+		Msg.BeginIndent();
+		foreach (KValue v in Options.SwitchesCC){
+			Msg.Print(v);
+		}
+		Msg.EndIndent();
+		Msg.Print("Switches for C++ compiler: ");
+		Msg.BeginIndent();
+		foreach (KValue v in Options.SwitchesCXX){
+			Msg.Print(v);
+		}
+		Msg.EndIndent();
 		// Create and configure the tool
 		Tool tool = new Tool("clang");
 		// Set the number of concurrent commands to be executed
 		tool.ConcurrentCommands = (uint)Options.ConcurrentBuild;
-		// Create the required folders required for the output files 
+		// Create the required folders required for the output files
 		KList folders = obj.AsFolders();
 		Folders.Create(folders);
 		// Go through the list of sources to add the ones that need to be compiled with the appropiate command
@@ -243,16 +287,28 @@ public class Clang {
 			// Fetch the absolute paths
 			KValue srcf = RealPath(src[a]);
 			KValue objf = RealPath(obj[a]);
-			// Note: We can check here for argument lenght just in case we need to use response files due to 
+			// Note: We can check here for argument lenght just in case we need to use response files due to
 			// command line lenght limitations.
 			// Create the arguments
 			if (src[a].HasExtension(Options.CExtension)){
 				cmd = Options.CC;
-				args = "-c -MMD "+includes+" "+defines+" "+switchesCC+" "+ srcf + " -o " + objf;
+				KValue additionalArg = string.Empty;
+				if (ProcessFile != null)
+					additionalArg = ProcessFile.Invoke(src[a]);
+				args = "-c -MMD "+includes+" "+defines+" "+switchesCC+" "+ srcf + " -o " + objf + " " + additionalArg;
 			}else if (src[a].HasExtension(Options.CppExtension)){
 				cmd = Options.CXX;
-				args = "-c -MMD "+includes+" "+defines+" "+switchesCXX+" " + srcf + " -o " + objf;
-			}else{
+				KValue additionalArg =string.Empty;
+				if (ProcessFile != null)
+					additionalArg = ProcessFile.Invoke(src[a]);
+				args = "-c -MMD "+includes+" "+defines+" "+switchesCXX+" " + srcf + " -o " + objf + " " + additionalArg;
+			} else if (src[a].HasExtension(Options.ResExtension)) {
+				// Note: We may use the same output extension for compiled resource files
+				// since is provided by the user and a ".res" extension is not required.
+				// All intermediates can be outputed as .obj / .o whatever
+				cmd = Options.RC;
+				args = srcf + " /FO " + objf;
+			} else {
 				Msg.PrintWarning("Error: file " + src[a] + " has an unknown extension. Skipped.");
 				continue;
 			}
@@ -311,8 +367,9 @@ public class Clang {
 			 // Linux & OSX have a higher limit.
 			 // On Windows the theorical limit per process is 32767 but looks like hard limit to 8191. We use just 4K
 			 if (lobjs.Length > 4096) {
-				 // We need to split the command
-				 tool.QueueCommand(Options.AR, args + output+" "+lobjs, objs[a], LibrarianTaskDone);
+				// We need to split the command so if the command line for the librarian is too long
+				// we queue the command and reset the string to create another command
+				tool.QueueCommand(Options.AR, args + output+" "+lobjs, objs[a], LibrarianTaskDone);
 				 lobjs = string.Empty;
 			 }
 		}
@@ -337,7 +394,7 @@ public class Clang {
 	}
 
 	/// <summary>
-	/// Links a list of objects into a binary. 
+	/// Links a list of objects into a binary.
 	/// </summary>
 	/// <param name="objs">Objects to be linked</param>
 	/// <param name="output">Output file</param>
@@ -404,18 +461,75 @@ public class Clang {
 		}
 		// Compose the command line
 		if (ShouldLink) {
-			KValue args = "-fuse-ld=lld "+switchesLD+" "+ objs.Flatten()+" "+libdirs + " " + libs + " " + " -o " + output;
-			ToolResult res = tool.CommandSync(Options.LD, args, output);
+
+			KValue args = "-fuse-ld=lld " + switchesLD + " " + objs.Flatten() + " " + libdirs + " " + libs + " " + " -o " + output;
+			ToolResult res;
+			// Check if we need to use a response file
+			// If argument's size is bigger than the Window's limit (32767), we
+			// hardcode it, its lower than in Linux/OSX but we'll use the same there
+			if (args.ToString().Length > 32766) {
+				string fileargs = args.ToString();
+				fileargs = fileargs.Replace("\\","/"); // Clean arguments, replace \ with /
+				// We need to use a response file
+				KValue responsefile = output.WithExtension(".rsp");
+				Files.WriteTextFile(responsefile,fileargs);
+				fileargs = "@" + responsefile;
+				// Execute the command
+				res = tool.CommandSync(Options.LD, fileargs, output);
+				// Delete the response file
+				if (File.Exists(responsefile)) {
+					File.Delete(responsefile);
+					Msg.Print($"Response file deleted: {responsefile}");
+				}
+			} else {
+				res = tool.CommandSync(Options.LD, args, output);
+			}
+			// Continue with the task done
 			TaskDone("Linking",output,ref res);
 			if (abortwhenfailed) {
 				if (res.Status == ToolStatus.Failed) {
 					Msg.PrintAndAbort("Error: linking operation failed");
 				}
-			}			
+			}
 			return res;
 		}
 		Msg.Print("Linker: Nothing has done. Everything up to date.");
 		return ToolResult.DefaultNoChanges();
+	}
+
+	/// <summary>
+	/// Formats a list of files
+	/// </summary>
+	/// <param name="src">List of files to format</param>
+	/// <param name="abortwhenfailed">Abort operation if any file failed</param>
+	/// <returns></returns>
+	public static bool Format(KList src, string extraArgs, bool abortwhenfailed = true) {
+		bool returnCode = true;
+		Msg.BeginIndent();
+		if (src.Count() == 0) {
+			Msg.Print("No files to format.");
+			Msg.EndIndent();
+			return true;
+		}
+		Msg.Print("Formatting files:");
+		Msg.BeginIndent();
+		foreach (KValue file in src) {
+			Msg.PrintTask("Formatting file: " + file);
+			/// Note: To avoid problems with different shells this may be an exec and not shell call
+			///
+			int code = Shell("clang-format", $" -i \"{file}\"");
+			if (code != 0) {
+				Msg.PrintTaskError(" Failed");
+				if (abortwhenfailed) {
+					Msg.PrintAndAbort("Error: formatting operation failed");
+				}
+				returnCode = false;
+			}
+			Msg.PrintTaskSuccess(" Ok");
+		}
+		Msg.EndIndent();
+		Msg.EndIndent();
+		return returnCode;
 	}
 
 	/// <summary>
@@ -459,7 +573,7 @@ public class Clang {
 					Msg.PrintError(s2);
 			}
 			Msg.PrintAndAbort("Error: " + task + " " + element + " failed.");
-			Msg.EndIndent();			
+			Msg.EndIndent();
 			return;
 		}
 		if (res.Stderr.Length != 0) {
@@ -471,7 +585,7 @@ public class Clang {
 				if (s2 != string.Empty)
 					Msg.PrintWarning(s2);
 			}
-			Msg.EndIndent();			
+			Msg.EndIndent();
 			res.Status = ToolStatus.Warnings;
 			return;
 		}
@@ -512,7 +626,7 @@ public class Clang {
 			Msg.Print("File " + obj + " does not exists. It will be built.",Msg.LogLevels.Verbose);
 			return true;
 		}
-		// Fetch dependency file. 
+		// Fetch dependency file.
 		KValue depfile = obj.WithExtension(".d");
 		if (Files.Exists(depfile) == false) {
 			// Does not exists, so, check for the source file only
@@ -675,6 +789,8 @@ public class Clang {
 				Options.CXX = opt.CXX;
 				Options.LD = opt.LD;
 				Options.AR = opt.AR;
+				Options.RC = opt.RC;
+				Options.ResExtension = opt.ResExtension;
 				Options.CExtension = opt.CExtension;
 				Options.CppExtension = opt.CppExtension;
 				Options.IncludeDirs = new KList(opt.IncludeDirs);
@@ -688,6 +804,6 @@ public class Clang {
 				Options.Verbose = opt.Verbose;
 				return;
 			}
-		}		
+		}
 	}
 }

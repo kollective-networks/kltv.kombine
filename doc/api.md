@@ -60,7 +60,7 @@ Returns: Argument or empty if out of bounds of the array.
  Compress a single folder into a tar file. 
 - folderPath: Folder to be compressed<br>
 - outputFile: Output tar file<br>
-- overwrite: If archive should be overwriten, default true<br>
+- overwrite: If archive should be overwritten, default true<br>
 - includeFolder: If true, include the folder in the tar file.<br>
 - compressionType: Compression type, default gzip<br>
 Returns: True if fine, false otherwise.
@@ -70,7 +70,7 @@ Returns: True if fine, false otherwise.
  Compress a list of folders into a tar file. 
 - folderPaths: Folders to be compressed<br>
 - outputFile: Output tar file<br>
-- overwrite: If archive should be overwriten, default true<br>
+- overwrite: If archive should be overwritten, default true<br>
 - includeFolder: If true, include the given folders in the tar file and not only the folder contents an descentants.<br>
 - compressionType: Compression type, default gzip<br>
 Returns: True if fine, false otherwise.
@@ -89,7 +89,7 @@ Returns: True if fine, false otherwise.
  Decompress a tar file into a folder. 
 - tarPath: Tar file to decompress<br>
 - outputFolder: Output folder<br>
-- overwrite: If archive(s) should be overwriten, default true<br>
+- overwrite: If archive(s) should be overwritten, default true<br>
 Returns: True if fine, false otherwise.
 
 
@@ -779,8 +779,25 @@ Returns: the escaped argument
 
 ##### M:Kltv.Kombine.Api.Statics.Cast``1(System.Object)
  Cast an object to another type trying to copy as much as possible. 
+##### Type Parameter: T
+Returned type
 - myobj: Object to be casted<br>
 Returns: A new created object of the new type or null if invalid.
+
+
+##### M:Kltv.Kombine.Api.Statics.Version
+
+Returns: 
+
+
+##### M:Kltv.Kombine.Api.Statics.MajorVersion
+
+Returns: 
+
+
+##### M:Kltv.Kombine.Api.Statics.MinorVersion
+
+Returns: 
 
 
 # T:Kltv.Kombine.Api.Tool
@@ -1703,6 +1720,10 @@ Returns:
 
 ##### M:Kltv.Kombine.DictionaryExtensions.Clone``2(System.Collections.Generic.Dictionary{``0,``1})
  Dictionary clone method 
+##### Type Parameter: TKey
+Key type
+##### Type Parameter: TValue
+Value type
 - dictionary: Dictionary to clone<br>
 Returns: A new dictionary instance with all the contents cloned
 

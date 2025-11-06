@@ -6,6 +6,8 @@
 
 	Taken from this gist: https://gist.github.com/lontivero/593fc51f1208555112e0
 
+	This is just temporal. It should be replace for a proper documentation generator.
+
 ---------------------------------------------------------------------------------------------------------*/
 
 using System;
@@ -39,6 +41,7 @@ public static class XmlToMarkdown {
 				{"property", "##### {0}\n{1}\n"},
 				{"method", "##### {0}\n{1}\n"},
 				{"event", "##### {0}\n{1}\n"},
+				{"typeparam", "##### Type Parameter: {0}\n{1}\n"},
 				{"summary", "{0}\n"},
 				{"remarks", "\n>{0}\n"},
 				{"example", "_C# code_\n\n```c#\n{0}\n```\n\n"},
@@ -89,6 +92,7 @@ public static class XmlToMarkdown {
 					return list.ToArray();
 				}},
 				{"type", x=>d("name", x)},
+				{"typeparam", x=> d("name", x)},
 				{"field", x=> d("name", x)},
 				{"property", x=> d("name", x)},
 				{"method",x=>d("name", x)},

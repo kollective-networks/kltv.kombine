@@ -13,7 +13,7 @@ using Kltv.Kombine.Api;
 namespace Kltv.Kombine
 {
 	/// <summary>
-	/// 
+	///
 	/// </summary>
 	internal static class Config {
 
@@ -28,7 +28,7 @@ namespace Kltv.Kombine
 		public static string ScriptPath { get; private set; } = string.Empty;
 
 		/// <summary>
-		/// Debug script build 
+		/// Debug script build
 		/// </summary>
 		public static bool BuildDebug { get; private set; } = false;
 
@@ -86,29 +86,29 @@ namespace Kltv.Kombine
 
 
 		/// <summary>
-		/// 
+		///
 		/// Kombine Parameters:
 		///
 		/// mkb [parameters] [action] [action parameters]
-		/// 
+		///
 		/// [parameters] They are optional and can be any of the following:
-		/// 
+		///
 		/// -ksdbg: Script will include debug information so script debugging will be possible
 		/// -ko:silent or -ko:s  : Output will be silent
 		/// -ko:normal or -ko:n	 : Output will be normal
 		/// -ko:verbose or -ko:v : Output will be verbose
 		/// -ko:debug or -ko:d   : Output will be debug
 		/// -kfile: Indicates which script file we should execute (default kombine.csx)
-		/// 
+		///
 		/// [action] Action to be executed. If not specified the default action is "khelp"
 		/// The action is used to specify which function in the script should be called after evaluation but
 		/// there are some reserved actions for the tool itself which cannot be used for the scripts:
-		/// 
+		///
 		/// kversion: Shows tool version and exit
 		/// khelp: Show this help and exit
-		/// kconfig: Manages the tool configuration 
+		/// kconfig: Manages the tool configuration
 		/// kcache: Manages the tool cache
-		/// 
+		///
 		/// [action parameters]
 		/// They are optional and belongs to the specified action. In case of scripts,they are passed to the
 		/// executed function as parameters.

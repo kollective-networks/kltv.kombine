@@ -24,6 +24,27 @@
 			"stopAtEntry": false,
 			"console": "integratedTerminal",
 			"justMyCode": false,
-		}
+		},
+		{
+			"name": "C#: Debug publish build",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "kombine-build",
+			"program": "",
+			"windows": {
+				"program": "${workspaceFolder}/out/bin/win-x64/debug/mkb.exe",
+			},
+			"linux":{
+				"program": "",
+			},
+			"osx": {
+				"program": "",
+			},
+			"args": [ "-ksdbg","-ko:v","-ksrb", "publish" ],
+			"cwd": "${workspaceFolder}",
+			"stopAtEntry": false,
+			"console": "integratedTerminal",
+			"justMyCode": false,
+		},
 	]
 }

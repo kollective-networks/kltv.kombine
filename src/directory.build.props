@@ -12,13 +12,13 @@
   
   <PropertyGroup>
 	<!-- Output binaries -->
-    <BinariesFolder>$(SrcRoot)out/bin/$(RuntimeIdentifier)</BinariesFolder>
+    <BinariesFolder>$(SrcRoot)../out/bin/$(RuntimeIdentifier)</BinariesFolder>
 	<CommonOutputDirectory>$(BinariesFolder)/$(KConfig)</CommonOutputDirectory>
     <OutputPath Condition="'$(OutputPath)' == ''">$(BinariesFolder)/$(KConfig)</OutputPath>
     <OutputPath Condition="'$(BuildToCommonOutputDirectory)' == 'true'">$(CommonOutputDirectory)\</OutputPath>
     <OutDir>$(OutputPath)</OutDir>
 	<!-- Intermediate files-->
-    <CommonIntermediateOutputRoot>$(SrcRoot)out\tmp\$(RuntimeIdentifier)</CommonIntermediateOutputRoot>
+    <CommonIntermediateOutputRoot>$(SrcRoot)../out/tmp/$(RuntimeIdentifier)</CommonIntermediateOutputRoot>
     <BaseIntermediateOutputPath>$(CommonIntermediateOutputRoot)/$(KConfig)</BaseIntermediateOutputPath>
     <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
 	<BuildToCommonOutputDirectory Condition="'$(BuildToCommonOutputDirectory)' == ''">true</BuildToCommonOutputDirectory>
@@ -26,6 +26,6 @@
     <AssemblyInfoPath Condition="'$(AssemblyInfoPath)' == ''">$(BaseIntermediateOutputPath)GlobalAssemblyInfo.cs</AssemblyInfoPath>
     <TargetFrameworkMonikerAssemblyAttributesPath>$(IntermediateOutputPath)AssemblyAttributes.cs</TargetFrameworkMonikerAssemblyAttributesPath>
     <!-- Publishing folder -->
-	<PublishDir>$(SrcRoot)out\pub\$(RuntimeIdentifier)\$(KConfig)\</PublishDir>
+	<PublishDir>$(SrcRoot)../out/pub/$(RuntimeIdentifier)/$(KConfig)/</PublishDir>
   </PropertyGroup>
 </Project>

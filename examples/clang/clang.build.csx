@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------------------
 
-	Kombine Makefile example
+	Kombine Clang Extension Example
 
 	(C)Kollective Networks 2022
 
@@ -18,7 +18,7 @@ using static Kltv.Kombine.Api.Tool;
 // We make use of the builtin property "CurrentWorkingFolder" to define the output folders
 // The current folder will be the folder where the script is executed
 KValue OutputBin = CurrentWorkingFolder+"/out/bin/";
-KValue OutputTmp = CurrentWorkingFolder+"/out/tmp/"; 
+KValue OutputTmp = CurrentWorkingFolder+"/out/tmp/";
 KValue OutputLib = CurrentWorkingFolder+"/out/lib/";
 
 
@@ -32,18 +32,12 @@ OutputLib.Export("OutputLib");
 /// </summary>
 /// <returns>Exiting code</returns>
 int build(string[] args){
-	Msg.Print("Building example: ");
+	Msg.Print("Clang Building example: ");
 	// Open the compile commands file
 	// and leave it prepared for the build process
+	//
 	Clang clang = new Clang();
-	clang.OpenCompileCommands("out/tmp/compile_commands.json");	
-
-	// To check if we've admin rights
-	if (!Host.IsRoot()) {
-		Msg.Print("[!] This script is running with no root privileges.");
-	} else {
-		Msg.Print("[!] This script is running with root privileges.");
-	}
+	clang.OpenCompileCommands("out/tmp/compile_commands.json");
 	Msg.Print("----------------------------------------------------------");
 	// You can check the return code to throw custom messages
 	if (Kombine("lib/mylib.csx","build",args) != 0) {

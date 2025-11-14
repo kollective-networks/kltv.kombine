@@ -27,10 +27,71 @@
     <None Include="clang\dll\mydll.csx" />
     <None Include="msys2\msys2.build.csx" />
     <None Include="msys2\msys2.packages.csx" />
+    <None Include="types\types.csx" />
+    <None Include="simple\simple.csx" />
+    <None Include="sdl2\sdl2.csx" />
+    <None Include="network\network.csx" />
+    <None Include="folders\folders.csx" />
+    <None Include="folders\folder1\parent.csx" />
+    <None Include="folders\child\child.csx" />
+    <None Include="clang\lib\mylib.csx" />
+    <None Include="clang\exe\mybin.csx" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="clang\logo.png">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="msys2\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="clang\lib\src\lib1.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="clang\lib\src\lib2.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="clang\exe\src\test\file1.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="clang\exe\src\test\file2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="clang\exe\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="clang\dll\src\lib1.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="clang\dll\src\lib2.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="clang\lib\inc\lib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\lib\src\lib1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\lib\src\lib2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\exe\src\test\file1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\exe\src\test\file2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\dll\inc\lib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\dll\src\lib1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clang\dll\src\lib2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

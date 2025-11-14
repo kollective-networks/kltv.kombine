@@ -5,8 +5,11 @@
 	(C)Kollective Networks 2022
 
 ---------------------------------------------------------------------------------------------------------*/
+#r "./extensions/mkb.dll"
 #load "dotnet.doc.csx"
 
+using Kltv.Kombine.Api;
+using Kltv.Kombine.Types;
 
 int help(string[] args){
 	Msg.Print("");

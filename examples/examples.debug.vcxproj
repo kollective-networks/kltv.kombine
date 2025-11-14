@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <ProjectGuid>{3BEBDF77-C3FC-A4F8-C679-57F2512ADF30}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectName>examples.debug</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CLRSupport>true</CLRSupport>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <NMakeOutput>
+    </NMakeOutput>
+    <NMakePreprocessorDefinitions>_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakeAssemblySearchPath>$(NMakeAssemblySearchPath)</NMakeAssemblySearchPath>
+    <NMakeForcedUsingAssemblies>
+    </NMakeForcedUsingAssemblies>
+    <OutDir>$(SolutionDir)out\temp</OutDir>
+    <IntDir>$(SolutionDir)out\temp</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <None Include="..\examples\kombine.csx" />
+    <None Include="base\mkb.admin.csx" />
+    <None Include="base\mkb.version.csx" />
+    <None Include="child\child.csx" />
+    <None Include="child\child01\child01.csx" />
+    <None Include="child\child01\subchild01.csx" />
+    <None Include="child\child02\child02.csx" />
+    <None Include="clang\clang.build.csx" />
+    <None Include="clang\clang.gendoc.csx" />
+    <None Include="clang\dll\mydll.csx" />
+    <None Include="msys2\msys2.build.csx" />
+    <None Include="msys2\msys2.packages.csx" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="clang\logo.png" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

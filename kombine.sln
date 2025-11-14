@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.files", "kombine.files", "{023F2A35-568E-4A08-B082-F84787784B05}"
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
+		kombine.csx = kombine.csx
 		license.md = license.md
 		readme.md = readme.md
 	EndProjectSection

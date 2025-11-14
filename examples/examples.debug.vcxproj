@@ -33,7 +33,7 @@
     </NMakeOutput>
     <NMakePreprocessorDefinitions>_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
     <NMakeAssemblySearchPath>$(NMakeAssemblySearchPath)</NMakeAssemblySearchPath>
-    <NMakeForcedUsingAssemblies>$(SolutionFolder)extensions\mkb.dll</NMakeForcedUsingAssemblies>
+    <NMakeForcedUsingAssemblies>$(SolutionDir)out\bin\win-x64\debug\mkb.dll</NMakeForcedUsingAssemblies>
     <OutDir>$(SolutionDir)out\temp</OutDir>
     <IntDir>$(SolutionDir)out\temp</IntDir>
   </PropertyGroup>

@@ -35,7 +35,7 @@ int test(string[] args){
 	//
 	// Hex version is provided to allow quick comparisons between versions
 	// Example
-	if (hex >= 0x010200){
+	if (hex >= 0x0102){
 		Msg.Print("Kombine version is at least 1.2");
 	} else {
 		Msg.Print("Kombine version is below 1.2");

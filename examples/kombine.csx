@@ -6,7 +6,8 @@
 
 ---------------------------------------------------------------------------------------------------------*/
 
-#r "mkb.dll"
+// Remember, this is just used for intellisense, nothing else
+#r "../out/bin/win-x64/debug/mkb.dll"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;
@@ -58,6 +59,11 @@ int test(string[] args){
 	Msg.Print("Testing: sdl2");
 	Kombine("sdl2/sdl2.csx","build",args);
 	Kombine("sdl2/sdl2.csx","clean",args);
+	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
+	Msg.Print("Testing: msys22");
+	Kombine("msys2/msys2.packages.csx", "test", args);
+	Kombine("msys2/msys2.build.csx", "build", args);
 	return 0;
 }
 

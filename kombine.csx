@@ -1,12 +1,24 @@
 /*---------------------------------------------------------------------------------------------------------
 
-	Kombine Publishing Script
+	Kombine Build & Publishing Script
 
 	(C)Kollective Networks 2022
 
 ---------------------------------------------------------------------------------------------------------*/
+
+//
+// Use dotnet doc extension
+// 
 #load "dotnet.doc.csx"
 
+// Remember, this is just used for intellisense, nothing else
+#r "out/bin/win-x64/debug/mkb.dll"
+using Kltv.Kombine.Api;
+using Kltv.Kombine.Types;
+using static Kltv.Kombine.Api.Statics;
+using static Kltv.Kombine.Api.Tool;
+using Kltv.Kombine.Api;
+using Kltv.Kombine.Types;
 
 int help(string[] args){
 	Msg.Print("");
@@ -14,7 +26,6 @@ int help(string[] args){
 	Msg.Print("");
 	Msg.Print("Usage: mkb publish (builds and create packages)");
 	Msg.Print("       mkb build (just build for the current system in debug mode)");
-	Msg.Print("       mkb intellisense (just copy the reference assembly into examples for intellisense)");
 	Msg.Print("       mkb test (runs the unit tests)");
 	Msg.Print("");
 	return 0;
@@ -105,30 +116,6 @@ int publish(string[] args){
 	RestoreVersionNumber();
 	Msg.Print("Generate documentation from the XML generated into the doc folder");
 	XmlToMarkdown.Convert("out/bin/win-x64/release/mkb.xml","doc/api.md");
-	Msg.Print("Done!");
-	return 0;
-}
-
-public int intellisense(string[] args){
-
-	Msg.Print("Generating intellisense");
-	Msg.Print("Building for windows");
-	if (Host.IsWindows()){
-		Folders.SetCurrentFolder(CurrentScriptFolder+"/src/",true);
-		int ExitCode = Exec("dotnet","build -c Release -r win-x64",true);
-		Folders.CurrentFolderPop();
-		if (ExitCode != 0)
-			return ExitCode;
-		Files.Copy("out/bin/win-x64/release/mkb.dll","examples/mkb.dll");
-		Files.Copy("out/bin/win-x64/release/mkb.dll","examples/base/mkb.dll");
-		Files.Copy("out/bin/win-x64/release/mkb.dll","examples/child/mkb.dll");
-		Files.Copy("out/bin/win-x64/release/mkb.dll","examples/clang/mkb.dll");
-		Files.Copy("out/bin/win-x64/release/mkb.dll","examples/folders/mkb.dll");
-		Files.Copy("out/bin/win-x64/release/mkb.dll","examples/network/mkb.dll");
-		Files.Copy("out/bin/win-x64/release/mkb.dll","examples/sdl2/mkb.dll");
-		Files.Copy("out/bin/win-x64/release/mkb.dll","examples/simple/mkb.dll");
-		Files.Copy("out/bin/win-x64/release/mkb.dll","examples/types/mkb.dll");
-	}
 	Msg.Print("Done!");
 	return 0;
 }

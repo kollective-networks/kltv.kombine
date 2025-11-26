@@ -5,9 +5,14 @@
 	(C)Kollective Networks 2022
 
 ---------------------------------------------------------------------------------------------------------*/
+
+//
+// Load a script include from http source
+//
 #load "https://raw.githubusercontent.com/kollective-networks/kltv.kombine/main/extensions/clang.csx"
 
-#r "mkb.dll"
+// Remember, this is just used for intellisense, nothing else
+#r "../../out/bin/win-x64/debug/mkb.dll"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;

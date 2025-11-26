@@ -5,14 +5,18 @@
 	(C)Kollective Networks 2022
 
 ---------------------------------------------------------------------------------------------------------*/
-#r "mkb.dll"
+
+//
+// Use the clang extension
+//
 #load "extensions/clang.csx"
 
+// Remember, this is just used for intellisense, nothing else
+#r "../../out/bin/win-x64/debug/mkb.dll"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;
 using static Kltv.Kombine.Api.Tool;
-
 
 // Define the output artifact folders
 // We make use of the builtin property "CurrentWorkingFolder" to define the output folders

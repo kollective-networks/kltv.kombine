@@ -1,9 +1,28 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.10.34607.79
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11206.111
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "kombine", "src\kombine.csproj", "{D31530F1-A7BE-87FD-3B40-74A4D0A0459F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "examples.debug", "examples\examples.debug.vcxproj", "{3BEBDF77-C3FC-A4F8-C679-57F2512ADF30}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.files", "kombine.files", "{023F2A35-568E-4A08-B082-F84787784B05}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		kombine.csx = kombine.csx
+		license.md = license.md
+		readme.md = readme.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.doc", "kombine.doc", "{F05B3102-A39E-49B1-822C-D71C7FED8D27}"
+	ProjectSection(SolutionItems) = preProject
+		doc\building.md = doc\building.md
+		doc\features.md = doc\features.md
+		doc\licenses.md = doc\licenses.md
+		doc\reasons.md = doc\reasons.md
+		doc\todo.md = doc\todo.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +34,8 @@ Global
 		{D31530F1-A7BE-87FD-3B40-74A4D0A0459F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D31530F1-A7BE-87FD-3B40-74A4D0A0459F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D31530F1-A7BE-87FD-3B40-74A4D0A0459F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3BEBDF77-C3FC-A4F8-C679-57F2512ADF30}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{3BEBDF77-C3FC-A4F8-C679-57F2512ADF30}.Release|Any CPU.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

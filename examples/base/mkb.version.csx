@@ -6,7 +6,8 @@
 
 ---------------------------------------------------------------------------------------------------------*/
 
-#r "mkb.dll"
+// Remember, this is just used for intellisense, nothing else
+#r "../../out/bin/win-x64/debug/mkb.dll"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;
@@ -34,7 +35,7 @@ int test(string[] args){
 	//
 	// Hex version is provided to allow quick comparisons between versions
 	// Example
-	if (hex >= 0x010200){
+	if (hex >= 0x0102){
 		Msg.Print("Kombine version is at least 1.2");
 	} else {
 		Msg.Print("Kombine version is below 1.2");

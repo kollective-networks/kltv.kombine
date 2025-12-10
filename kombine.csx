@@ -17,8 +17,7 @@ using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;
 using static Kltv.Kombine.Api.Tool;
-using Kltv.Kombine.Api;
-using Kltv.Kombine.Types;
+
 
 int help(string[] args){
 	Msg.Print("");

@@ -311,7 +311,7 @@ namespace Kltv.Kombine.Api {
 		}
 
 		/// <summary>
-		/// 
+		/// Copy options for folder copy operation
 		/// </summary>
 		public enum CopyOptions {
 			/// <summary>
@@ -319,35 +319,36 @@ namespace Kltv.Kombine.Api {
 			/// </summary>
 			Default = 0x00000000,
 			/// <summary>
-			/// 
+			/// Include subfolders when copying
 			/// </summary>
 			IncludeSubFolders = 0x00000001,
 			/// <summary>
-			/// 
+			/// Only copy modified files
 			/// </summary>
 			OnlyModifiedFiles = 0x00000002,
 			/// <summary>
-			/// 
+			/// Show progress during copy operation
 			/// </summary>
 			ShowProgress = 0x00000004,
 			/// <summary>
-			/// 
+			/// Copy only folders, not files
 			/// </summary>
 			OnlyFolders = 0x00000008,
 			/// <summary>
-			/// 
+			/// Delete missing files in target that are not present in source (mirror copy)
 			/// </summary>
 			DeleteMissingFiles = 0x00000010,
 		}
 
 		/// <summary>
-		/// 
+		/// Copies a folder from source to target with several options
 		/// </summary>
-		/// <param name="Source"></param>
-		/// <param name="Target"></param>
-		/// <param name="Options"></param>
+		/// <param name="Source">Source folder (required)</param>
+		/// <param name="Target">Destination folder (required)</param>
+		/// <param name="Options">Options to copy (optional)</param>
+		/// <param name="FileMask">File mask to be used in the copy operation (optional)</param>
 		/// <returns></returns>
-		public static bool Copy(string Source, string Target,CopyOptions Options = CopyOptions.Default) {
+		public static bool Copy(string Source, string Target,CopyOptions Options = CopyOptions.Default,string FileMask = "*.*") {
 
 			try {
 				// We use a stack to push directories we may found
@@ -367,9 +368,9 @@ namespace Kltv.Kombine.Api {
 						// we extract first the files in the target folder and compare them with source
 						// excluding absolute path part (since we want to preserve structure)
 						string[] target_files;
-						string[] source_files = Directory.GetFiles(folders.Source, "*.*");
+						string[] source_files = Directory.GetFiles(folders.Source, FileMask);
 						if (Options.HasFlag(CopyOptions.DeleteMissingFiles)) {
-							target_files = Directory.GetFiles(folders.Target, "*.*");
+							target_files = Directory.GetFiles(folders.Target, FileMask);
 							foreach (var file1 in target_files) {
 								bool bFound = false;
 								foreach (var file2 in source_files) {

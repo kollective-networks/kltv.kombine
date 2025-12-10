@@ -312,31 +312,32 @@ Returns: An string with the current working folder.
 - target: <br>
 
 # T:Kltv.Kombine.Api.Folders.CopyOptions
-
+ Copy options for folder copy operation 
 
 ##### F:Kltv.Kombine.Api.Folders.CopyOptions.Default
 
 
 ##### F:Kltv.Kombine.Api.Folders.CopyOptions.IncludeSubFolders
-
+ Include subfolders when copying 
 
 ##### F:Kltv.Kombine.Api.Folders.CopyOptions.OnlyModifiedFiles
-
+ Only copy modified files 
 
 ##### F:Kltv.Kombine.Api.Folders.CopyOptions.ShowProgress
-
+ Show progress during copy operation 
 
 ##### F:Kltv.Kombine.Api.Folders.CopyOptions.OnlyFolders
-
+ Copy only folders, not files 
 
 ##### F:Kltv.Kombine.Api.Folders.CopyOptions.DeleteMissingFiles
+ Delete missing files in target that are not present in source (mirror copy) 
 
-
-##### M:Kltv.Kombine.Api.Folders.Copy(System.String,System.String,Kltv.Kombine.Api.Folders.CopyOptions)
-
-- Source: <br>
-- Target: <br>
-- Options: <br>
+##### M:Kltv.Kombine.Api.Folders.Copy(System.String,System.String,Kltv.Kombine.Api.Folders.CopyOptions,System.String)
+ Copies a folder from source to target with several options 
+- Source: Source folder (required)<br>
+- Target: Destination folder (required)<br>
+- Options: Options to copy (optional)<br>
+- FileMask: File mask to be used in the copy operation (optional)<br>
 Returns: 
 
 

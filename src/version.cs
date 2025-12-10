@@ -17,11 +17,11 @@ namespace Kltv.Kombine {
 
 			public static string Major = "1";
 
-			public static string Minor = "2";
+			public static string Minor = "3";
 
-			public static string Build = "24435852";
+			public static string Build = "[BUILD]";
 
-			public static int HexVersion = 0x0102;
+			public static int HexVersion = 0x0103;
 		}
 	}
 }

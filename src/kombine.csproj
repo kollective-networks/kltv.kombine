@@ -54,11 +54,11 @@
 	</ItemGroup>
 	<!-- Packages -->
 	<ItemGroup>
-		<PackageReference Include="SharpCompress" Version="0.41.0" />
-		<PackageReference Include="System.Text.Json" Version="9.0.10" />
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
-		<PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="9.0.10" />
+		<PackageReference Include="SharpCompress" Version="0.42.0" />
+		<PackageReference Include="System.Text.Json" Version="10.0.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.0.0" />
+		<PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.0" />
 		<PackageReference Include="BinaryPack" Version="1.0.3" />
 	</ItemGroup>
 </Project>

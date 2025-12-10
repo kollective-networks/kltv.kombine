@@ -81,6 +81,13 @@ namespace Kltv.Kombine {
 				Msg.Deinitialize();
 				return 0;
 			}
+
+			// Future use: "kupdate" to update to latest version automatically
+			// https://github.com/kollective-networks/kltv.kombine/releases/download/latest/kombine.debug.win.zip
+
+			// Future use: "kinstall" to install the tool in the system (add to path)
+			//
+
 			// Execute the script
 			//
 			if (Config.Action == string.Empty) {

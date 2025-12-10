@@ -11,8 +11,8 @@ Anyway Kombine is used in the Kombine building process partially, see [generatin
 
 ## Requisites and recomended environment
 
-In order to build Kombine then you need Dotnet SDK, to be more specific, Dotnet 8. 
-You can gran your copy from [here at Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+In order to build Kombine then you need Dotnet SDK, to be more specific, Dotnet 10. 
+You can gran your copy from [here at Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
 
 Anything else is required since Kombine is only pure C# managed code.
 
@@ -38,8 +38,9 @@ By default it will build the debug configuration, you can pass -c Release to bui
 
 For this case we use Kombine. There is one Kombine script in the root of the repository which supports two actions:
 
-- "intellisense": This one copies the reference assembly to the example folders just to automatize when we're adding things to the API and we wanted to have them on intellisense quickly as well.
+- "build": Just a wrapper on top of dotnet build
 - "publish": This one builds in release for the three target OS (Windows, Linux and Mac OSX) the two flavors (unpacked and single file). It generates the diferent packages (.tar.gz / zip) including the reference assembly as well.
+- "test": Executes all the provided examples as a test
 
 All the packages are dropped into /out/pkg/
 

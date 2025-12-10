@@ -84,6 +84,7 @@ This is the complete (planned) feature list and current state
 |                                           | :x: Generate patch file (diff)                               |
 |                                           | :heavy_check_mark: JsonFile encapsulation (load/save)        |
 |                                           | :x: XML File encapsulation (load/save)                       |
+|                                           | :heavy_check_mark: YamlFile encapsulation (load)             |
 | Folders API                               | :heavy_check_mark: Create a folder                           |
 |                                           | :heavy_check_mark: Check if folder exists.                   |
 |                                           | :heavy_check_mark: Create folders from a list                |
@@ -108,7 +109,7 @@ This is the complete (planned) feature list and current state
 |                                           | :heavy_check_mark: Include other scripts from your own from filesystem (with auto search) |
 |                                           | :heavy_check_mark: Include other scripts from your own from HTTP source |
 | Tool execution                            | :heavy_check_mark: Execute a process (simple, fetching only exit code) |
-|                                           | :x: Execute a process using shell                            |
+|                                           | :heavy_check_mark: ​Execute a process using shell             |
 |                                           | :heavy_check_mark: Execute a process in sync way fetching all the results |
 |                                           | :heavy_check_mark: Execute a process in async way fetching all the results (in delegate) |
 |                                           | :heavy_check_mark: Add a process into a queue to be executed |

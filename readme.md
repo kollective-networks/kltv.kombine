@@ -62,7 +62,7 @@ You can take it from [here](https://github.com/kollective-networks/kltv.kombine/
 
 If you plan to debug your build scripts (yes, they can be debugged) you may require a Dotnet debugger. Refer to your IDE/environement about requirements to support debug the language (C#) and how to use it. Since there is a bug in the Dotnet debugger(s) that may impact you (regarding to debug a single file executable) we provide the unpacked versions as well so, if required, you can grab them here for [Windows](https://github.com/kollective-networks/kltv.kombine/releases/latest/download/kombine.debug.win.zip), [Linux](https://github.com/kollective-networks/kltv.kombine/releases/latest/download/kombine.debug.lnx.tar.gz) and [Mac OSX](https://github.com/kollective-networks/kltv.kombine/releases/latest/download/kombine.debug.osx.tar.gz)
 
-Anyway, If you use [Visual Studio Code](https://code.visualstudio.com), take a look into the .vscode folder in the project since you can check it there about the launch/debug configurations for C#.
+Take a look into the "examples.debug" project as an example about how to debug inside Visual Studio (is a makefile project that just launch the Kombine tool to execute the example scripts with the managed debugger attached)
 
 ## Usage
 
@@ -91,8 +91,8 @@ The tool is case sensitive. This is the output if you just execute "mkb". "mkb" 
    Indicates which script file we should execute (default kombine.csx)
 
 [action] Action to be executed. If not specified the default action is "khelp"
-         The action is used to specify which function in the script should be called after evaluation but
-         there are some reserved actions for the tool itself which cannot be used for the scripts:
+		 The action is used to specify which function in the script should be called after evaluation but
+		 there are some reserved actions for the tool itself which cannot be used for the scripts:
 
  kversion: Shows tool version and exit.
  khelp: Show this help and exit.
@@ -100,8 +100,8 @@ The tool is case sensitive. This is the output if you just execute "mkb". "mkb" 
  kcache: Manages the tool cache.
 
 [action parameters]
-         They are optional and belongs to the specified action. In case of scripts,they are passed to the
-         executed function as parameters. For example: mkb kcache help
+		 They are optional and belongs to the specified action. In case of scripts,they are passed to the
+		 executed function as parameters. For example: mkb kcache help
 ```
 
 The parameters are intended for the tool itself. It regulates if the script will include debug information (required to debug the script if you need to took that way), control the output and indicate which script the tool should execute (the default is "kombine.csx" in your current folder). 
@@ -113,6 +113,8 @@ The common is:
 - Normal will output only your messages in your script.
 - Verbose will output like normal but also information from the functions you call.
 - Debug as verbose but also debug information from the tool itself.
+
+The debug output from Kombine is not intended to debug your script, is to debug Kombine itself. You are free to pass any argument to your script and set your output accordingly to fit your requirements.
 
 Action is the function that will be executed in your script, check out on [Script Structure](#script-structure-and-execution)
 Anyway there are other actions that are reserved for the tool itself and they're builtin the tool like kconfig and kcache. The names with the "k" appended is just to avoid conflicts with your own actions so the action name "config" for example is free for you to be used.
@@ -164,7 +166,7 @@ The cache is intended to have its own garbage collection system, so, in any Komb
 We tried also to make it the simpler as posible, for example, to define a list:
 ```
 KList   src = "my item1";
-        src += "my item2"
+		src += "my item2"
 ```
 or
 ```
@@ -173,7 +175,7 @@ KList   src = new() { "item1", "item2" };
 And you can remove as well like:
 ```
 KList   src = new() { "item1", "item2" };
-        src -= "item2";
+		src -= "item2";
 ```
 This is particular useful for example when you deal with command line parameters and you need to add/remove them.
 
@@ -331,7 +333,7 @@ As a side note. Since you may share a complex object that maybe is defined as a 
 ```
 object? obj = Share.Get("ClangOptions");
    if (obj != null) {
-     ClangOptions? opt = Cast<ClangOptions>(obj);
+	 ClangOptions? opt = Cast<ClangOptions>(obj);
 ```
 
 ### Using Registry API
@@ -411,17 +413,20 @@ There is a kombine.csx in the example folder which can execute all the given exa
 
 The list of examples and what it test/demonstrates
 - simple: Just minimal and print some strings
+- base: Initial functions / check version & co
 - types: Operations with KValue & KList
 - child: Operations related to execute child scripts and Import/Export values and other sharing's.
 - folders: Operations related to deal with files, folders and compression.
 - clang: Example of building with clang using the provided extension (static lib, dynlib and binary)
 - sdl2: Example of building sdl2 using git to clone it from github.
 - network: Example fetching files from HTTP sources
+- msys2: Example about fetching packages from Msys2 repositories
 
 Since the spirit of Kombine is reuse as possible, some scripts to extend Kombine are provided as well in the "extensions" folder.
 
-- Clang.csx: Defines one class which encapsulates clang operations (Compile,Link,Librarian) 
-- Git.csx: Defines one class which encapsulates git operations (clone, checkout, fetch)
+- clang.csx: Defines one class which encapsulates clang operations (Compile,Link,Librarian) 
+- git.csx: Defines one class which encapsulates git operations (clone, checkout, fetch)
+- clang.doc.csx: Defines one class which encapsulates clang-doc and implements conversion to markdown files
 
 They are not superb and even not completed with all the possibilities but ready enough to do clones and builds
 

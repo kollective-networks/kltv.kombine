@@ -34,8 +34,8 @@
     <NMakePreprocessorDefinitions>_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
     <NMakeAssemblySearchPath>$(NMakeAssemblySearchPath)</NMakeAssemblySearchPath>
     <NMakeForcedUsingAssemblies>$(SolutionDir)out\bin\win-x64\debug\mkb.dll</NMakeForcedUsingAssemblies>
-    <OutDir>$(SolutionDir)out\temp</OutDir>
-    <IntDir>$(SolutionDir)out\temp</IntDir>
+    <OutDir>$(SolutionDir)out\tmp</OutDir>
+    <IntDir>$(SolutionDir)out\tmp</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>

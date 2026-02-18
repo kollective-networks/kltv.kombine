@@ -10,6 +10,8 @@
 // Use dotnet doc extension
 // 
 #load "dotnet.doc.csx"
+#load "github.csx"
+
 
 // Remember, this is just used for intellisense, nothing else
 #r "out/bin/win-x64/debug/mkb.dll"
@@ -24,6 +26,7 @@ int help(string[] args){
 	Msg.Print("Kombine Build & Publishing Script");
 	Msg.Print("");
 	Msg.Print("Usage: mkb publish (builds and create packages)");
+	Msg.Print("       mkb release (push the release to github)");
 	Msg.Print("       mkb build (just build for the current system in debug mode)");
 	Msg.Print("       mkb test (runs the unit tests)");
 	Msg.Print("");
@@ -50,7 +53,7 @@ int build(string[] args){
 // -p:EnableCompressionInSingleFile=true -p:PublishTrimmed=true
 
 /// <summary>
-/// Builds all the diferent packages for the tool
+/// Builds all the different packages for the tool
 /// </summary>
 /// <param name="args"></param>
 /// <returns></returns>
@@ -119,12 +122,56 @@ int publish(string[] args){
 	return 0;
 }
 
+//
+// Push the release to github, create the release and upload the packages
+//
+int release(string[] args) {
+
+	//
+	// Get the token from environment variable
+	// 
+	KValue token = KValue.Import("kltv_token");
+	//
+	// Get the version from the version.txt file
+	string version = Files.ReadTextFile("out/pkg/version.txt");
+	version = version.Trim();
+	if (version == "") {
+		Msg.PrintAndAbort("Version number not found in version.txt. Did you create the packages?");
+	}
+	string notes = GetReleaseNotes(version);
+
+	//
+	// Create the github instance and configure it
+	//
+	Github github = new Github();
+	github.Repository = "kltv.kombine";
+	github.Owner = "kollective-networks";
+	github.Token = token.ToString();
+	string releaseId = github.GetReleaseID(version);
+	if (releaseId == "") {
+		releaseId = github.CreateRelease(version,"Release " + version,GetReleaseNotes(version),true);
+	}
+	//
+	// TODO: Upload the packages as assets to the release
+	// This would require getting the release ID from the response, then POST to upload_url for each file
+	return 0;
+}
+
 private void ApplyVersionNumber(){
+	// Backup the version.cs file before modifying it
 	Files.Copy("src/version.cs","src/version.cs.bak");
+	// Read the version.cs file and extract the major and minor version numbers, then generate the build number and replace it in the file
 	string file = "src/version.cs";
 	string content = Files.ReadTextFile(file);
-	content = content.Replace("[BUILD]",GetVersionBuildNumber());
+	string major = ExtractBetween(content, "public static string Major = \"", "\";");
+	string minor = ExtractBetween(content, "public static string Minor = \"", "\";");
+	string build = GetVersionBuildNumber();
+	string version = major + "." + minor + "." + build;
+	content = content.Replace("[BUILD]",build);
 	Files.WriteTextFile(file,content);
+	// Create the output folder and save the version number in a text file for later use
+	Folders.Create("out/pkg/");
+	Files.WriteTextFile("out/pkg/version.txt",version);
 }
 
 private void RestoreVersionNumber(){
@@ -140,4 +187,24 @@ private string GetVersionBuildNumber() {
 	long bn = now - year;
 	string buildNumber = "24" + (bn / 60).ToString("D6");
 	return buildNumber;
+}
+
+private string ExtractBetween(string text, string start, string end) {
+	int startIndex = text.IndexOf(start);
+	if (startIndex == -1) return "";
+	startIndex += start.Length;
+	int endIndex = text.IndexOf(end, startIndex);
+	if (endIndex == -1) return "";
+	return text.Substring(startIndex, endIndex - startIndex);
+}
+
+private string GetReleaseNotes(string version) {
+	if (!Files.Exists("changelog.md")) return "";
+	string content = Files.ReadTextFile("changelog.md");
+	string start = "## [" + version + "]";
+	int startIndex = content.IndexOf(start);
+	if (startIndex == -1) return "";
+	int endIndex = content.IndexOf("## [", startIndex + start.Length);
+	if (endIndex == -1) endIndex = content.Length;
+	return content.Substring(startIndex, endIndex - startIndex).Trim();
 }

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36804.6 d17.14
+VisualStudioVersion = 17.14.36804.6
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "kombine", "src\kombine.csproj", "{D31530F1-A7BE-87FD-3B40-74A4D0A0459F}"
 EndProject
@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.files", "kombine.files", "{023F2A35-568E-4A08-B082-F84787784B05}"
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
+		changelog.md = changelog.md
 		kombine.csx = kombine.csx
 		license.md = license.md
 		readme.md = readme.md
@@ -26,10 +27,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.doc", "kombine.doc"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.extensions", "kombine.extensions", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 	ProjectSection(SolutionItems) = preProject
+		extensions\bin2cpp.csx = extensions\bin2cpp.csx
+		extensions\bin2obj.csx = extensions\bin2obj.csx
 		extensions\clang.csx = extensions\clang.csx
 		extensions\clang.doc.csx = extensions\clang.doc.csx
 		extensions\dotnet.doc.csx = extensions\dotnet.doc.csx
 		extensions\git.csx = extensions\git.csx
+		extensions\github.csx = extensions\github.csx
 	EndProjectSection
 EndProject
 Global

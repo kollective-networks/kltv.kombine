@@ -400,10 +400,11 @@ Returns: The number of cores.
 # T:Kltv.Kombine.Api.Http
  Http Methods API 
 
-##### M:Kltv.Kombine.Api.Http.DownloadFile(System.String,System.String,System.Boolean)
+##### M:Kltv.Kombine.Api.Http.DownloadFile(System.String,System.String,System.Collections.Generic.Dictionary{System.String,System.String},System.Boolean)
  Downloads a file from the given uri to the given path 
 - uri: The uri for the file to be downloaded<br>
 - path: The resulting path for the file.<br>
+- headers: Optional dictionary of headers to inject in the request<br>
 - showprogress: If true, a progress bar will be shown<br>
 Returns: True if file was downloaded, false otherwise.
 
@@ -416,10 +417,36 @@ Returns: True if file was downloaded, false otherwise.
 Returns: True if all files download fine, false otherwise.
 
 
-##### M:Kltv.Kombine.Api.Http.GetDocument(System.String)
+##### M:Kltv.Kombine.Api.Http.GetDocument(System.String,System.Collections.Generic.Dictionary{System.String,System.String})
  Gets the document from the given uri 
 - uri: Uri for the document to be retrieved<br>
+- headers: Optional dictionary of headers to inject in the request<br>
 Returns: The string with the document or empty
+
+
+##### M:Kltv.Kombine.Api.Http.PostDocument(System.String,System.String,System.Collections.Generic.Dictionary{System.String,System.String},System.Boolean)
+ Post or patch a document to the given uri 
+- uri: Uri for the document to be posted or patched<br>
+- content: The content to be posted or patched<br>
+- headers: Optional dictionary of headers to inject in the request<br>
+- usePatch: If true, use PATCH method; otherwise, use POST<br>
+Returns: True if the document was sent successfully, false otherwise.
+
+
+##### M:Kltv.Kombine.Api.Http.PostFile(System.String,System.String,System.Collections.Generic.Dictionary{System.String,System.String},System.Boolean)
+ Post or patch a file to the given uri 
+- uri: Uri for the file to be posted or patched<br>
+- filePath: The path to the file to be posted or patched<br>
+- headers: Optional dictionary of headers to inject in the request<br>
+- usePatch: If true, use PATCH method; otherwise, use POST<br>
+Returns: True if the file was sent successfully, false otherwise.
+
+
+##### M:Kltv.Kombine.Api.Http.DeleteDocument(System.String,System.Collections.Generic.Dictionary{System.String,System.String})
+ Deletes a document from the given uri 
+- uri: Uri for the document to be deleted<br>
+- headers: Optional dictionary of headers to inject in the request<br>
+Returns: True if the document was deleted successfully, false otherwise.
 
 
 ##### F:Kltv.Kombine.Api.Http.bar

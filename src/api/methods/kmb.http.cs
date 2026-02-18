@@ -7,6 +7,7 @@
 ---------------------------------------------------------------------------------------------------------*/
 
 using System.Net;
+using System.Net.Http.Headers;
 
 namespace Kltv.Kombine.Api {
 
@@ -20,17 +21,17 @@ namespace Kltv.Kombine.Api {
 		/// </summary>
 		/// <param name="uri">The uri for the file to be downloaded</param>
 		/// <param name="path">The resulting path for the file.</param>
+		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
 		/// <param name="showprogress">If true, a progress bar will be shown</param>
 		/// <returns>True if file was downloaded, false otherwise.</returns>
-		public static bool DownloadFile(string uri,string path,bool showprogress = true) {
+		public static bool DownloadFile(string uri, string path, Dictionary<string, string>? headers = null, bool showprogress = true) {
 			Msg.Print("Download started: "+uri);
 			HttpClient client = new HttpClient();
-			
-			// TODO: Credentials. User agent, headers,etc.
-			// Credentials should be taken from config, never from the script as parameter
-			// This way we decouple what is the script from the configuration
-			// [...]
-
+			if (headers != null) {
+				foreach (var header in headers) {
+					client.DefaultRequestHeaders.Add(header.Key, header.Value);
+				}
+			}
 			// Create download folder if does not exists
 			string? npath = Path.GetDirectoryName(path);
 			if (npath != null){
@@ -135,10 +136,15 @@ namespace Kltv.Kombine.Api {
 		/// Gets the document from the given uri
 		/// </summary>
 		/// <param name="uri">Uri for the document to be retrieved</param>
+		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
 		/// <returns>The string with the document or empty</returns>
-		public static string GetDocument(string uri){
+		public static string GetDocument(string uri, Dictionary<string, string>? headers = null){
 			HttpClient client = new HttpClient();
-			
+			if (headers != null) {
+				foreach (var header in headers) {
+					client.DefaultRequestHeaders.Add(header.Key, header.Value);
+				}
+			}
 			try{
 				Task<HttpResponseMessage> result = client.GetAsync(uri);
 				result.Result.EnsureSuccessStatusCode();
@@ -155,6 +161,123 @@ namespace Kltv.Kombine.Api {
 			}
 			return string.Empty;
 		}
+
+		/// <summary>
+		/// Post or patch a document to the given uri
+		/// </summary>
+		/// <param name="uri">Uri for the document to be posted or patched</param>
+		/// <param name="content">The content to be posted or patched</param>
+		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
+		/// <param name="usePatch">If true, use PATCH method; otherwise, use POST</param>
+		/// <returns>True if the document was sent successfully, false otherwise.</returns>
+		public static bool PostDocument(string uri, string content, Dictionary<string, string>? headers = null, bool usePatch = false) {
+			HttpClient client = new HttpClient();
+			string contentType = "application/json"; // Default for JSON
+			if (headers != null) {
+				foreach (var header in headers) {
+					if (header.Key.ToLower() == "content-type") {
+						contentType = header.Value;
+					} else {
+						client.DefaultRequestHeaders.Add(header.Key, header.Value);
+					}
+				}
+			}
+			try {
+				var httpContent = new StringContent(content);
+				httpContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+				Task<HttpResponseMessage> result;
+				if (usePatch) {
+					var request = new HttpRequestMessage(HttpMethod.Patch, uri) { Content = httpContent };
+					result = client.SendAsync(request);
+				} else {
+					result = client.PostAsync(uri, httpContent);
+				}
+				result.Wait();
+				// Fetch the response content to ensure the request is fully completed before checking the status code
+				Task<string> response = result.Result.Content.ReadAsStringAsync();
+				response.Wait();
+				if (result.Result.IsSuccessStatusCode) {
+					return true;
+				}
+				Msg.PrintErrorMod("Error sending document: " + result.Result.StatusCode, ".http", Msg.LogLevels.Verbose);
+			} catch (Exception e) {
+				Msg.PrintErrorMod("Error sending document: " + e.Message, ".http", Msg.LogLevels.Verbose);
+				return false;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Post or patch a file to the given uri
+		/// </summary>
+		/// <param name="uri">Uri for the file to be posted or patched</param>
+		/// <param name="filePath">The path to the file to be posted or patched</param>
+		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
+		/// <param name="usePatch">If true, use PATCH method; otherwise, use POST</param>
+		/// <returns>True if the file was sent successfully, false otherwise.</returns>
+		public static bool PostFile(string uri, string filePath, Dictionary<string, string>? headers = null, bool usePatch = false) {
+			HttpClient client = new HttpClient();
+			if (headers != null) {
+				foreach (var header in headers) {
+					if (header.Key.ToLower() != "content-type") { // Filter out Content-Type for multipart
+						client.DefaultRequestHeaders.Add(header.Key, header.Value);
+					}
+				}
+			}
+			try {
+				using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read)) {
+					var content = new StreamContent(fileStream);
+					content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+					var formData = new MultipartFormDataContent();
+					formData.Add(content, "file", Path.GetFileName(filePath));
+					Task<HttpResponseMessage> result;
+					if (usePatch) {
+						var request = new HttpRequestMessage(HttpMethod.Patch, uri) { Content = formData };
+						result = client.SendAsync(request);
+					} else {
+						result = client.PostAsync(uri, formData);
+					}
+					result.Wait();
+					if (result.Result.IsSuccessStatusCode) {
+						return true;
+					}
+					Msg.PrintErrorMod("Error sending file: " + result.Result.StatusCode, ".http", Msg.LogLevels.Verbose);
+				}
+			} catch (Exception e) {
+				Msg.PrintErrorMod("Error sending file: " + e.Message, ".http", Msg.LogLevels.Verbose);
+				return false;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Deletes a document from the given uri
+		/// </summary>
+		/// <param name="uri">Uri for the document to be deleted</param>
+		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
+		/// <returns>True if the document was deleted successfully, false otherwise.</returns>
+		public static bool DeleteDocument(string uri, Dictionary<string, string>? headers = null) {
+			HttpClient client = new HttpClient();
+			if (headers != null) {
+				foreach (var header in headers) {
+					client.DefaultRequestHeaders.Add(header.Key, header.Value);
+				}
+			}
+			try {
+				Task<HttpResponseMessage> result = client.DeleteAsync(uri);
+				result.Wait();
+				if (result.Result.IsSuccessStatusCode) {
+					return true;
+				}
+				Msg.PrintErrorMod("Error deleting document: " + result.Result.StatusCode, ".http", Msg.LogLevels.Verbose);
+			} catch (Exception e) {
+				Msg.PrintErrorMod("Error deleting document: " + e.Message, ".http", Msg.LogLevels.Verbose);
+				return false;
+			}
+			return false;
+		}
+
+
 
 		/// <summary>
 		/// A progress bar instance to show download progress

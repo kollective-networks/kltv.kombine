@@ -134,13 +134,13 @@ This is the complete (planned) feature list and current state
 |                                           | :heavy_check_mark: Uncompress a tar.xz file                  |
 | Network API                               | :heavy_check_mark: Download a file from HTTP source (GET)    |
 |                                           | :heavy_check_mark: Download multiple files from HTTP sources (GET) |
-|                                           | :x: Upload a file to HTTP destination (POST/PUT/PATCH)       |
+|                                           | :heavy_check_mark: Upload a file to HTTP destination (POST/PUT/PATCH)       |
 |                                           | :x: Upload multiple files to HTTP destination (POST/PUT/PATCH) |
 |                                           | :heavy_check_mark: Get resource from HTTP source (GET)       |
-|                                           | :x: Post resource to HTTP destination (POST)                 |
-|                                           | :x: Delete a file from HTTP destination (DELETE)             |
+|                                           | :heavy_check_mark: Post/Patch resource to HTTP destination (POST)                 |
+|                                           | :heavy_check_mark: Delete a document from HTTP destination (DELETE)             |
 |                                           | :x: Support credentials injection from configuration         |
-|                                           | :x: Support configuration of headers                         |
+|                                           | :heavy_check_mark: Support configuration of headers (Valid for credentials also)                       |
 | Tool Configuration                        | :x: Allow configure credentials to be used in networking     |
 |                                           | :x: Allow configure default output for the tool              |
 |                                           | :x: Allow Configure default log level for the tool           |

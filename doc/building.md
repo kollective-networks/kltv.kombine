@@ -16,8 +16,6 @@ You can gran your copy from [here at Microsoft](https://dotnet.microsoft.com/en-
 
 Anything else is required since Kombine is only pure C# managed code.
 
-In the root of the repository a .vscode folder is present, so, if you use Visual Studio Code you can benefit from the tasks / launch we already have.
-
 Once you have cloned this repository and you have Dotnet 8 installed, build Kombine is easy as:
 ```dotnet build``` or ```dotnet build -r yourplatform here```
 We provided a *"directory.build.props"* file so everything from build is stored into an "out" folder with the following structure:
@@ -34,6 +32,11 @@ out/bin/win-64/release
 
 By default it will build the debug configuration, you can pass -c Release to build the release one to the Dotnet command line. By default it will build with the OS you're using but you can pass the -r your-runtime to specify which target OS you want to generate.
 
+Also you can use the provided Kombine script to build the project, just execute ```kombine build``` which is just a wrapper on top of dotnet build.
+
+Usage of Visual Studio (a solution is provided) is encouraged if you want to modify the code, but you can use any other IDE or just a text editor and command line.
+
+
 ## Generating the packages
 
 For this case we use Kombine. There is one Kombine script in the root of the repository which supports two actions:
@@ -47,6 +50,10 @@ All the packages are dropped into /out/pkg/
 Version build number is generated automatically.
 
 The publish action generates the configuration and updates the doc/api.md file with the latest's changes using an xml to markdown extension which is on the scripts folder (pretty simple and ugly yet)
+
+If you want to publish the packages on github you can use the action "release" which is just a wrapper on top of "publish" and then it will use the generated packages to create a new release on github with the corresponding assets.
+You must provide the GITHUB_TOKEN secret in order to use that action, you can generate it from your github account with the corresponding permissions to create releases.
+The token must be placed in the "kltv_token" environment variable
 
 ## Source code structure
 

@@ -36,8 +36,14 @@
     <NMakeForcedUsingAssemblies>$(SolutionDir)out\bin\win-x64\debug\mkb.dll</NMakeForcedUsingAssemblies>
     <OutDir>$(SolutionDir)out\tmp</OutDir>
     <IntDir>$(SolutionDir)out\tmp</IntDir>
+    <NMakeBuildCommandLine>mkb kversion</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>mkb kversion</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>mkb kversion</NMakeCleanCommandLine>
   </PropertyGroup>
-  <ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <NMakeCompile>
+      <NMakeCompileFileCommandLine>mkb kversion</NMakeCompileFileCommandLine>
+    </NMakeCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="..\examples\kombine.csx" />

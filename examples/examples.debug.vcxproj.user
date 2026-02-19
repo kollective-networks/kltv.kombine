@@ -5,7 +5,7 @@
     <LocalDebuggerWorkingDirectory>$(SolutionDir)\examples</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerDebuggerType>ManagedCore</LocalDebuggerDebuggerType>
-    <LocalDebuggerCommandArguments>-kfile:../kombine.csx -ksrb -ksdbg release</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-kfile:../kombine.csx -ksrb -ksdbg publish</LocalDebuggerCommandArguments>
     <LocalDebuggerCommandArgumentsHistory>help|-ksrb -ksdbg help|-ksrb -ksdbg test|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup>

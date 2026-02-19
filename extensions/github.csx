@@ -4,17 +4,14 @@
 
 	Implements some helper functions to interact with github repositories, such as publish releases
 
-	(C) Kollective Networks 2022
+	(C) Kollective Networks 2026
 
 ---------------------------------------------------------------------------------------------------------*/
-
-using Kltv.Kombine.Api;
 
 using System;
 using System.Text.Json;
 using System.Collections.Generic;
-
-
+using Kltv.Kombine.Api;
 
 /// <summary>
 /// Helper class to interact with GitHub repositories. It provides functions to create releases, upload assets, and check if a release already exists.

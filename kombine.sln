@@ -34,6 +34,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.extensions", "kombi
 		extensions\dotnet.doc.csx = extensions\dotnet.doc.csx
 		extensions\git.csx = extensions\git.csx
 		extensions\github.csx = extensions\github.csx
+		extensions\modder.csx = extensions\modder.csx
 	EndProjectSection
 EndProject
 Global

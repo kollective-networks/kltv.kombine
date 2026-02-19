@@ -2,7 +2,10 @@
 
 	Kombine Clang Extension Example
 
-	(C) Kollective Networks 2022
+	Implements a simple wrapper over the clang compiler to be used in the Kombine Tool. 
+	It provides functions to compile, link and create static libraries using clang.
+
+	(C) Kollective Networks 2026
 
 ---------------------------------------------------------------------------------------------------------*/
 
@@ -136,22 +139,22 @@ public class Clang {
 		public bool Verbose { get; set; } = false;
 
 		/// <summary>
-		/// Contains the recomended static library extension for the current platform
+		/// Contains the recommended static library extension for the current platform
 		/// </summary>
 		public string LibExtension { get; private set; } = ".a";
 
 		/// <summary>
-		/// Contains the recomended shared library extension for the current platform
+		/// Contains the recommended shared library extension for the current platform
 		/// </summary>
 		public string SharedExtension { get; private set; } = ".so";
 
 		/// <summary>
-		/// Contains the recomended binary extension for the current platform
+		/// Contains the recommended binary extension for the current platform
 		/// </summary>
 		public string BinaryExtension { get; private set; } = ".out";
 
 		/// <summary>
-		/// Contains the recomended object extension for the current platform
+		/// Contains the recommended object extension for the current platform
 		/// </summary>
 		public string ObjectExtension { get; private set; } = ".o";
 
@@ -305,7 +308,7 @@ public class Clang {
 			} else if (src[a].HasExtension(Options.ResExtension)) {
 				// Note: We may use the same output extension for compiled resource files
 				// since is provided by the user and a ".res" extension is not required.
-				// All intermediates can be outputed as .obj / .o whatever
+				// All intermediates can be outputted as .obj / .o whatever
 				cmd = Options.RC;
 				args = srcf + " /FO " + objf;
 			} else {
@@ -563,7 +566,7 @@ public class Clang {
 
 	/// <summary>
 	/// Generic output for a task
-	/// This can be improved watching on the output to apply colors depending on warning or errors
+	/// This can be improved watching on the output to apply colours depending on warning or errors
 	/// </summary>
 	/// <param name="task">Task name to be printed.</param>
 	/// <param name="element">Element processed if any.</param>
@@ -752,7 +755,7 @@ public class Clang {
 	/// </summary>
 	/// <param name="cmd">command to be added.</param>
 	/// <param name="file">file which this command belongs.</param>
-	/// <param name="outputfile">outputfile for this command.</param>
+	/// <param name="outputfile">output file for this command.</param>
 	private void AddCompileCommands(string cmd,string file, string outputfile){
 		if (compdb == null)
 			return;

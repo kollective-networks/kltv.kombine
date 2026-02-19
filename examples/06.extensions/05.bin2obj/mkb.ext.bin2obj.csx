@@ -50,9 +50,12 @@ int build(string[] args) {
 		Msg.PrintError("Failed to generate amalgamation obj file.");
 		return 1;
 	}
-
 	Msg.Print("All obj files generated successfully. Clearing");
-	// Clean the generated files after the test
-	//Folders.Delete("obj",true);
+	return 0;
+}
+
+int clean(string[] args) {
+	Msg.Print("Cleaning generated obj files...");
+	Folders.Delete("obj",true);
 	return 0;
 }

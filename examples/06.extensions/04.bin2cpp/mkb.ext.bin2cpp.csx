@@ -50,9 +50,12 @@ int build(string[] args) {
 		Msg.PrintError("Failed to generate amalgamation cpp file.");
 		return 1;
 	}
-
-
 	Msg.Print("All cpp files generated successfully. Clearing");
-	//Folders.Delete("src",true);
+	return 0;
+}
+
+int clean(string[] args) {
+	Msg.Print("Cleaning generated cpp files...");
+	Folders.Delete("src",true);
 	return 0;
 }

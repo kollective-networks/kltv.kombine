@@ -5,6 +5,7 @@ out/
 
 # Ignore test generated files
 examples/06.extensions/04.bin2cpp/src/
+examples/06.extensions/04.bin2cpp/obj/
 examples/07.extras/00.sdl2/sdl.github/
 examples/07.extras/00.sdl2/out/
 examples/07.extras/01.msys2/openssl/

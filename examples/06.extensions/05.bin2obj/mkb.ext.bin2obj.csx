@@ -8,7 +8,7 @@
 	(C)Kollective Networks 2026
 
 ---------------------------------------------------------------------------------------------------------*/
-#load "extensions/bin2cpp.csx"
+#load "extensions/bin2obj.csx"
 
 // Remember, this is just used for intellisense, nothing else
 #r "../../../out/bin/win-x64/debug/mkb.dll"
@@ -21,22 +21,22 @@ using static Kltv.Kombine.Api.Tool;
 // Test the Bin2Cpp extension
 //
 int build(string[] args) {
-	Msg.Print("Starting Bin2cpp conversion...");
+	Msg.Print("Starting Bin2obj conversion...");
 
 
 	//
 	// Convert all .svg files in the res folder to .cpp files in the src folder, with the same name.
 	// For example, res/image.svg will be converted to src/image.cpp
 	//
-	Bin2cpp converter = new Bin2cpp();
+	Bin2obj converter = new Bin2obj();
 	KList binFiles = new KList();
 	binFiles = Glob("res/**/*.svg");
-	KList cppFiles = new KList();
-	cppFiles = binFiles.WithExtension(".cpp");
-	cppFiles = cppFiles.WithReplace("res/","src/");
+	KList objFiles = new KList();
+	objFiles = binFiles.WithExtension(".obj");
+	objFiles = objFiles.WithReplace("res/","obj/");
 
-	if (converter.Generate(binFiles, cppFiles) == false) {
-		Msg.PrintError("Failed to generate cpp files.");
+	if (converter.Generate(binFiles, objFiles) == false) {
+		Msg.PrintError("Failed to generate obj files.");
 		return 1;
 	}
 
@@ -45,14 +45,14 @@ int build(string[] args) {
 	// folder to a single cpp file in the src folder, 
 	//
 	KList allBinFiles = Glob("res/**/*.svg");
-	KValue amalgamation = "src/amalgamation.cpp";
+	KValue amalgamation = "obj/amalgamation.obj";
 	if (converter.Generate(allBinFiles, amalgamation) == false) {
-		Msg.PrintError("Failed to generate amalgamation cpp file.");
+		Msg.PrintError("Failed to generate amalgamation obj file.");
 		return 1;
 	}
 
-
-	Msg.Print("All cpp files generated successfully. Clearing");
-	//Folders.Delete("src",true);
+	Msg.Print("All obj files generated successfully. Clearing");
+	// Clean the generated files after the test
+	//Folders.Delete("obj",true);
 	return 0;
 }

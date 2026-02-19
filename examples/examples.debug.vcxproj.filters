@@ -27,5 +27,15 @@
     <None Include="06.extensions\04.bin2cpp\res\arrow.up.svg" />
     <None Include="06.extensions\04.bin2cpp\res\folders\folder-close.svg" />
     <None Include="06.extensions\04.bin2cpp\res\folders\folder-open.svg" />
+    <None Include="04.folders\mkb.folders.csx" />
+    <None Include="04.folders\test.files\test.tar.xz" />
+    <None Include="05.network\mkb.network.csx" />
+    <None Include="06.extensions\05.bin2obj\mkb.ext.bin2obj.csx" />
+    <None Include="06.extensions\05.bin2obj\res\arrow.down.svg" />
+    <None Include="06.extensions\05.bin2obj\res\arrow.left.svg" />
+    <None Include="06.extensions\05.bin2obj\res\arrow.right.svg" />
+    <None Include="06.extensions\05.bin2obj\res\arrow.up.svg" />
+    <None Include="06.extensions\05.bin2obj\res\folders\folder-close.svg" />
+    <None Include="06.extensions\05.bin2obj\res\folders\folder-open.svg" />
   </ItemGroup>
 </Project>

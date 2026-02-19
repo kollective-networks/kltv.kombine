@@ -68,10 +68,14 @@ int extensions(string[] args){
 	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "build", args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
+	Msg.Print("Testing: Bin2obj");
+	Kombine("06.extensions/05.bin2obj/mkb.ext.bin2obj.csx", "build", args);
+	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
 	Msg.Print("Testing: clang");
 	Kombine("06.extensions/00.clang/clang.build.csx", "build", args);
-	Kombine("06.extensions/00.clang/clang.build.csx", "clean", args);
-	Kombine("06.extensions/00.clang/clang.build.csx", "help", args);
+	//Kombine("06.extensions/00.clang/clang.build.csx", "clean", args);
+	//Kombine("06.extensions/00.clang/clang.build.csx", "help", args);
 	
 	
 	//Kombine("clang/clang.gendoc.csx", "doc", args);

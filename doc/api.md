@@ -400,6 +400,12 @@ Returns: The number of cores.
 # T:Kltv.Kombine.Api.Http
  Http Methods API 
 
+##### P:Kltv.Kombine.Api.Http.LastReturnCode
+ Contains the last return code for the last transaction 
+
+##### P:Kltv.Kombine.Api.Http.LastResponse
+ Contains the last return response for the last transaction 
+
 ##### M:Kltv.Kombine.Api.Http.DownloadFile(System.String,System.String,System.Collections.Generic.Dictionary{System.String,System.String},System.Boolean)
  Downloads a file from the given uri to the given path 
 - uri: The uri for the file to be downloaded<br>
@@ -409,10 +415,11 @@ Returns: The number of cores.
 Returns: True if file was downloaded, false otherwise.
 
 
-##### M:Kltv.Kombine.Api.Http.DownloadFiles(System.String[],System.String[],System.Boolean)
+##### M:Kltv.Kombine.Api.Http.DownloadFiles(System.String[],System.String[],System.Collections.Generic.Dictionary{System.String,System.String},System.Boolean)
  Download multiple files from the given uris to the given paths 
 - uris: Arrays of uris to be used<br>
 - paths: Array of paths+filenames to be used<br>
+- headers: Optional dictionary of headers to inject in the request<br>
 - showprogress: If the progress should be show, default true.<br>
 Returns: True if all files download fine, false otherwise.
 
@@ -816,6 +823,11 @@ Returns: A new created object of the new type or null if invalid.
 ##### M:Kltv.Kombine.Api.Statics.MkbVersion
  Retuns the Kombine version string. 
 Returns: The string in dot formated
+
+
+##### M:Kltv.Kombine.Api.Statics.MkbVersionShort
+ Returns the major and minor version numbers of the application as a string in the format "Major.Minor". 
+Returns: A string representing the application's major and minor version numbers, separated by a period. For example, "2.5".
 
 
 ##### M:Kltv.Kombine.Api.Statics.MkbMajorVersion
@@ -1377,6 +1389,9 @@ Returns: True if ready. False it should be rebuilt.
 ##### P:Kltv.Kombine.KombineState.SharedObjects
  Shared objects for the script 
 
+##### P:Kltv.Kombine.KombineState.FileDependencies
+ File dependencies for the script with filename and modification date. This is used to build the DAG of dependencies and trigger rebuilds if something changed. 
+
 ##### P:Kltv.Kombine.KombineState.Data
  Return the data object which belongs to this state. 
 
@@ -1392,11 +1407,14 @@ Returns: True if ready. False it should be rebuilt.
 ##### F:Kltv.Kombine.KombineState.StateFile.ScriptModifiedTime
  Script modification time in EPOCH 
 
+##### F:Kltv.Kombine.KombineState.StateFile.SourceDependencies
+ Array of file dependencies with filename and modification date 
+
 ##### F:Kltv.Kombine.KombineState.StateFile.BuildWithDebug
  If the script was built with debug information 
 
 ##### F:Kltv.Kombine.KombineState.StateFile.CompiledScript
- Bynary blob holding the compiled script assembly 
+ Binary blob holding the compiled script assembly 
 
 ##### F:Kltv.Kombine.KombineState.StateFile.CompiledScriptPDB
  Binary blob holding the compiled script debug information (if any) 

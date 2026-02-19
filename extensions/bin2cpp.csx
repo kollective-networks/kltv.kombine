@@ -87,7 +87,7 @@ public class Bin2cpp {
 					writer.WriteLine();
 					writer.WriteLine("};");
 					writer.WriteLine();
-					writer.WriteLine($"const size_t {varName}_size = sizeof({Path.GetFileNameWithoutExtension(cppFile)});");
+					writer.WriteLine($"const size_t {varName}_size = {data.Length};");
 				}
 				Msg.PrintTaskSuccess(" Generated successfully.");
 			} catch (Exception ex) {
@@ -167,7 +167,7 @@ public class Bin2cpp {
 					writer.WriteLine();
 					writer.WriteLine("};");
 					writer.WriteLine();
-					writer.WriteLine($"const size_t {arrayName}_size = sizeof({arrayName});");
+					writer.WriteLine($"const size_t {arrayName}_size = {data.Length};");
 					writer.WriteLine();
 				}
 			}

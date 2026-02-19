@@ -10,6 +10,7 @@
 
 using Kltv.Kombine.Api;
 using System.Collections.Generic;
+using System.Text.Json;
 
 /// <summary>
 /// Helper class to interact with GitHub repositories. It provides functions to create releases, upload assets, and check if a release already exists.
@@ -43,11 +44,20 @@ public class Github {
 	/// </summary>
 	public string Token { get; set; }
 
+
+	/// <summary>
+	/// Returns the release ID for a given tag if the release already exists on GitHub. 
+	/// If the release does not exist, it returns an empty string.
+	/// </summary>
+	/// <param name="tag">Tag to query for</param>
+	/// <returns>The release id or empty if failed or does not exists</returns>
 	public string GetReleaseID(string tag) {
 		//
 		// Check if the release already exists on github, if it does, abort
 		string apiUrl = "https://api.github.com/repos/" + this.Owner + "/" + this.Repository + "/releases/tags/" + tag;
-		Dictionary<string, string> headers = new Dictionary<string, string>();
+		Dictionary<string, string> headers = new Dictionary<string, string> {
+			{"User-Agent", "KombineBuildEngine/" + GetVersion()}
+		};
 		if (!string.IsNullOrEmpty(this.Token)) {
 			headers.Add("Authorization", "token " + this.Token);
 		}
@@ -66,6 +76,15 @@ public class Github {
 		return "";
 	}
 
+	/// <summary>
+	/// Creates a new release on GitHub for the specified tag. If the release already exists, it returns the existing release ID.
+	/// The release is created as a draft by default, and the notes are used as the release body.
+	/// </summary>
+	/// <param name="tag">The tag name for the release (e.g., "v1.0.0").</param>
+	/// <param name="name">The name of the release.</param>
+	/// <param name="notes">The body or description of the release, which can include markdown.</param>
+	/// <param name="draft">Whether to create the release as a draft (default is true).</param>
+	/// <returns>The release ID if successful, or an empty string if failed.</returns>
 	public string CreateRelease(string tag, string name, string notes, bool draft = true) {
 		//
 		// Check if the release already exists
@@ -76,29 +95,102 @@ public class Github {
 		//
 		// Create the release on GitHub
 		string apiUrl = "https://api.github.com/repos/" + this.Owner + "/" + this.Repository + "/releases";
-		string json = "{\"tag_name\":\"" + tag + "\",\"name\":\"" + name + "\",\"body\":\"" + notes.Replace("\"", "\\\"").Replace("\n", "\\n") + "\",\"draft\":" + draft.ToString().ToLower() + "}";
+		var releaseData = new { tag_name = tag, name = name, body = notes, draft = draft };
+		string json = JsonSerializer.Serialize(releaseData);
 		Dictionary<string, string> headers = new Dictionary<string, string> {
 			{"Accept","application/vnd.github+json" },
 			{"Authorization", "Bearer " + this.Token},
 			{"X-GitHub-Api-Version", "2022-11-28" },
-			{"User-Agent", "KombineBuildEngine"   }
+			{"User-Agent", "KombineBuildEngine/" + GetVersion()   }
 		};
 		bool success = Http.PostDocument(apiUrl, json, headers);
 		if (!success) {
-			Msg.PrintError("Failed to create release on GitHub.");
+			Msg.PrintError($"Failed to create release {tag} on GitHub.");
+			return "";
+		}
+		// Check the status code to ensure the release was created successfully (201 Created)
+		if (Http.LastReturnCode != 201) {
+			Msg.PrintError($"Failed to create release {tag} on GitHub. Status code: " + Http.LastReturnCode);
 			return "";
 		}
 		//
-		// Get the release ID from the response (assuming PostDocument returns the response, but wait, it returns bool)
-		// Actually, Http.PostDocument returns bool, not the response. We need to modify or use a different approach.
-		// For now, after creation, call GetReleaseID to get the ID.
-		string releaseId = GetReleaseID(tag);
-		if (releaseId == "") {
-			Msg.PrintError("Failed to retrieve release ID after creation.");
+		// Parse the response from Http.LastResponse to get the release ID
+		try {
+			var jsonResponse = JsonDocument.Parse(Http.LastResponse);
+			string releaseId = jsonResponse.RootElement.GetProperty("id").GetInt32().ToString();
+			Msg.Print($"Release {tag} created successfully with ID: " + releaseId);
+			return releaseId;
+		} catch (Exception ex) {
+			Msg.PrintError("Failed to parse release ID from response: " + ex.Message);
 			return "";
 		}
-		Msg.Print("Release created successfully with ID: " + releaseId);
-		return releaseId;
 	}
 
+	/// <summary>
+	/// Uploads an array of files as assets to the specified GitHub release.
+	/// </summary>
+	/// <param name="releaseId">The ID of the release to upload assets to.</param>
+	/// <param name="filePaths">Array of file paths to upload as assets.</param>
+	/// <returns>True if all files were uploaded successfully, false otherwise.</returns>
+	public bool UploadAssets(string releaseId, string[] filePaths) {
+		foreach (string filePath in filePaths) {
+			if (!System.IO.File.Exists(filePath)) {
+				Msg.PrintError("File does not exist: " + filePath);
+				return false;
+			}
+			string fileName = System.IO.Path.GetFileName(filePath);
+			string uploadUrl = "https://uploads.github.com/repos/" + this.Owner + "/" + this.Repository + "/releases/" + releaseId + "/assets?name=" + Uri.EscapeDataString(fileName);
+			Dictionary<string, string> headers = new Dictionary<string, string> {
+				{"Authorization", "Bearer " + this.Token},
+				{"Content-Type", "application/octet-stream"},
+				{"User-Agent", "KombineBuildEngine/" + GetVersion()   }
+			};
+			bool success = Http.PostFile(uploadUrl, filePath, headers);
+			if (!success || Http.LastReturnCode != 201) {
+				Msg.PrintError("Failed to upload asset: " + fileName + ". Status code: " + Http.LastReturnCode);
+				return false;
+			}
+			Msg.Print("Asset uploaded successfully: " + fileName);
+		}
+		return true;
+	}
+
+	/// <summary>
+	/// Publishes a draft release by setting it to non-draft and making it the latest release.
+	/// </summary>
+	/// <param name="releaseId">The ID of the release to publish.</param>
+	/// <returns>True if the release was published successfully, false otherwise.</returns>
+	public bool PublishRelease(string releaseId) {
+		//
+		// Update the release to publish it
+		string apiUrl = "https://api.github.com/repos/" + this.Owner + "/" + this.Repository + "/releases/" + releaseId;
+		var updateData = new { draft = false, make_latest = "true" };
+		string json = JsonSerializer.Serialize(updateData);
+		Dictionary<string, string> headers = new Dictionary<string, string> {
+			{"Accept","application/vnd.github+json" },
+			{"Authorization", "Bearer " + this.Token},
+			{"X-GitHub-Api-Version", "2022-11-28" },
+			{"User-Agent", "KombineBuildEngine/" + GetVersion()   }
+		};
+		bool success = Http.PostDocument(apiUrl, json, headers, usePatch: true);
+		if (!success) {
+			Msg.PrintError("Failed to publish release " + releaseId + " on GitHub.");
+			return false;
+		}
+		// Check the status code to ensure the release was updated successfully (200 OK)
+		if (Http.LastReturnCode != 200) {
+			Msg.PrintError("Failed to publish release " + releaseId + " on GitHub. Status code: " + Http.LastReturnCode);
+			return false;
+		}
+		Msg.Print("Release " + releaseId + " published successfully.");
+		return true;
+	}
+
+	/// <summary>
+	/// Gets the major.minor version from Kombine statics
+	/// </summary>
+	/// <returns>The version string</returns>
+	private string GetVersion() {
+		return MkbVersionShort();
+	}
 }

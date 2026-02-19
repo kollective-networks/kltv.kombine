@@ -110,8 +110,14 @@ namespace Kltv.Kombine {
 				//
 				//
 				string? resolvedPath = Folders.ResolveFilename(path);
-				if (resolvedPath != null)
+				if (resolvedPath != null) {
+					// Save the dependency in the state
+					//
+					// Get the modification time of the dependency file
+					long modTime = File.GetLastWriteTimeUtc(resolvedPath).ToBinary();
+					KombineMain.CurrentRunningScript?.State.FileDependencies.Add(resolvedPath,modTime);
 					return resolvedPath;
+				}
 				Msg.PrintMod("ResolveReference: Could not resolve "+path, ".exec.script.sourceresolver", Msg.LogLevels.Debug);
 				return null;
 			}

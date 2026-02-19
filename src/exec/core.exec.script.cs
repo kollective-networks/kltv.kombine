@@ -214,8 +214,8 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				Msg.PrintErrorMod("Something wrong happened loading the compiled script into memory. Aborting.", ".exec.script");
 				return -1;
 			}
-			// Fetch the entrypoint
-			// We use the script class (defined in compilation step with the scriptname pluss _class sufix)
+			// Fetch the entry point
+			// We use the script class (defined in compilation step with the script name plus _class suffix)
 			// 
 			Msg.PrintMod("Fetching the entrypoint.", ".exec.script", Msg.LogLevels.Debug);
 			Type? ScriptClass = assembly.ExportedTypes.FirstOrDefault(x => x.Name == ClassName); 

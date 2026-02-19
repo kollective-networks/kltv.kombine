@@ -99,6 +99,11 @@ namespace Kltv.Kombine {
 			// Fetch file time from the script and save it to serialize
 			//
 			stateFile.ScriptModifiedTime = File.GetLastWriteTimeUtc(scriptfilename).ToBinary();
+			//
+			// Set the file dependencies with their modification times to build the DAG and trigger rebuilds if something changed
+			//
+			stateFile.SourceDependencies = FileDependencies.Keys.ToArray();
+			stateFile.SourceDependenciesTime = FileDependencies.Values.ToArray();
 			// Save the compiled script bytes into the struct
 			//
 			byte[] result = BinaryPack.BinaryConverter.Serialize(stateFile);
@@ -118,7 +123,12 @@ namespace Kltv.Kombine {
 				Msg.PrintWarningMod("State file could not be loaded. Deleting state.",".exec.state",Msg.LogLevels.Normal);
 				return false;
 			}
-			stateFile = BinaryPack.BinaryConverter.Deserialize<StateFile>(result);
+			try {
+				stateFile = BinaryPack.BinaryConverter.Deserialize<StateFile>(result);
+			} catch (Exception ex) {
+				Msg.PrintErrorMod("State file is corrupted. Deleting state. Exception: " + ex.Message, ".exec.state", Msg.LogLevels.Normal);
+				return false;
+			}
 			Msg.PrintMod("Loaded cached state file.", ".exec.state", Msg.LogLevels.Debug);
 			// Check the version because maybe the script was cached but for a previous Kombine version
 			// and that could trigger errors.
@@ -129,6 +139,25 @@ namespace Kltv.Kombine {
 			if (stateFile.Version != KombineMain.Version.Major + "." + KombineMain.Version.Minor + "." + KombineMain.Version.Build) {
 				Msg.PrintWarningMod("State file version is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
 				return false;
+			}
+			//
+			// Check if the file dependencies are still valid. If something changed we need to rebuild.
+			//
+			foreach (string f in stateFile.SourceDependencies) {
+				if (!File.Exists(f)) {
+					Msg.PrintWarningMod("State file dependency " + f + " does not exist anymore. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+					return false;
+				}
+				long t = File.GetLastWriteTimeUtc(f).ToBinary();
+				int idx = Array.IndexOf(stateFile.SourceDependencies, f);
+				if (idx < 0 || idx >= stateFile.SourceDependenciesTime.Length) {
+					Msg.PrintWarningMod("State file dependency " + f + " is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+					return false;
+				}
+				if (t != stateFile.SourceDependenciesTime[idx]) {
+					Msg.PrintWarningMod("State file dependency " + f + " has changed. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+					return false;
+				}
 			}
 			return true;
 		}
@@ -142,6 +171,12 @@ namespace Kltv.Kombine {
 		/// Shared objects for the script
 		/// </summary>
 		public Dictionary<string,object> SharedObjects { get; set; } = new Dictionary<string,object>();
+
+
+		/// <summary>
+		/// File dependencies for the script with filename and modification date. This is used to build the DAG of dependencies and trigger rebuilds if something changed.
+		/// </summary>
+		public Dictionary<string,long> FileDependencies { get; set; } = new Dictionary<string,long>();
 
 		/// <summary>
 		/// Return the data object which belongs to this state.
@@ -173,12 +208,19 @@ namespace Kltv.Kombine {
 			/// Script modification time in EPOCH
 			/// </summary>
 			public long				ScriptModifiedTime = 0;
+
+			/// <summary>
+			/// Array of file dependencies with filename and modification date
+			/// </summary>
+			public string[]         SourceDependencies = new string[0];
+			public long[]           SourceDependenciesTime = new long[0];
+
 			/// <summary>
 			/// If the script was built with debug information
 			/// </summary>
 			public bool				BuildWithDebug = false;
 			/// <summary>
-			/// Bynary blob holding the compiled script assembly
+			/// Binary blob holding the compiled script assembly
 			/// </summary>
 			public byte[]?			CompiledScript = null;
 			/// <summary>

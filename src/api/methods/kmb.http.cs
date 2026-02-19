@@ -17,6 +17,17 @@ namespace Kltv.Kombine.Api {
 	public class Http {
 
 		/// <summary>
+		/// Contains the last return code for the last transaction
+		/// </summary>
+		public static int LastReturnCode { get; set; } = 0;
+
+		/// <summary>
+		/// Contains the last return response for the last transaction
+		/// </summary>
+		public static string LastResponse { get; set; } = "";
+
+
+		/// <summary>
 		/// Downloads a file from the given uri to the given path
 		/// </summary>
 		/// <param name="uri">The uri for the file to be downloaded</param>
@@ -51,8 +62,12 @@ namespace Kltv.Kombine.Api {
 					} else {
 						client.DownloadDataAsync(uri, file).Wait();
 					}
+					LastReturnCode = 200; // Assuming success for downloads
+					LastResponse = "";
 				} catch(Exception e){
 					Msg.PrintErrorMod("Error downloading file: "+e.Message,".http",Msg.LogLevels.Verbose);
+					LastReturnCode = -1;
+					LastResponse = "";
 					return false;
 				}
 			}
@@ -68,21 +83,23 @@ namespace Kltv.Kombine.Api {
 		/// </summary>
 		/// <param name="uris">Arrays of uris to be used</param>
 		/// <param name="paths">Array of paths+filenames to be used</param>
+		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
 		/// <param name="showprogress">If the progress should be show, default true.</param>
 		/// <returns>True if all files download fine, false otherwise.</returns>
-		public static bool DownloadFiles(string[] uris,string[] paths,bool showprogress = true){
+		public static bool DownloadFiles(string[] uris,string[] paths, Dictionary<string, string>? headers = null, bool showprogress = true){
 			if (uris.Length != paths.Length){
 				Msg.PrintErrorMod("The number of uris and paths must be the same.",".http",Msg.LogLevels.Verbose);
+				LastReturnCode = -1;
+				LastResponse = "";
 				return false;
 			}
 			Msg.Print("Downloads started ");
 			HttpClient client = new HttpClient();
-			
-			// TODO: Credentials. User agent, headers,etc.
-			// Credentials should be taken from config, never from the script as parameter
-			// This way we decouple what is the script from the configuration
-			// [...]
-
+			if (headers != null) {
+				foreach (var header in headers) {
+					client.DefaultRequestHeaders.Add(header.Key, header.Value);
+				}
+			}
 			for(int i = 0; i < uris.Length; i++){
 				// Create download folders if does not exists
 				string? npath = Path.GetDirectoryName(paths[i]);
@@ -114,11 +131,20 @@ namespace Kltv.Kombine.Api {
 				for(int i = 0; i < StreamList.Count;i++){
 					StreamList[i].Dispose();
 				}
+				if (bres) {
+					LastReturnCode = 200;
+					LastResponse = "";
+				} else {
+					LastReturnCode = -1;
+					LastResponse = "";
+				}
 			} catch(Exception ex){
 				Msg.PrintErrorMod("Error downloading file: "+ex.Message,".http",Msg.LogLevels.Verbose);
 				progress?.Clear();
 				bar?.Dispose();
 				bar = null;
+				LastReturnCode = -1;
+				LastResponse = "";
 				return false;
 			}
 			progress?.Clear();
@@ -152,11 +178,17 @@ namespace Kltv.Kombine.Api {
 				if (result.Result.IsSuccessStatusCode){
 					Task<string> content = result.Result.Content.ReadAsStringAsync();
 					content.Wait();
+					LastReturnCode = (int)result.Result.StatusCode;
+					LastResponse = content.Result;
 					return content.Result;
 				}
+				LastReturnCode = (int)result.Result.StatusCode;
+				LastResponse = "";
 				Msg.PrintErrorMod("Error getting document: "+result.Result.StatusCode,".http",Msg.LogLevels.Verbose);
 			} catch(Exception e) {
 				Msg.PrintErrorMod("Error getting document: "+e.Message,".http",Msg.LogLevels.Verbose);
+				LastReturnCode = -1;
+				LastResponse = "";
 				return string.Empty;
 			}
 			return string.Empty;
@@ -196,12 +228,16 @@ namespace Kltv.Kombine.Api {
 				// Fetch the response content to ensure the request is fully completed before checking the status code
 				Task<string> response = result.Result.Content.ReadAsStringAsync();
 				response.Wait();
+				LastReturnCode = (int)result.Result.StatusCode;
+				LastResponse = response.Result;
 				if (result.Result.IsSuccessStatusCode) {
 					return true;
 				}
 				Msg.PrintErrorMod("Error sending document: " + result.Result.StatusCode, ".http", Msg.LogLevels.Verbose);
 			} catch (Exception e) {
 				Msg.PrintErrorMod("Error sending document: " + e.Message, ".http", Msg.LogLevels.Verbose);
+				LastReturnCode = -1;
+				LastResponse = "";
 				return false;
 			}
 			return false;
@@ -238,6 +274,8 @@ namespace Kltv.Kombine.Api {
 						result = client.PostAsync(uri, formData);
 					}
 					result.Wait();
+					LastReturnCode = (int)result.Result.StatusCode;
+					LastResponse = "";
 					if (result.Result.IsSuccessStatusCode) {
 						return true;
 					}
@@ -245,6 +283,8 @@ namespace Kltv.Kombine.Api {
 				}
 			} catch (Exception e) {
 				Msg.PrintErrorMod("Error sending file: " + e.Message, ".http", Msg.LogLevels.Verbose);
+				LastReturnCode = -1;
+				LastResponse = "";
 				return false;
 			}
 			return false;
@@ -266,12 +306,16 @@ namespace Kltv.Kombine.Api {
 			try {
 				Task<HttpResponseMessage> result = client.DeleteAsync(uri);
 				result.Wait();
+				LastReturnCode = (int)result.Result.StatusCode;
+				LastResponse = "";
 				if (result.Result.IsSuccessStatusCode) {
 					return true;
 				}
 				Msg.PrintErrorMod("Error deleting document: " + result.Result.StatusCode, ".http", Msg.LogLevels.Verbose);
 			} catch (Exception e) {
 				Msg.PrintErrorMod("Error deleting document: " + e.Message, ".http", Msg.LogLevels.Verbose);
+				LastReturnCode = -1;
+				LastResponse = "";
 				return false;
 			}
 			return false;

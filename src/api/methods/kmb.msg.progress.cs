@@ -2,7 +2,7 @@
 
 	Kombine Build Engine
 
-	(C) Kollective Networks 2022
+	(C) Kollective Networks 2025
 
 	Original code: https://gist.github.com/DanielSWolf/0ab6a96899cc5377bf54
 ---------------------------------------------------------------------------------------------------------*/

@@ -2,7 +2,7 @@
 
 	Kombine Build Engine
 
-	(C) Kollective Networks 2022
+	(C) Kollective Networks 2026
 
 ---------------------------------------------------------------------------------------------------------*/
 
@@ -213,7 +213,7 @@ namespace Kltv.Kombine
 		public static void ShowBanner() {
 			Msg.Print("");
 			Msg.Print("Kombine Build Engine "+KombineMain.Version.Major+"."+KombineMain.Version.Minor+"."+KombineMain.Version.Build);
-			Msg.Print("Copyrigth(C) Kollective Networks 2022. All rights reserved.");
+			Msg.Print("Copyrigth(C) Kollective Networks 2026. All rights reserved.");
 			Msg.Print("");
 		}
 

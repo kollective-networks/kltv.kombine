@@ -2,7 +2,7 @@
 
 	Kombine Makefile example
 
-	(C)Kollective Networks 2022
+	(C)Kollective Networks 2026
 
 ---------------------------------------------------------------------------------------------------------*/
 
@@ -21,10 +21,14 @@ class TestObject{
 
 
 int test(string[] args){
+	
+	// Export a value to be used in the child script
 	// ----------------------------------------------------------
 	Msg.Print("Exporting a value");
 	KValue myvar = "my value";
 	myvar.Export("myvar");
+
+	// Export a complete object to be used in the child script
 	// ----------------------------------------------------------
 	Msg.Print("Exporting an object");
 	TestObject obj = new TestObject();
@@ -32,10 +36,13 @@ int test(string[] args){
 	obj.Value = "myvalue";
 	obj.List.Add("item1");
 	Share.Set("myobj",obj);
+
+	// Execute a child script that will import the previous values and print them
 	// ----------------------------------------------------------
 	Msg.Print("Launching child scripts");
 	// Execute the first script
 	Kombine("child01/child01.csx","test");
+
 	// Script 1 defined one registry value, lets fetch it 
 	// Registry is script execution wide, so matter if was defined in a child script
 	KValue regvalue = Share.Registry("myreg","mykey");

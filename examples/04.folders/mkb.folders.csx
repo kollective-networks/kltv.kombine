@@ -2,7 +2,7 @@
 
 	Kombine Makefile example
 
-	(C)Kollective Networks 2022
+	(C)Kollective Networks 2026
 
 ---------------------------------------------------------------------------------------------------------*/
 
@@ -13,14 +13,15 @@ using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;
 using static Kltv.Kombine.Api.Tool;
 
-// Builtin properties with useful folders
+// Built in properties with useful folders
 //-------------------------------------------------
 Msg.Print("");
-Msg.Print("Builtin properties with useful folders");
+Msg.Print("Built in properties with useful folders");
 Msg.Print("-------------------------------------------------------------------");
 Msg.Print("Current Working Folder: "+CurrentWorkingFolder);
 Msg.Print("Current Script Folder: "+CurrentScriptFolder);
 Msg.Print("Current Tool Folder: "+CurrentToolFolder);
+Msg.Print("Parent Script Folder: "+ParentScriptFolder);
 
 
 int test(string[] args){

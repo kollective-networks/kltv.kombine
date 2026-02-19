@@ -2,7 +2,7 @@
 
 	Kombine Makefile example
 
-	(C)Kollective Networks 2022
+	(C)Kollective Networks 2026
 
 ---------------------------------------------------------------------------------------------------------*/
 

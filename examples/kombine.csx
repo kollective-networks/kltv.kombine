@@ -24,31 +24,41 @@ int test(string[] args){
 	Msg.Print("Testing scripts: ");
 	Msg.Print("");
 	Msg.Print("----------------------------------------------------------");
-	Msg.Print("Testing: base");
-	Kombine("base/mkb.version.csx","test",args);
-	Kombine("base/mkb.admin.csx","test",args);
+	Msg.Print("Testing: Base functions");
+	Kombine("00.base/mkb.version.csx","test",args);
+	Kombine("00.base/mkb.admin.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
-	Msg.Print("Testing: simple");
-	Kombine("simple/simple.csx","build",args);
-	Kombine("simple/simple.csx","clean",args);
-	Msg.Print("----------------------------------------------------------");
-	Msg.Print("");
-	Msg.Print("Testing: types");
-	Kombine("types/types.csx","test",args);
+	Msg.Print("Testing: Simple script (two actions)");
+	Kombine("01.simple/mkb.simple.csx","build",args);
+	Kombine("01.simple/mkb.simple.csx","clean",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
-	Msg.Print("Testing: children");
-	Kombine("child/child.csx","test",args);
+	Msg.Print("Testing: Built in types");
+	Kombine("02.types/mkb.types.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
-	Msg.Print("Testing: files & folders & compression");
-	Kombine("folders/folders.csx","test",args);
+	Msg.Print("Testing: Child scripts");
+	Kombine("03.child/mkb.child.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
-	Msg.Print("Testing: network");
-	Kombine("network/network.csx","test",args);
+	Msg.Print("Testing: Files & folders & compression");
+	Kombine("04.folders/mkb.folders.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
+	Msg.Print("Testing: Network API");
+	Kombine("05.network/mkb.network.csx","test",args);
+	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
+
+
+	Msg.Print("Testing: Extensions - Bin2cpp");
+	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "build", args);
+	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
+
+
+
+
 	Msg.Print("Testing: clang");
 	Kombine("clang/clang.build.csx","build",args);
 	Kombine("clang/clang.build.csx","clean",args);

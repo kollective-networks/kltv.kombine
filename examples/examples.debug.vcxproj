@@ -47,49 +47,31 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="..\examples\kombine.csx" />
-    <None Include="base\mkb.admin.csx" />
-    <None Include="base\mkb.version.csx" />
-    <None Include="child\child.csx" />
-    <None Include="child\child01\child01.csx" />
-    <None Include="child\child01\subchild01.csx" />
-    <None Include="child\child02\child02.csx" />
+    <None Include="00.base\mkb.admin.csx" />
+    <None Include="00.base\mkb.version.csx" />
+    <None Include="01.simple\mkb.simple.csx" />
+    <None Include="02.types\mkb.types.csx" />
+    <None Include="03.child\child01\child01.csx" />
+    <None Include="03.child\child01\subchild01.csx" />
+    <None Include="03.child\child02\child02.csx" />
+    <None Include="03.child\mkb.child.csx" />
+    <None Include="06.extensions\04.bin2cpp\mkb.ext.bin2cpp.csx" />
+    <None Include="06.extensions\04.bin2cpp\res\arrow.down.svg" />
+    <None Include="06.extensions\04.bin2cpp\res\arrow.left.svg" />
+    <None Include="06.extensions\04.bin2cpp\res\arrow.right.svg" />
+    <None Include="06.extensions\04.bin2cpp\res\arrow.up.svg" />
+    <None Include="06.extensions\04.bin2cpp\res\folders\folder-close.svg" />
+    <None Include="06.extensions\04.bin2cpp\res\folders\folder-open.svg" />
+    <None Include="06.extensions\04.bin2cpp\res\readme.md" />
+    <None Include="06.extensions\04.bin2cpp\src\readme.md" />
     <None Include="clang\clang.build.csx" />
     <None Include="clang\clang.gendoc.csx" />
     <None Include="clang\dll\mydll.csx" />
     <None Include="clang\exe\mybin.csx" />
     <None Include="clang\lib\mylib.csx" />
-    <None Include="folders\child\child.csx" />
-    <None Include="folders\folder1\parent.csx" />
-    <None Include="folders\folders.csx" />
     <None Include="msys2\msys2.build.csx" />
     <None Include="msys2\msys2.packages.csx" />
-    <None Include="network\network.csx" />
     <None Include="sdl2\sdl2.csx" />
-    <None Include="simple\simple.csx" />
-    <None Include="types\types.csx" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="clang\logo.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="clang\dll\src\lib1.cpp" />
-    <ClCompile Include="clang\dll\src\lib2.c" />
-    <ClCompile Include="clang\exe\src\main.cpp" />
-    <ClCompile Include="clang\exe\src\test\file1.c" />
-    <ClCompile Include="clang\exe\src\test\file2.cpp" />
-    <ClCompile Include="clang\lib\src\lib1.cpp" />
-    <ClCompile Include="clang\lib\src\lib2.c" />
-    <ClCompile Include="msys2\src\main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="clang\dll\inc\lib.h" />
-    <ClInclude Include="clang\dll\src\lib1.h" />
-    <ClInclude Include="clang\dll\src\lib2.h" />
-    <ClInclude Include="clang\exe\src\test\file1.h" />
-    <ClInclude Include="clang\exe\src\test\file2.h" />
-    <ClInclude Include="clang\lib\inc\lib.h" />
-    <ClInclude Include="clang\lib\src\lib1.h" />
-    <ClInclude Include="clang\lib\src\lib2.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

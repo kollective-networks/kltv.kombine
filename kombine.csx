@@ -130,16 +130,22 @@ int release(string[] args) {
 	//
 	// Get the token from environment variable
 	// 
-	KValue token = KValue.Import("kltv_token");
+	KValue token = KValue.Import("kltv_token","");
+	if (token == "") {
+		Msg.PrintAndAbort("GitHub token not found in environment variable kltv_token. Please set the token and try again.");
+	}
 	//
 	// Get the version from the version.txt file
+	//
 	string version = Files.ReadTextFile("out/pkg/version.txt");
-	version = version.Trim();
+	version = "Release-"+version.Trim();
 	if (version == "") {
 		Msg.PrintAndAbort("Version number not found in version.txt. Did you create the packages?");
 	}
+	//
+	// Get the release notes from the changelog.md file
+	//
 	string notes = GetReleaseNotes(version);
-
 	//
 	// Create the github instance and configure it
 	//
@@ -147,13 +153,31 @@ int release(string[] args) {
 	github.Repository = "kltv.kombine";
 	github.Owner = "kollective-networks";
 	github.Token = token.ToString();
-	string releaseId = github.GetReleaseID(version);
-	if (releaseId == "") {
-		releaseId = github.CreateRelease(version,"Release " + version,GetReleaseNotes(version),true);
-	}
 	//
-	// TODO: Upload the packages as assets to the release
-	// This would require getting the release ID from the response, then POST to upload_url for each file
+	// Create or get the release on GitHub.
+	// If the release already exists, it will return the existing release ID, otherwise it will create a new release and return the new release ID.
+	//
+	string releaseId = github.CreateRelease(version,"Release " + version,GetReleaseNotes(version),true);
+	if (releaseId == "") {
+		Msg.PrintAndAbort("Failed to create or get the release on GitHub.");
+	}
+	// If the release was created successfully, upload the assets
+	//
+	string[] assets = new string[] {
+		"out/pkg/kombine.ref.zip",
+		"out/pkg/kombine.debug.win.zip",
+		"out/pkg/kombine.win.zip",
+		"out/pkg/kombine.debug.lnx.tar.gz",
+		"out/pkg/kombine.lnx.tar.gz",
+		"out/pkg/kombine.debug.osx.tar.gz",
+		"out/pkg/kombine.osx.tar.gz",
+	};
+	if (github.UploadAssets(releaseId,assets) == false) {
+		Msg.PrintAndAbort("Failed to upload assets to GitHub release.");
+	}
+	if (github.PublishRelease(releaseId) == false) {
+		Msg.PrintAndAbort("Failed to publish the GitHub release.");
+	}
 	return 0;
 }
 

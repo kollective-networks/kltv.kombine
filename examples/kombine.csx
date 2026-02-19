@@ -21,13 +21,15 @@ using static Kltv.Kombine.Api.Tool;
 /// <returns></returns>
 int test(string[] args){
 	Msg.Print("");
-	Msg.Print("Testing scripts: ");
+	Msg.Print("Testing scripts");
 	Msg.Print("");
 	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
 	Msg.Print("Testing: Base functions");
 	Kombine("00.base/mkb.version.csx","test",args);
 	Kombine("00.base/mkb.admin.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
 	Msg.Print("Testing: Simple script (two actions)");
 	Kombine("01.simple/mkb.simple.csx","build",args);
 	Kombine("01.simple/mkb.simple.csx","clean",args);
@@ -48,32 +50,51 @@ int test(string[] args){
 	Msg.Print("Testing: Network API");
 	Kombine("05.network/mkb.network.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
+	return 0;
+}
+
+/// <summary>
+/// Execute the extension scripts tests
+/// </summary>
+/// <param name="args"></param>
+/// <returns></returns>
+int extensions(string[] args){
 	Msg.Print("");
-
-
-	Msg.Print("Testing: Extensions - Bin2cpp");
+	Msg.Print("Testing Kombine extensions");
+	Msg.Print("");
+	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
+	Msg.Print("Testing: Bin2cpp");	
 	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "build", args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
-
-
-
-
 	Msg.Print("Testing: clang");
-	Kombine("clang/clang.build.csx","build",args);
-	Kombine("clang/clang.build.csx","clean",args);
-	Kombine("clang/clang.build.csx","help",args);
-	Kombine("clang/clang.gendoc.csx","doc",args);
+	Kombine("06.extensions/00.clang/clang.build.csx", "build", args);
+	Kombine("06.extensions/00.clang/clang.build.csx", "clean", args);
+	Kombine("06.extensions/00.clang/clang.build.csx", "help", args);
+	
+	
+	//Kombine("clang/clang.gendoc.csx", "doc", args);
+
+	return 0;
+}
+
+/// <summary>
+/// 
+/// </summary>
+/// <param name="args"></param>
+/// <returns></returns>
+int extras(string[] args){
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: sdl2");
-	Kombine("sdl2/sdl2.csx","build",args);
-	Kombine("sdl2/sdl2.csx","clean",args);
+	Kombine("sdl2/sdl2.csx", "build", args);
+	Kombine("sdl2/sdl2.csx", "clean", args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: msys22");
 	Kombine("msys2/msys2.packages.csx", "test", args);
 	Kombine("msys2/msys2.build.csx", "build", args);
+
 	return 0;
 }
-

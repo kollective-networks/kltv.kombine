@@ -35,7 +35,9 @@ int help(string[] args){
 
 int test(string[] args){
 	Msg.Print("Running tests");
-	int ExitCode = Kombine("examples/kombine.csx","test",args);
+	Kombine("examples/kombine.csx","test",args);
+	Kombine("examples/kombine.csx", "extensions", args);
+	Kombine("examples/kombine.csx", "extras", args);
 	return ExitCode;
 }
 

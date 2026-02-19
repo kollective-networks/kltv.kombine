@@ -216,6 +216,16 @@ namespace Kltv.Kombine.Api {
 		}
 
 		/// <summary>
+		/// Returns the major and minor version numbers of the application as a string in the format "Major.Minor".
+		/// </summary>
+		/// <returns>A string representing the application's major and minor version numbers, separated by a period. For example,
+		/// "2.5".</returns>
+		public static string MkbVersionShort() {
+			return KombineMain.Version.Major + "." + KombineMain.Version.Minor;
+		}
+
+
+		/// <summary>
 		/// Returns the major version number.
 		/// </summary>
 		/// <returns>The major version</returns>

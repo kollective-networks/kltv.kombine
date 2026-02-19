@@ -192,9 +192,8 @@ public class Bin2obj {
 		return false;
 	}
 
-	
-	private static readonly Dictionary<string, ushort> MachineTypes = new()
-	{
+
+	private static readonly Dictionary<string, ushort> MachineTypes = new() {
 		["x86"] = 0x014c, // IMAGE_FILE_MACHINE_I386
 		["x64"] = 0x8664, // IMAGE_FILE_MACHINE_AMD64
 		["arm"] = 0x01c0, // IMAGE_FILE_MACHINE_ARM
@@ -295,3 +294,4 @@ public class Bin2obj {
 			AuxCount = 0;
 		}
 	}
+}

@@ -126,7 +126,7 @@ namespace Kltv.Kombine {
 			try {
 				stateFile = BinaryPack.BinaryConverter.Deserialize<StateFile>(result);
 			} catch (Exception ex) {
-				Msg.PrintErrorMod("State file is corrupted. Deleting state. Exception: " + ex.Message, ".exec.state", Msg.LogLevels.Normal);
+				Msg.PrintWarningMod("State file is corrupted or outdated. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
 				return false;
 			}
 			Msg.PrintMod("Loaded cached state file.", ".exec.state", Msg.LogLevels.Debug);

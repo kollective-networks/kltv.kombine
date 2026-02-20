@@ -58,6 +58,13 @@
     <None Include="04.folders\mkb.folders.csx" />
     <None Include="04.folders\test.files\test.tar.xz" />
     <None Include="05.network\mkb.network.csx" />
+    <None Include="06.extensions\00.clang\dll\mydll.csx" />
+    <None Include="06.extensions\00.clang\exe\mybin.csx" />
+    <None Include="06.extensions\00.clang\lib\mylib.csx" />
+    <None Include="06.extensions\00.clang\mkb.ext.clang.csx" />
+    <None Include="06.extensions\01.clang.docs\mkb.ext.clang.doc.csx" />
+    <None Include="06.extensions\02.git\readme.md" />
+    <None Include="06.extensions\03.github\readme.md" />
     <None Include="06.extensions\04.bin2cpp\mkb.ext.bin2cpp.csx" />
     <None Include="06.extensions\04.bin2cpp\mybin.csx" />
     <None Include="06.extensions\04.bin2cpp\res\arrow.down.svg" />
@@ -76,6 +83,9 @@
     <None Include="06.extensions\05.bin2obj\res\arrow.up.svg" />
     <None Include="06.extensions\05.bin2obj\res\folders\folder-close.svg" />
     <None Include="06.extensions\05.bin2obj\res\folders\folder-open.svg" />
+    <None Include="07.extras\00.sdl2\sdl2.csx" />
+    <None Include="07.extras\01.msys2\msys2.build.csx" />
+    <None Include="07.extras\01.msys2\msys2.packages.csx" />
     <None Include="clang\clang.build.csx" />
     <None Include="clang\clang.gendoc.csx" />
     <None Include="clang\dll\mydll.csx" />
@@ -86,8 +96,29 @@
     <None Include="sdl2\sdl2.csx" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="06.extensions\00.clang\dll\src\lib1.cpp" />
+    <ClCompile Include="06.extensions\00.clang\dll\src\lib2.c" />
+    <ClCompile Include="06.extensions\00.clang\exe\src\main.cpp" />
+    <ClCompile Include="06.extensions\00.clang\exe\src\test\file1.c" />
+    <ClCompile Include="06.extensions\00.clang\exe\src\test\file2.cpp" />
+    <ClCompile Include="06.extensions\00.clang\lib\src\lib1.cpp" />
+    <ClCompile Include="06.extensions\00.clang\lib\src\lib2.c" />
     <ClCompile Include="06.extensions\04.bin2cpp\src\main.cpp" />
     <ClCompile Include="06.extensions\05.bin2obj\src\main.cpp" />
+    <ClCompile Include="07.extras\01.msys2\src\main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="06.extensions\00.clang\dll\inc\lib.h" />
+    <ClInclude Include="06.extensions\00.clang\dll\src\lib1.h" />
+    <ClInclude Include="06.extensions\00.clang\dll\src\lib2.h" />
+    <ClInclude Include="06.extensions\00.clang\exe\src\test\file1.h" />
+    <ClInclude Include="06.extensions\00.clang\exe\src\test\file2.h" />
+    <ClInclude Include="06.extensions\00.clang\lib\inc\lib.h" />
+    <ClInclude Include="06.extensions\00.clang\lib\src\lib1.h" />
+    <ClInclude Include="06.extensions\00.clang\lib\src\lib2.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="06.extensions\01.clang.docs\logo.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

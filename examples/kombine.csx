@@ -64,21 +64,27 @@ int extensions(string[] args){
 	Msg.Print("");
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
+	Msg.Print("Testing: clang");
+	Kombine("06.extensions/00.clang/mkb.ext.clang.csx", "build", args);
+	Kombine("06.extensions/00.clang/mkb.ext.clang.csx", "clean", args);
+	Kombine("06.extensions/00.clang/mkb.ext.clang.csx", "help", args);
+	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
+	Msg.Print("Testing: clang doc");
+	Kombine("06.extensions/01.clang.docs/mkb.ext.clang.doc.csx", "doc", args);
+	Msg.Print("----------------------------------------------------------");
+
+	Msg.Print("");
 	Msg.Print("Testing: Bin2cpp");	
 	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "build", args);
+	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "clean", args);
+
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: Bin2obj");
 	Kombine("06.extensions/05.bin2obj/mkb.ext.bin2obj.csx", "build", args);
+	Kombine("06.extensions/05.bin2obj/mkb.ext.bin2obj.csx", "clean", args);
 	Msg.Print("----------------------------------------------------------");
-	Msg.Print("");
-	Msg.Print("Testing: clang");
-	Kombine("06.extensions/00.clang/clang.build.csx", "build", args);
-	//Kombine("06.extensions/00.clang/clang.build.csx", "clean", args);
-	//Kombine("06.extensions/00.clang/clang.build.csx", "help", args);
-	
-	
-	//Kombine("clang/clang.gendoc.csx", "doc", args);
 
 	return 0;
 }
@@ -92,13 +98,13 @@ int extras(string[] args){
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: sdl2");
-	Kombine("sdl2/sdl2.csx", "build", args);
-	Kombine("sdl2/sdl2.csx", "clean", args);
+	Kombine("07.extras/00.sdl2/sdl2.csx", "build", args);
+	Kombine("07.extras/00.sdl2/sdl2.csx", "clean", args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
-	Msg.Print("Testing: msys22");
-	Kombine("msys2/msys2.packages.csx", "test", args);
-	Kombine("msys2/msys2.build.csx", "build", args);
-
+	Msg.Print("Testing: msys2");
+	Kombine("07.extras/01.msys2/msys2.packages.csx", "test", args);
+	Kombine("07.extras/01.msys2/msys2.build.csx", "build", args);
+	Kombine("07.extras/01.msys2/msys2.build.csx", "clean", args);
 	return 0;
 }

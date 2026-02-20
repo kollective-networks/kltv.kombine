@@ -30,20 +30,21 @@ KValue OutputTmp = KValue.Import("OutputTmp","out/tmp/");
 // The sources to be compiled.
 KList	src = Glob("src/**/*.c");
 		src += Glob("src/**/*.cpp");
-// We include the generated cpp files from the bin2cpp extension also
-		src += Glob("gen/**/*.cpp");
+		
 // Compile flags and includes / defines
 KList CFlags = new KList { "-std=c17", "-g", "-O0", "-gdwarf-4" };
 KList CxxFlags = new KList { "-std=c++20", "-g", "-O0", "-gdwarf-4" };
 // Defines
 KList Defines = new KList { "DEBUG" };
 // Include directories
-// We just include the gen folder to fetch the generated header
-KList Includes = new KList { "gen/" };
+KList Includes = new KList { "../lib/inc/" };
 
 // Linker flags and libraries
 KList LinkerFlags = new KList();
-
+// Library directories (We use the output folder and os to fetch the appropiate library folder)
+KList LibraryDirs = new KList() { OutputLib+"mylib/"+ Host.GetOSKind() };
+// Libraries
+KList Libraries = new KList() { "mylib" };
 
 // We will add to the output folders our current project name and the platform we're building on
 // Library is not used in this case being this example a binary, but just for the record.
@@ -68,16 +69,14 @@ int build(string[] args){
 	clang.Options.Defines = Defines;
 	clang.Options.SwitchesCC = CFlags;
 	clang.Options.SwitchesCXX = CxxFlags;
-	// We don't want to compile the amalgamated file, we just want to generate it.
-	// since is a test and we generated the resources twice,
-	// if we don't remove the amalgamated file from the sources, clang will try to compile it and fail since it has multiple definitions.
-	src -= "gen/amalgamation.cpp";
 	// Generate the list of object files to be used as output
 	KList objs = src.WithExtension(clang.Options.ObjectExtension).WithPrefix(OutputTmp);
 	// And compile the sources
 	clang.Compile(src, objs);
 	// Linker
 	// -------------------------------------------------------
+	clang.Options.LibraryDirs = LibraryDirs;
+	clang.Options.Libraries = Libraries;
 	clang.Options.SwitchesLD = LinkerFlags;
 	clang.Linker(objs, OutputBin + Name + clang.Options.BinaryExtension);
 	Msg.PrintTask("Building binary: " + Name +" ");

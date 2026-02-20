@@ -126,7 +126,7 @@ public class Bin2obj {
 		}
 		Msg.PrintTask($"Bin2obj: Processing {obj}:");
 		if (!shouldProcess) {
-			Msg.PrintTaskSuccess($"Bin2obj: No changes for {obj}. Skipping.");
+			Msg.PrintTaskSuccess($" No changes. Skipping.");
 			return true;
 		}
 		// Create the output folder(s)

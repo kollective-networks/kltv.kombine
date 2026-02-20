@@ -20,7 +20,7 @@ using static Kltv.Kombine.Api.Tool;
 
 
 // Define the output artifact folders
-// We make use of the builtin property "CurrentWorkingFolder" to define the output folders
+// We make use of the built in property "CurrentWorkingFolder" to define the output folders
 // The current folder will be the folder where the script is executed
 KValue OutputBin = CurrentWorkingFolder+"/out/bin/";
 KValue OutputTmp = CurrentWorkingFolder+"/out/tmp/";

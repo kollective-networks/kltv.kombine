@@ -1,5 +1,5 @@
 
-## [1.4.24068768]
+## [1.4.24072657]
 - [Feature] Added methods in Http API to support uploads and credentials
 - [Feature] Improved build system to automatically publish a release
 - [Feature] Added a github.csx extension to manage github interaction

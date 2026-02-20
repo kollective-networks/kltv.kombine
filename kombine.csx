@@ -148,7 +148,7 @@ int release(string[] args) {
 	//
 	// Get the release notes from the changelog.md file
 	//
-	string notes = GetReleaseNotes(version);
+	string notes = GetReleaseNotes(versionNumber);
 	//
 	// Create the github instance and configure it
 	//
@@ -160,7 +160,7 @@ int release(string[] args) {
 	// Create or get the release on GitHub.
 	// If the release already exists, it will return the existing release ID, otherwise it will create a new release and return the new release ID.
 	//
-	string releaseId = github.CreateRelease(version,"Release " + version,GetReleaseNotes(versionNumber),true);
+	string releaseId = github.CreateRelease(version,"Release " + versionNumber,notes,true);
 	if (releaseId == "") {
 		Msg.PrintAndAbort("Failed to create or get the release on GitHub.");
 	}

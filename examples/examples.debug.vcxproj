@@ -59,6 +59,7 @@
     <None Include="04.folders\test.files\test.tar.xz" />
     <None Include="05.network\mkb.network.csx" />
     <None Include="06.extensions\04.bin2cpp\mkb.ext.bin2cpp.csx" />
+    <None Include="06.extensions\04.bin2cpp\mybin.csx" />
     <None Include="06.extensions\04.bin2cpp\res\arrow.down.svg" />
     <None Include="06.extensions\04.bin2cpp\res\arrow.left.svg" />
     <None Include="06.extensions\04.bin2cpp\res\arrow.right.svg" />
@@ -68,6 +69,7 @@
     <None Include="06.extensions\04.bin2cpp\res\readme.md" />
     <None Include="06.extensions\04.bin2cpp\src\readme.md" />
     <None Include="06.extensions\05.bin2obj\mkb.ext.bin2obj.csx" />
+    <None Include="06.extensions\05.bin2obj\mybin.csx" />
     <None Include="06.extensions\05.bin2obj\res\arrow.down.svg" />
     <None Include="06.extensions\05.bin2obj\res\arrow.left.svg" />
     <None Include="06.extensions\05.bin2obj\res\arrow.right.svg" />
@@ -82,6 +84,10 @@
     <None Include="msys2\msys2.build.csx" />
     <None Include="msys2\msys2.packages.csx" />
     <None Include="sdl2\sdl2.csx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="06.extensions\04.bin2cpp\src\main.cpp" />
+    <ClCompile Include="06.extensions\05.bin2obj\src\main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

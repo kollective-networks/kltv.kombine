@@ -9,6 +9,7 @@
 
 ---------------------------------------------------------------------------------------------------------*/
 #load "extensions/bin2obj.csx"
+#load "extensions/clang.csx"
 
 // Remember, this is just used for intellisense, nothing else
 #r "../../../out/bin/win-x64/debug/mkb.dll"

@@ -1,13 +1,13 @@
 
 #include <stdio.h>
-#include <lib.h>
+
+
+extern "C" const unsigned char vararrow_down_svg10913588630147233371[];
+extern "C" const unsigned long vararrow_down_svg10913588630147233371_size;
 
 int main(int argc, char** argv) {
-	int a = 1;
-	for(int i = 0; i < 10; i++) {
-		a += i;
-		printf("a = %d\n", a);
-	}
-	add(1,1);
+	printf("Hello, World!\n");
+	printf("Resource size is %lu\n", vararrow_down_svg10913588630147233371_size);
+	printf("Resource content is:\n%.*s\n", vararrow_down_svg10913588630147233371_size, vararrow_down_svg10913588630147233371);
 	return 0;
 }

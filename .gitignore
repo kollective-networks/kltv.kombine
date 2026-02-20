@@ -3,13 +3,16 @@
 .vs/
 out/
 
-# Ignore test generated files
+# Ignore test generated files (bin2cpp)
 examples/06.extensions/04.bin2cpp/gen/
 examples/06.extensions/04.bin2cpp/out/
+# Ignore test generated files (bin2obj)
+examples/06.extensions/05.bin2obj/out/
 
-examples/06.extensions/05.bin2obj/obj/
+# Ignore test generated files (SDL2)
 examples/07.extras/00.sdl2/sdl.github/
 examples/07.extras/00.sdl2/out/
+# Ignore test generated files (msys2 OpenSSL)
 examples/07.extras/01.msys2/openssl/
 
 

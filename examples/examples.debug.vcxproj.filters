@@ -37,5 +37,11 @@
     <None Include="06.extensions\05.bin2obj\res\arrow.up.svg" />
     <None Include="06.extensions\05.bin2obj\res\folders\folder-close.svg" />
     <None Include="06.extensions\05.bin2obj\res\folders\folder-open.svg" />
+    <None Include="06.extensions\04.bin2cpp\mybin.csx" />
+    <None Include="06.extensions\05.bin2obj\mybin.csx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="06.extensions\04.bin2cpp\src\main.cpp" />
+    <ClCompile Include="06.extensions\05.bin2obj\src\main.cpp" />
   </ItemGroup>
 </Project>

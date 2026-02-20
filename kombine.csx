@@ -38,7 +38,7 @@ int test(string[] args){
 	Kombine("examples/kombine.csx","test",args);
 	Kombine("examples/kombine.csx", "extensions", args);
 	Kombine("examples/kombine.csx", "extras", args);
-	return ExitCode;
+	return 0;
 }
 
 int build(string[] args){

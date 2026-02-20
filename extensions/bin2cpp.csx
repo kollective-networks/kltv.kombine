@@ -176,7 +176,7 @@ public class Bin2cpp {
 					writer.WriteLine();
 				}
 			}
-			Msg.PrintTaskSuccess($"Bin2cpp: Generated {cpp} successfully.");
+			Msg.PrintTaskSuccess($" Generated successfully.");
 		} catch (Exception ex) {
 			Msg.PrintTaskError(" Failed to generate: " + ex.Message);
 			return false;

@@ -141,7 +141,7 @@ public class Bin2obj {
 				names.Add(GetVarName(binFile));
 			}
 			GenerateCoffFileMultipleSections(datas, names, obj);
-			Msg.PrintTaskSuccess($"Bin2obj: Generated {obj} successfully.");
+			Msg.PrintTaskSuccess($" Generated successfully.");
 		} catch (Exception ex) {
 			Msg.PrintTaskError(" Failed to generate: " + ex.Message);
 			return false;

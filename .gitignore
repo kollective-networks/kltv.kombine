@@ -3,6 +3,10 @@
 .vs/
 out/
 
+# Ignore test generated files (clang)
+examples/06.extensions/00.clang/out/
+# Ignore test generated files (clang.docs)
+examples/06.extensions/01.clang.docs/out/
 # Ignore test generated files (bin2cpp)
 examples/06.extensions/04.bin2cpp/gen/
 examples/06.extensions/04.bin2cpp/out/

@@ -140,6 +140,7 @@ int release(string[] args) {
 	// Get the version from the version.txt file
 	//
 	string version = Files.ReadTextFile("out/pkg/version.txt");
+	string versionNumber = version.Trim();
 	version = "Release-"+version.Trim();
 	if (version == "") {
 		Msg.PrintAndAbort("Version number not found in version.txt. Did you create the packages?");
@@ -159,7 +160,7 @@ int release(string[] args) {
 	// Create or get the release on GitHub.
 	// If the release already exists, it will return the existing release ID, otherwise it will create a new release and return the new release ID.
 	//
-	string releaseId = github.CreateRelease(version,"Release " + version,GetReleaseNotes(version),true);
+	string releaseId = github.CreateRelease(version,"Release " + version,GetReleaseNotes(versionNumber),true);
 	if (releaseId == "") {
 		Msg.PrintAndAbort("Failed to create or get the release on GitHub.");
 	}

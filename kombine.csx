@@ -231,7 +231,11 @@ private string GetReleaseNotes(string version) {
 	string start = "## [" + version + "]";
 	int startIndex = content.IndexOf(start);
 	if (startIndex == -1) return "";
-	int endIndex = content.IndexOf("## [", startIndex + start.Length);
+	// Skip the header line
+	int headerEnd = content.IndexOf('\n', startIndex);
+	if (headerEnd == -1) return "";
+	startIndex = headerEnd + 1;
+	int endIndex = content.IndexOf("## [", startIndex);
 	if (endIndex == -1) endIndex = content.Length;
 	return content.Substring(startIndex, endIndex - startIndex).Trim();
 }

@@ -845,6 +845,13 @@ Returns: The minor version
 Returns: The version
 
 
+##### M:Kltv.Kombine.Api.Statics.GenVersionBuildNumber
+ Generates a build number string based on the current UTC time and the start of the current year. 
+
+>The build number is calculated using the number of minutes since January 1st of the current year in UTC. The prefix "24" corresponds to the year 2024. This method can be used to generate unique, time-based build identifiers within a given year.
+Returns: A string representing the build number in the format "24XXXXXX", where the numeric portion indicates the number of minutes elapsed since the start of the current year, zero-padded to six digits.
+
+
 # T:Kltv.Kombine.Api.Tool
  Wraps a tool interaction (status / result / launch / version) 
  Encapsulated in the tool class we have the tool results 

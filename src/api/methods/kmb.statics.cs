@@ -250,5 +250,24 @@ namespace Kltv.Kombine.Api {
 			return KombineMain.Version.HexVersion;
 		}
 
+
+		/// <summary>
+		/// Generates a build number string based on the current UTC time and the start of the current year.
+		/// </summary>
+		/// <remarks>The build number is calculated using the number of minutes since January 1st of the current year
+		/// in UTC. The prefix "24" corresponds to the year 2024. This method can be used to generate unique, time-based build
+		/// identifiers within a given year.</remarks>
+		/// <returns>A string representing the build number in the format "24XXXXXX", where the numeric portion indicates the number of
+		/// minutes elapsed since the start of the current year, zero-padded to six digits.</returns>
+		public static string GenVersionBuildNumber() {
+			DateTime currentTime = DateTime.UtcNow;
+			long now = ((DateTimeOffset)currentTime).ToUnixTimeSeconds();
+			DateTime currentYear = new DateTime(DateTime.Now.Year, 1, 1);
+			long year = ((DateTimeOffset)currentYear).ToUnixTimeSeconds();
+			long bn = now - year;
+			string buildNumber = "24" + (bn / 60).ToString("D6");
+			return buildNumber;
+		}
+
 	}
 }

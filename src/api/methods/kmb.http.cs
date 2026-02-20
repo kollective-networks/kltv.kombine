@@ -264,14 +264,12 @@ namespace Kltv.Kombine.Api {
 				using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read)) {
 					var content = new StreamContent(fileStream);
 					content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-					var formData = new MultipartFormDataContent();
-					formData.Add(content, "file", Path.GetFileName(filePath));
 					Task<HttpResponseMessage> result;
 					if (usePatch) {
-						var request = new HttpRequestMessage(HttpMethod.Patch, uri) { Content = formData };
+						var request = new HttpRequestMessage(HttpMethod.Patch, uri) { Content = content };
 						result = client.SendAsync(request);
 					} else {
-						result = client.PostAsync(uri, formData);
+						result = client.PostAsync(uri, content);
 					}
 					result.Wait();
 					LastReturnCode = (int)result.Result.StatusCode;

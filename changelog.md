@@ -1,5 +1,5 @@
 
-## [1.4.24072657]
+## [1.4.24072788]
 - [Feature] Added methods in Http API to support uploads and credentials
 - [Feature] Improved build system to automatically publish a release
 - [Feature] Added a github.csx extension to manage github interaction
@@ -8,6 +8,8 @@
 - [Feature] Added a bin2obj extension to convert binary files to object files
 - [Feature] Added a modder extension to apply mods to other projects
 - [Feature] Improved examples
+- [Feature] Added static function to generate build numbers
+- [Bugfix] Fixed HTTP file upload was multipart and was causing issues.
 
 ## [1.3.24494684]
 - [Fixed] Documentation

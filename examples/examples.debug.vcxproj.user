@@ -6,7 +6,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerDebuggerType>ManagedCore</LocalDebuggerDebuggerType>
     <LocalDebuggerCommandArguments>-ksrb -ksdbg extensions</LocalDebuggerCommandArguments>
-    <LocalDebuggerCommandArgumentsHistory>help|-ksrb -ksdbg help|-ksrb -ksdbg test|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory>help|-ksrb -ksdbg help|-ksrb -ksdbg test|-ksrb -ksdbg extensions|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>true</ShowAllFiles>

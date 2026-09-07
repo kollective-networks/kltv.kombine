@@ -93,14 +93,6 @@
     <None Include="08.loadresolution\repo-a\ext\repo-b\kombine.csx" />
     <None Include="08.loadresolution\repo-a\ext\repo-b\scripts\build\helper.csx" />
     <None Include="08.loadresolution\repo-a\ext\repo-b\ext\mod.csx" />
-    <None Include="clang\clang.build.csx" />
-    <None Include="clang\clang.gendoc.csx" />
-    <None Include="clang\dll\mydll.csx" />
-    <None Include="clang\exe\mybin.csx" />
-    <None Include="clang\lib\mylib.csx" />
-    <None Include="msys2\msys2.build.csx" />
-    <None Include="msys2\msys2.packages.csx" />
-    <None Include="sdl2\sdl2.csx" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="06.extensions\00.clang\dll\src\lib1.cpp" />

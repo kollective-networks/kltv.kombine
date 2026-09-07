@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Runtime.InteropServices;
 
 /// <summary>
 /// Provides functionality to generate COFF object files from binary input files.
@@ -314,6 +315,16 @@ public class Bin2obj {
 		["arm64"] = CoffMachine.Arm64
 	};
 
+	private const uint MH_MAGIC_64 = 0xFEEDFACF;
+	private const uint MH_OBJECT = 0x1;
+	private const int CPU_TYPE_X86_64 = 0x01000007;
+	private const int CPU_TYPE_ARM64 = 0x0100000C;
+	private const int CPU_SUBTYPE_X86_64_ALL = 3;
+	private const int CPU_SUBTYPE_ARM64_ALL = 0;
+	private const uint LC_SEGMENT_64 = 0x19;
+	private const uint LC_SYMTAB = 0x02;
+	private const byte SYM_EXT_SECT = 0x0F;
+
 	private void GenerateCoffFile(byte[] data, string symbolName, string outputFile) {
 		int paddingLen = (Machine == "arm64") ? (4 - data.Length % 4) % 4 : 0;
 		byte[] padding = new byte[paddingLen];
@@ -323,17 +334,26 @@ public class Bin2obj {
 		sectionData.AddRange(data);
 		sectionData.AddRange(padding);
 		sectionData.AddRange(sizeBytes);
-		List<Section> sections = new() { new Section(sectionData.ToArray(), ".data") };
-		List<Symbol> symbols = new() {
-			new Symbol(symbolName, 1, 0, CoffSymbolType.Null, CoffSymbolClass.External),
-			new Symbol(symbolName + "_size", 1, (uint)(data.Length + paddingLen), CoffSymbolType.Uint, CoffSymbolClass.External)
-		};
-		WriteCoffFile(sections, symbols, outputFile);
+		if (Host.IsMacOS()) {
+			var macSymbols = new List<(string name, uint offset)>() {
+				(symbolName, 0),
+				(symbolName + "_size", (uint)(data.Length + paddingLen))
+			};
+			WriteMachOFile(sectionData.ToArray(), macSymbols, outputFile);
+		} else {
+			List<Section> sections = new() { new Section(sectionData.ToArray(), ".data") };
+			List<Symbol> symbols = new() {
+				new Symbol(symbolName, 1, 0, CoffSymbolType.Null, CoffSymbolClass.External),
+				new Symbol(symbolName + "_size", 1, (uint)(data.Length + paddingLen), CoffSymbolType.Uint, CoffSymbolClass.External)
+			};
+			WriteCoffFile(sections, symbols, outputFile);
+		}
 	}
 
 	private void GenerateCoffFileMultipleSections(List<byte[]> datas, List<string> names, string outputFile) {
 		List<byte> allData = new List<byte>();
-		List<Symbol> symbols = new List<Symbol>();
+		var macSymbols = new List<(string name, uint offset)>();
+		List<Symbol> coffSymbols = new List<Symbol>();
 		uint offset = 0;
 		for (int i = 0; i < datas.Count; i++) {
 			byte[] data = datas[i];
@@ -341,16 +361,22 @@ public class Bin2obj {
 			byte[] padding = new byte[paddingLen];
 			uint sizeValue = (uint)data.Length;
 			byte[] sizeBytes = BitConverter.GetBytes(sizeValue);
-			symbols.Add(new Symbol(names[i], 1, offset, CoffSymbolType.Null, CoffSymbolClass.External));
+			macSymbols.Add((names[i], offset));
+			coffSymbols.Add(new Symbol(names[i], 1, offset, CoffSymbolType.Null, CoffSymbolClass.External));
 			uint sizeOffset = offset + (uint)data.Length + (uint)paddingLen;
-			symbols.Add(new Symbol(names[i] + "_size", 1, sizeOffset, CoffSymbolType.Uint, CoffSymbolClass.External));
+			macSymbols.Add((names[i] + "_size", sizeOffset));
+			coffSymbols.Add(new Symbol(names[i] + "_size", 1, sizeOffset, CoffSymbolType.Uint, CoffSymbolClass.External));
 			allData.AddRange(data);
 			allData.AddRange(padding);
 			allData.AddRange(sizeBytes);
 			offset += (uint)(data.Length + paddingLen + 4);
 		}
-		List<Section> sections = new() { new Section(allData.ToArray(), ".data") };
-		WriteCoffFile(sections, symbols, outputFile);
+		if (Host.IsMacOS()) {
+			WriteMachOFile(allData.ToArray(), macSymbols, outputFile);
+		} else {
+			List<Section> sections = new() { new Section(allData.ToArray(), ".data") };
+			WriteCoffFile(sections, coffSymbols, outputFile);
+		}
 	}
 
 	private void WriteCoffFile(List<Section> sections, List<Symbol> symbols, string outputFile) {
@@ -454,5 +480,99 @@ public class Bin2obj {
 			StorageClass = storageClass;
 			AuxCount = 0;
 		}
+	}
+
+	private void WriteMachOFile(byte[] sectionData, List<(string name, uint offset)> symbols, string outputFile) {
+		using FileStream fs = new(outputFile, FileMode.Create);
+		using BinaryWriter writer = new(fs);
+
+		var arch = RuntimeInformation.ProcessArchitecture;
+		int cputype = arch == Architecture.Arm64 ? CPU_TYPE_ARM64 : CPU_TYPE_X86_64;
+		int cpusubtype = arch == Architecture.Arm64 ? CPU_SUBTYPE_ARM64_ALL : CPU_SUBTYPE_X86_64_ALL;
+
+		var macSymbols = symbols.Select(s => ("_" + s.name, s.offset)).ToList();
+
+		List<byte> stringTable = new List<byte> { 0 };
+		var symStrOffsets = new List<uint>();
+		foreach (var (symName, _) in macSymbols) {
+			symStrOffsets.Add((uint)stringTable.Count);
+			stringTable.AddRange(Encoding.ASCII.GetBytes(symName));
+			stringTable.Add(0);
+		}
+		while (stringTable.Count % 4 != 0)
+			stringTable.Add(0);
+
+		int headerSize = 32;
+		int segmentCmdSize = 72 + 80;
+		int symtabCmdSize = 24;
+		int sizeofcmds = segmentCmdSize + symtabCmdSize;
+		int dataOffset = headerSize + sizeofcmds;
+		int symtabOffset = dataOffset + sectionData.Length;
+		int symtabAlign = (8 - (symtabOffset % 8)) % 8;
+		symtabOffset += symtabAlign;
+		int symCount = macSymbols.Count;
+		int strOffset = symtabOffset + symCount * 16;
+
+		writer.Write(MH_MAGIC_64);
+		writer.Write(cputype);
+		writer.Write(cpusubtype);
+		writer.Write((uint)MH_OBJECT);
+		writer.Write((uint)2);
+		writer.Write((uint)sizeofcmds);
+		writer.Write((uint)0);
+		writer.Write((uint)0);
+
+		writer.Write(LC_SEGMENT_64);
+		writer.Write((uint)segmentCmdSize);
+		WriteFixedString(writer, "__DATA", 16);
+		writer.Write((ulong)0);
+		writer.Write((ulong)sectionData.Length);
+		writer.Write((ulong)dataOffset);
+		writer.Write((ulong)sectionData.Length);
+		writer.Write((int)7);
+		writer.Write((int)3);
+		writer.Write((uint)1);
+		writer.Write((uint)0);
+
+		WriteFixedString(writer, "__data", 16);
+		WriteFixedString(writer, "__DATA", 16);
+		writer.Write((ulong)0);
+		writer.Write((ulong)sectionData.Length);
+		writer.Write((uint)dataOffset);
+		writer.Write((uint)2);
+		writer.Write((uint)0);
+		writer.Write((uint)0);
+		writer.Write((uint)0);
+		writer.Write((uint)0);
+		writer.Write((uint)0);
+		writer.Write((uint)0);
+
+		writer.Write(LC_SYMTAB);
+		writer.Write((uint)24);
+		writer.Write((uint)symtabOffset);
+		writer.Write((uint)symCount);
+		writer.Write((uint)strOffset);
+		writer.Write((uint)stringTable.Count);
+
+		writer.Write(sectionData);
+
+		writer.Write(new byte[symtabAlign]);
+
+		for (int i = 0; i < macSymbols.Count; i++) {
+			var (_, symOffset) = macSymbols[i];
+			writer.Write(symStrOffsets[i]);
+			writer.Write(SYM_EXT_SECT);
+			writer.Write((byte)1);
+			writer.Write((ushort)0);
+			writer.Write((ulong)symOffset);
+		}
+
+		writer.Write(stringTable.ToArray());
+	}
+
+	private static void WriteFixedString(BinaryWriter w, string s, int len) {
+		byte[] buf = new byte[len];
+		Encoding.ASCII.GetBytes(s, 0, Math.Min(s.Length, len), buf, 0);
+		w.Write(buf);
 	}
 }

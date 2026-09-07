@@ -1,4 +1,7 @@
 
+## [Unreleased]
+- [Feature] bin2obj extension: added Mach-O 64-bit object output (x86_64 and arm64) so binary embedding works on macOS; COFF output on other hosts is unchanged
+
 ## [1.4.24072788]
 - [Feature] Added methods in Http API to support uploads and credentials
 - [Feature] Improved build system to automatically publish a release

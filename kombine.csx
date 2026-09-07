@@ -30,8 +30,15 @@ int help(string[] args){
 	Msg.Print("Usage: mkb publish (builds and create packages)");
 	Msg.Print("       mkb release (push the release to github)");
 	Msg.Print("       mkb build (just build for the current system in debug mode)");
-	Msg.Print("       mkb test (runs the unit tests)");
+	Msg.Print("       mkb test (runs the full unit tests)");
+	Msg.Print("       mkb smoke (runs the light engine smoke tests)");
 	Msg.Print("");
+	return 0;
+}
+
+int smoke(string[] args){
+	Msg.Print("Running smoke tests (engine core)");
+	Kombine("examples/kombine.csx","test",args);
 	return 0;
 }
 

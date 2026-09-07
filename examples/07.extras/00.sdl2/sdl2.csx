@@ -18,6 +18,7 @@ using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;
 using static Kltv.Kombine.Api.Tool;
+using System.Runtime.InteropServices;
 
 KValue Name = "sdl2";
 KValue OutputBin = KValue.Import("OutputBin","out/bin/");
@@ -35,9 +36,18 @@ OutputTmp += Name + "/" + Host.GetOSKind() + "/";
 KList src = new KList();
 
 // The flags to be used in the compilation
-//
-KList CFlags = new KList { "-std=c17", "-g", "-O0","-msse3", "-Wno-empty-body","-gdwarf-4" };
-KList CxxFlags = new KList { "-std=c++20", "-g", "-O0","-msse3","-Wno-empty-body", "-gdwarf-4" };
+// Architecture-aware: SSE3 is x86/x64 only; ARM64 (Apple Silicon) doesn't support it
+var arch = RuntimeInformation.ProcessArchitecture;
+bool useSSE3 = arch == Architecture.X64;
+
+KList CFlags = new KList { "-std=c17", "-g", "-O0", "-Wno-empty-body", "-gdwarf-4" };
+KList CxxFlags = new KList { "-std=c++20", "-g", "-O0", "-Wno-empty-body", "-gdwarf-4" };
+if (useSSE3) {
+	CFlags.Add("-msse3");
+	CxxFlags.Add("-msse3");
+} else {
+	Msg.Print("Building for ARM64: SSE3 flags not applied", Msg.LogLevels.Verbose);
+}
 KList LinkerFlags = new KList { "-g", "-gdwarf-4" };
 // The list of defines to use
 KList Defines = new KList { "DEBUG" };
@@ -105,56 +115,60 @@ int clean(string[] args){
 }
 
 /// <summary>
-/// 
+/// Platform-aware source list: excludes Windows-specific and mobile-only files
 /// </summary>
 void CreateSourceList(){
+	bool isWindows = Host.IsWindows();
+
 	src += Glob("sdl.github/src/atomic/*.c");
-	src += Glob("sdl.github/src/audio/directsound/*.c");
+	if (isWindows) src += Glob("sdl.github/src/audio/directsound/*.c");
 	src += Glob("sdl.github/src/audio/disk/*.c");
-	src += Glob("sdl.github/src/audio/winmm/*.c");
-	src += Glob("sdl.github/src/audio/wasapi/*.c");
+	if (isWindows) src += Glob("sdl.github/src/audio/winmm/*.c");
+	if (isWindows) src += Glob("sdl.github/src/audio/wasapi/*.c");
 	src += Glob("sdl.github/src/audio/*.c");
-	src += Glob("sdl.github/src/core/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/core/windows/*.c");
 	src += Glob("sdl.github/src/cpuinfo/*.c");
 	src += Glob("sdl.github/src/dynapi/*.c");
 	src += Glob("sdl.github/src/events/*.c");
 	src += Glob("sdl.github/src/file/*.c");
-	src += Glob("sdl.github/src/filesystem/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/filesystem/windows/*.c");
 	src += Glob("sdl.github/src/haptic/*.c");
-	src += Glob("sdl.github/src/haptic/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/haptic/windows/*.c");
 	src += Glob("sdl.github/src/hidapi/*.c");
 	src += Glob("sdl.github/src/joystick/*.c");
 	src += Glob("sdl.github/src/joystick/dummy/*.c");
 	src += Glob("sdl.github/src/joystick/hidapi/*.c");
-	src += Glob("sdl.github/src/joystick/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/joystick/windows/*.c");
 	src += Glob("sdl.github/src/joystick/virtual/*.c");
 	src += Glob("sdl.github/src/libm/*.c");
-	src += Glob("sdl.github/src/loadso/windows/*.c");
-	src += Glob("sdl.github/src/locale/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/loadso/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/locale/windows/*.c");
 	src += Glob("sdl.github/src/locale/*.c");
 	src += Glob("sdl.github/src/misc/*.c");
-	src += Glob("sdl.github/src/misc/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/misc/windows/*.c");
 	src += Glob("sdl.github/src/power/*.c");
-	src += Glob("sdl.github/src/power/windows/*.c");
-	src += Glob("sdl.github/src/render/direct3d/*.c");
-	src += Glob("sdl.github/src/render/direct3d11/*.c");
-	src += Glob("sdl.github/src/render/direct3d12/*.c");
+	if (isWindows) src += Glob("sdl.github/src/power/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/render/direct3d/*.c");
+	if (isWindows) src += Glob("sdl.github/src/render/direct3d11/*.c");
+	if (isWindows) src += Glob("sdl.github/src/render/direct3d12/*.c");
 	src += Glob("sdl.github/src/render/opengl/*.c");
-	src += Glob("sdl.github/src/render/opengles2/*.c");
+	if (isWindows) src += Glob("sdl.github/src/render/opengles2/*.c");
 	src += Glob("sdl.github/src/render/software/*.c");
 	src += Glob("sdl.github/src/render/*.c");
 	src += Glob("sdl.github/src/sensor/*.c");
 	src += Glob("sdl.github/src/render/dummy/*.c");
-	src += Glob("sdl.github/src/render/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/render/windows/*.c");
 	src += Glob("sdl.github/src/stdlib/*.c");
 	src += Glob("sdl.github/src/thread/*.c");
 	src += Glob("sdl.github/src/thread/generic/*.c");
-	src += Glob("sdl.github/src/thread/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/thread/windows/*.c");
 	src += Glob("sdl.github/src/timer/*.c");
-	src += Glob("sdl.github/src/timer/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/timer/windows/*.c");
 	src += Glob("sdl.github/src/video/dummy/*.c");
-	src += Glob("sdl.github/src/video/windows/*.c");
+	if (isWindows) src += Glob("sdl.github/src/video/windows/*.c");
 	src += Glob("sdl.github/src/video/yuv2rgb/*.c");
 	src += Glob("sdl.github/src/video/*.c");
+	// Remove EGL (mobile-only graphics API) on desktop platforms
+	src.Remove("sdl.github/src/video/SDL_egl.c");
 	src += Glob("sdl.github/src/*.c");
 }

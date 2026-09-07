@@ -19,7 +19,16 @@ namespace Kltv.Kombine {
 
 			public static string Minor = "4";
 
-			public static string Build = "[BUILD]";
+			// Raw build number. The release script rewrites the bracketed BUILD
+			// placeholder below with the numeric build. Local and debug
+			// builds leave it untouched.
+			private static readonly string rawBuild = "[BUILD]";
+
+			// Build identifier. Returns the injected build number on release builds,
+			// or "development" when the placeholder has not been substituted.
+			public static string Build {
+				get { return rawBuild.StartsWith('[') ? "development" : rawBuild; }
+			}
 
 			public static int HexVersion = 0x0104;
 		}

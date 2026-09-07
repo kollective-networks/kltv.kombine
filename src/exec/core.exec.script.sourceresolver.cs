@@ -80,45 +80,44 @@ namespace Kltv.Kombine {
 			/// <summary>
 			/// Resolve a source reference.
 			/// We will resolve following an order (in case is relative):
-			/// 
-			/// CurrentDirectory
+			///
+			/// IncludingFileDirectory (when baseFilePath is provided)
 			/// ScriptDirectory
+			/// CurrentDirectory
 			/// Backtrace directories
 			/// Tool directory
-			/// 
+			/// Forward trace directories (opt-in only, -kforward)
+			///
 			/// In case the given path is absolute, we will just return it if it exists
 			/// In case the given path is a URL, we will just return it.
 			/// The resolved path is converted into an absolute path following the host os conventions.
-			/// 
+			///
 			/// </summary>
 			/// <param name="path">The path and filename for the reference to be resolved</param>
 			/// <param name="baseFilePath">The base file path in case is used.</param>
 			/// <returns>The resolved path or null if cannot be resolved.</returns>
 			public override string? ResolveReference(string path, string? baseFilePath) {
-				// Note:
-				// Is not clear when baseFilePath has something. Under the testing always was null.
-				// Also it is not clear what is the purpose of baseFilePath or which kind of normalization
-				// should take place. 
-				//
-				// From: https://learn.microsoft.com/en-us/dotnet/api/microsoft.codeanalysis.xmlfileresolver.resolvereference?view=roslyn-dotnet-4.7.0
-				//
-				// Path of the source file(FilePath) or XML document that contains the path.
-				// If not null used as a base path of path, if path is relative.
-				// If baseFilePath is relative BaseDirectory is used as the base path of baseFilePath.
-				//
-				// Perfect explained, right?
-				//
-				//
-				string? resolvedPath = Folders.ResolveFilename(path);
+				// baseFilePath carries the file containing the reference when it comes from an
+				// already loaded include (Roslyn sets the loaded tree path to the path we resolved).
+				// For the root script it is null/empty because its tree is parsed without a path.
+				string? baseDir = null;
+				if (string.IsNullOrEmpty(baseFilePath) == false)
+					baseDir = Path.GetDirectoryName(baseFilePath);
+				string? resolvedPath = Folders.ResolveFilename(path, baseDir, ScriptPath);
 				if (resolvedPath != null) {
+					// One line per include on real compiles, behind verbose so normal builds stay quiet.
+					// Anomalies keep printing at normal level: unresolved references and forward search hits.
+					Msg.PrintMod("#load \"" + path + "\" -> " + resolvedPath, ".exec.script.sourceresolver", Msg.LogLevels.Verbose);
 					// Save the dependency in the state
 					//
 					// Get the modification time of the dependency file
 					long modTime = File.GetLastWriteTimeUtc(resolvedPath).ToBinary();
-					KombineMain.CurrentRunningScript?.State.FileDependencies.Add(resolvedPath,modTime);
+					KombineScript? current = KombineMain.CurrentRunningScript;
+					if (current != null)
+						current.State.FileDependencies[resolvedPath] = modTime;
 					return resolvedPath;
 				}
-				Msg.PrintMod("ResolveReference: Could not resolve "+path, ".exec.script.sourceresolver", Msg.LogLevels.Debug);
+				Msg.PrintWarningMod("#load \"" + path + "\" could not be resolved.", ".exec.script.sourceresolver");
 				return null;
 			}
 

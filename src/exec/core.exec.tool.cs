@@ -206,10 +206,31 @@ namespace Kltv.Kombine {
 		/// <param name="pExitCode">Variable to receive the exit code</param>
 		/// <returns>true if the process was launched, false otherwise</returns>
 		public bool WaitExit(out int pExitCode) {
-			if (ProcessHandle != null) {
-				ProcessHandle.WaitForExit();
+			Process? process = ProcessHandle;
+			if (process != null) {
+				try {
+					process.WaitForExit();
+					// Prefer ExitCode captured by ExitedExecutionHandler if available.
+					if (ProcessExited == true) {
+						pExitCode = ExitCode;
+						return true;
+					}
+					// Fallback path if the event has not been processed yet.
+					pExitCode = process.ExitCode;
+					ExitCode = pExitCode;
+					return true;
+				} catch (Exception) {
+					if (ProcessExited == true) {
+						pExitCode = ExitCode;
+						return true;
+					}
+					pExitCode = 0;
+					return false;
+				}
+			}
+			if (ProcessExited == true) {
 				pExitCode = ExitCode;
-				return true; 
+				return true;
 			}
 			pExitCode = 0;
 			return false;

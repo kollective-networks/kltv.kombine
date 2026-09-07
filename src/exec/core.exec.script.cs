@@ -170,7 +170,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			// Its not supposed to happen but just in case.
 			if (string.IsNullOrEmpty(Scriptfile)) {
 				Msg.PrintErrorMod("Invalid script filename. Aborting.", ".exec.script");
-				return -1;
+				return Constants.ExitCodeFailure;
 			}
 			// Save the action parameters
 			this.ActionParameters = ActionParameters ?? Array.Empty<string>();
@@ -193,7 +193,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				}
 				if (Compile(Scriptfile,DebugBuild) == false) {
 					Msg.PrintErrorMod("There was errors building the script. Aborting.", ".exec.script");
-					return -1;
+					return Constants.ExitCodeFailure;
 				}
 				Msg.PrintMod("Script '"+Scriptfile+"' compiled successfully.", ".exec.script", Msg.LogLevels.Debug);
 			}
@@ -203,7 +203,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			Assembly assembly;
 			if (State.Data.CompiledScript == null) {
 				Msg.PrintErrorMod("Could not load script. Bytes are null. Aborting.", ".exec.script");
-				return -1;
+				return Constants.ExitCodeFailure;
 			}
 			if (State.Data.CompiledScriptPDB != null) {
 				assembly = Assembly.Load(State.Data.CompiledScript, State.Data.CompiledScriptPDB);
@@ -212,7 +212,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			}
 			if (assembly == null) {
 				Msg.PrintErrorMod("Something wrong happened loading the compiled script into memory. Aborting.", ".exec.script");
-				return -1;
+				return Constants.ExitCodeFailure;
 			}
 			// Fetch the entry point
 			// We use the script class (defined in compilation step with the script name plus _class suffix)
@@ -221,7 +221,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			Type? ScriptClass = assembly.ExportedTypes.FirstOrDefault(x => x.Name == ClassName); 
 			if (ScriptClass == null) {
 				Msg.PrintErrorMod("Something wrong happened retrieving the script underlying class. Aborting.", ".exec.script");
-				return -1;
+				return Constants.ExitCodeFailure;
 			}
 			MethodInfo? entrypoint;
 			// First try to get entrypoint for top level statements.
@@ -230,7 +230,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			if (entrypoint == null) {
 				Msg.PrintErrorMod("No top level statements as entrypoint found.", ".exec.script", Msg.LogLevels.Debug);
 				Msg.PrintErrorMod("Something wrong happened retrieving the script entry point. Aborting.", ".exec.script");
-				return -1;
+				return Constants.ExitCodeFailure;
 			}
 			// And just execute the script
 			object? ReturnCode = null;
@@ -258,14 +258,14 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				//
 				if (!EvaluateResult(ReturnCode)){
 					Msg.PrintErrorMod("Failed evaluating the global script execution. Aborting.", ".exec.script");
-					return -1;
+					return Constants.ExitCodeFailure;
 				}
 				// After the execution of the top level statements, the runtime environment contains
 				// the instance created to run the top level statements, so, we can use it as an instance to call our methods.
 				entrypoint = ScriptClass.GetMethod(Action);
 				if (entrypoint == null) {
 					Msg.PrintErrorMod("Something wrong happened retrieving the script entry point. Aborting.", ".exec.script");
-					return -1;
+					return Constants.ExitCodeFailure;
 				}
 				// Fetch the instance from the runtime environment (is left on the submission array after call the top level statements)
 				object? Instance = submissiongArray[1];
@@ -282,26 +282,27 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 					return code;
 				}
 				Msg.PrintWarningMod("Script executed but the returned code was wrong. Review your action.", ".exec.script",Msg.LogLevels.Normal);
-				return 0;
+				return Constants.ExitCodeFailure;
 			} catch (Exception ex) {
 				//
 				// Here we catch if the script execution failed (could not be invoked) or the script itself raised an exception.
-				// If the scripts wants to abort execution, it will raise an exception that we must catch here just to return -1
+				// If the scripts wants to abort execution, it will raise an exception that we must catch here just to return
+				// a failure exit code
 				// but do not stop the kombine process.
 				//
 				if (ex is ScriptAbortException){
 					Msg.PrintErrorMod("Script aborted execution.", ".exec.script");
-					return -1;
+					return Constants.ExitCodeFailure;
 				}
 				if (ex.InnerException != null) {
 					if (ex.InnerException is ScriptAbortException){
 						// Silence this one since we already anounce it
-						return -1;
+						return Constants.ExitCodeFailure;
 					}
 					Msg.PrintErrorMod("Script exception: " + ex.InnerException.Message, ".exec.script");
 				}
 				Msg.PrintErrorMod("Failed executing script: " + ex.Message, ".exec.script");
-				return -1;
+				return Constants.ExitCodeFailure;
 			}
 		}
 
@@ -364,12 +365,12 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			CSharpCompilationOptions options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
 			// Initialize the compilation opptions.
 			{
-				// Do not allow unsafe code. 
+				// Do not allow unsafe code.
 				options = options.WithAllowUnsafe(false);
 				// Identity comparer maybe is needed if we allow #r directives
 				// -> options.WithAssemblyIdentityComparer( AssemblyIdentityComparer )
-				// Allow concurrent build.
-				options = options.WithConcurrentBuild(true);
+				// Allow concurrent build - disabled due to Roslyn 5.0.0 crashes on .NET 10.0
+				options = options.WithConcurrentBuild(false);
 				// Crypto options
 				// CryptoKeyContainer: The name of the key container that contains the key pair used to generate a strong name for the compilation's output assembly.
 				// CryptoKeyFile: The path to the file that contains the key pair used to generate a strong name for the compilation's output assembly.
@@ -400,8 +401,15 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				options = options.WithModuleName(ModuleName);
 				// Script class name.
 				options = options.WithScriptClassName(ClassName);
-				// Nullability: We will use the default one but this is prone to be tweaked by command line / config
-				options = options.WithNullableContextOptions(NullableContextOptions.Enable);
+				// Nullability: Disabled due to Roslyn 5.0.0 crashes on .NET 10.0
+				// TODO: Re-enable when Roslyn is updated to a version without this bug
+				// Tracking issue: https://github.com/dotnet/roslyn/issues/XXXXX
+				options = options.WithNullableContextOptions(NullableContextOptions.Disable);
+				// With the nullable context disabled, scripts using nullable annotations would emit
+				// CS8632 on every compile. Suppress it until the nullable context can be re-enabled.
+				options = options.WithSpecificDiagnosticOptions(new Dictionary<string, ReportDiagnostic> {
+					{ "CS8632", ReportDiagnostic.Suppress }
+				});
 				// Optimization level & debug
 				if (Debug) {
 					Msg.PrintMod("Setting options to build on debug mode (invoked with -ksdbg)", ".exec.script", Msg.LogLevels.Debug);
@@ -474,26 +482,42 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			// Try to compile the script
 			//
 			try {
-				// 
+				//
 				// Building block
 				//
 				Msg.PrintMod("Evaluate and build the code.", ".exec.script", Msg.LogLevels.Debug);
-				var BuildResults = compilation.GetDiagnostics();
+
+				// NOTE: GetDiagnostics() can crash due to a Roslyn 5.0.0 bug on .NET 10.0
+				// We wrap it in try-catch to handle the crash gracefully
+				var BuildResults = System.Collections.Immutable.ImmutableArray<Diagnostic>.Empty;
+				try {
+					BuildResults = compilation.GetDiagnostics();
+				} catch (Exception diagEx) {
+					Msg.PrintWarningMod($"GetDiagnostics() threw exception (Roslyn bug): {diagEx.GetType().Name}. Proceeding without diagnostics.", ".exec.script");
+				}
+
 				// We may want to check BuildResults even if building exceptions are trapped.
+				// Warnings are reported but only errors (or warnings promoted to errors) abort the build.
 				//
-				if (BuildResults.Length > 0) {
+				bool HasErrors = BuildResults.Any(res => res.Severity == DiagnosticSeverity.Error || res.IsWarningAsError);
+				if (HasErrors) {
 					Msg.PrintErrorMod("Errors found compiling the script: "+filename, ".exec.script");
 					Msg.BeginIndent();
 					foreach (Diagnostic res in BuildResults) {
-						if (res.IsWarningAsError){
-							Msg.PrintWarning(res.ToString());
+						if (res.Severity == DiagnosticSeverity.Error || res.IsWarningAsError){
+							Msg.PrintError(res.ToString());
 						} else{
-							Msg.PrintError(res.ToString()); 
+							Msg.PrintWarning(res.ToString());
 						}
 					}
 					Msg.EndIndent();
 					Msg.PrintErrorMod("Aborting.", ".exec.script");
 					return false;
+				}
+				foreach (Diagnostic res in BuildResults) {
+					if (res.Severity == DiagnosticSeverity.Warning) {
+						Msg.PrintWarning(res.ToString());
+					}
 				}
 				Msg.PrintMod("Compilation done.", ".exec.script", Msg.LogLevels.Debug);
 				// Get the compilation

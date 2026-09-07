@@ -10,9 +10,26 @@
 namespace Kltv.Kombine {
 
 	/// <summary>
-	/// Holds all the string constants for the tool
+	/// Holds constants for the tool
 	/// </summary>
 	internal static class Constants {
+
+		// Process Exit Codes
+		// ----------------------------------------------------------------
+		/// <summary>
+		/// Process exit code for successful execution.
+		/// </summary>
+		public const int ExitCodeSuccess = 0;
+
+		/// <summary>
+		/// Process exit code for generic execution failure.
+		/// </summary>
+		public const int ExitCodeFailure = 1;
+
+		/// <summary>
+		/// Process exit code when execution is canceled by user (Ctrl+C).
+		/// </summary>
+		public const int ExitCodeCanceled = 130;
 
 		// Cache Folder
 		// ----------------------------------------------------------------

@@ -227,7 +227,20 @@ namespace Kltv.Kombine.Api {
 					ChildProcess.KillAllChilds();
 					break;
 				}
-				CommandAsync(c.cmd, c.args, c.callback, c.id);
+				// A failed launch (the process could not be spawned) is retried a few times before
+				// giving up: transient spawn failures on loaded machines otherwise vanish silently
+				// and surface later as missing outputs.
+				ToolResult launched = CommandAsync(c.cmd, c.args, c.callback, c.id);
+				int retries = 3;
+				while ((launched.Status == ToolStatus.Failed) && (retries != 0)) {
+					Msg.PrintWarningMod("Failed launching command. Retrying: " + c.cmd, ".tool." + ToolTag);
+					Thread.Sleep(250);
+					launched = CommandAsync(c.cmd, c.args, c.callback, c.id);
+					retries--;
+				}
+				if (launched.Status == ToolStatus.Failed) {
+					c.res = launched;
+				}
 				CommandAsyncWaitAll(ConcurrentCommands);
 			}
 			// Wait for all the commands to finish
@@ -240,7 +253,11 @@ namespace Kltv.Kombine.Api {
 			List<string> astderr = new List<string>();
 			foreach (AsyncCommand c in asyncCommands) {
 				if (c.res == null) {
-					Msg.PrintWarningMod("Error fetching results for async command. Looks like was not executed.", ".tool." + ToolTag, Msg.LogLevels.Verbose);
+					// A command with no result was never executed (dropped launch or interrupted wait).
+					// It must fail the whole batch: succeeding silently leaves missing outputs behind.
+					Msg.PrintErrorMod("A queued command was never executed: " + c.cmd + " " + c.args, ".tool." + ToolTag);
+					status = ToolStatus.Failed;
+					offendingExitCode = -1;
 					continue;
 				}
 				// If some result was failed, switch global to failed and copy the exit code
@@ -311,7 +328,7 @@ namespace Kltv.Kombine.Api {
 			if (CommandAsyncResult != null)
 				p.UserData = CommandAsyncResult;
 			if (p.Launch() == false) {
-				Msg.PrintWarningMod("Error launching async. Could not launch.", ".tool." + ToolTag,Msg.LogLevels.Verbose);
+				Msg.PrintWarningMod("Error launching async. Could not launch: " + cmd, ".tool." + ToolTag);
 				Interlocked.Decrement(ref PendingAsyncTasks);
 				return res;
 			}

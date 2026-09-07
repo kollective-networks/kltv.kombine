@@ -118,3 +118,27 @@ int extras(string[] args){
 	}
 	return 0;
 }
+
+/// <summary>
+/// Execute all the tests in this file: base scripts, extensions and extras.
+/// </summary>
+/// <param name="args"></param>
+/// <returns>0 if every test group passed, otherwise the first non-zero return code.</returns>
+int all(string[] args){
+	Msg.Print("");
+	Msg.Print("Running all tests");
+	Msg.Print("");
+	int ret = test(args);
+	if (ret != 0)
+		return ret;
+	ret = extensions(args);
+	if (ret != 0)
+		return ret;
+	ret = extras(args);
+	if (ret != 0)
+		return ret;
+	Msg.Print("");
+	Msg.Print("All tests completed");
+	Msg.Print("");
+	return 0;
+}

@@ -1,5 +1,5 @@
 
-## [Unreleased]
+## [1.5.24359387]
 
 - [Feature] Added -ksdbgw flag: waits for a debugger to attach before executing the action, enabling script debugging with the single-file executable
 - [Feature] Added a debugging guide (doc/debug.md) covering Visual Studio and VSCode

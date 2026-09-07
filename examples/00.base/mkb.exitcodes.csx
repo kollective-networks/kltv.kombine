@@ -11,68 +11,129 @@
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using System;
+using System.IO;
+using System.Collections.Generic;
 using static Kltv.Kombine.Api.Statics;
 using static Kltv.Kombine.Api.Tool;
 
+/// <summary>
+/// Verifies the exit code contract of the tool: every launch mode (script return, abort, exception,
+/// invalid action, builtin actions, missing files...) must map to the documented exit code.
+/// Every case runs the tool as a child process with its output captured, so nothing leaks to the console.
+/// </summary>
+/// <param name="args"></param>
+/// <returns>0 if every contract holds, 1 otherwise.</returns>
 int test(string[] args){
 	Msg.Print("----------------------------------------------------------");
 	Msg.BeginIndent();
 	Msg.Print("-Testing exit code contracts");
 	Msg.BeginIndent();
 
+	const int ExitCodeSuccess = 0;
+	const int ExitCodeFailure = 1;
 	string mkbBinary = CurrentToolFolder + (Host.IsWindows() ? "/mkb.exe" : "/mkb");
 	string tempFolder = CurrentWorkingFolder + "/.tmp.exitcodes";
-	const int ExitCodeFailure = 1;
-	if (Folders.Exists(tempFolder)) {
+
+	// Fresh sandbox with the helper scripts used by the cases
+	if (Folders.Exists(tempFolder))
 		Folders.Delete(tempFolder, true);
-	}
 	Folders.Create(tempFolder);
+	Files.WriteTextFile(tempFolder + "/pass.csx",       "int pass(string[] args){ Msg.Print(\"pass\"); return 0; }");
+	Files.WriteTextFile(tempFolder + "/ret7.csx",       "int ret7(string[] args){ return 7; }");
+	Files.WriteTextFile(tempFolder + "/abort.csx",      "int abort(string[] args){ Msg.PrintAndAbort(\"forced abort\"); return 0; }");
+	Files.WriteTextFile(tempFolder + "/throw.csx",      "int thrower(string[] args){ throw new Exception(\"forced throw\"); }");
+	Files.WriteTextFile(tempFolder + "/voidreturn.csx", "void voidret(string[] args){ Msg.Print(\"void return\"); }");
+	Files.WriteTextFile(tempFolder + "/noaction.csx",   "int someaction(string[] args){ return 0; }");
 
-	string scriptPass = tempFolder + "/pass.csx";
-	string scriptReturn = tempFolder + "/ret7.csx";
-	string scriptAbort = tempFolder + "/abort.csx";
-	string scriptThrow = tempFolder + "/throw.csx";
-	string scriptVoidReturn = tempFolder + "/voidreturn.csx";
-	string scriptNoAction = tempFolder + "/noaction.csx";
+	// Name, tool arguments and expected exit code of every contract
+	var cases = new List<(string Name, string[] Args, int Expected)> {
+		("Successful script returns success",                       new[] { "-kfile:" + tempFolder + "/pass.csx", "pass" },              ExitCodeSuccess),
+		("Explicit return value is preserved",                      new[] { "-kfile:" + tempFolder + "/ret7.csx", "ret7" },              7),
+		("PrintAndAbort normalizes to generic failure",             new[] { "-kfile:" + tempFolder + "/abort.csx", "abort" },            ExitCodeFailure),
+		("Unhandled script exception normalizes to generic failure", new[] { "-kfile:" + tempFolder + "/throw.csx", "thrower" },          ExitCodeFailure),
+		("Invalid action return type normalizes to generic failure", new[] { "-kfile:" + tempFolder + "/voidreturn.csx", "voidret" },     ExitCodeFailure),
+		("kconfig returns failure while unimplemented",             new[] { "kconfig" },                                                 ExitCodeFailure),
+		("kcache help returns success",                             new[] { "kcache", "help" },                                          ExitCodeSuccess),
+		("kcache without subcommand returns failure",               new[] { "kcache" },                                                  ExitCodeFailure),
+		("kcache unknown subcommand returns failure",               new[] { "kcache", "invalid" },                                       ExitCodeFailure),
+		("No action defaults to help success",                      new[] { "-kfile:" + tempFolder + "/noaction.csx" },                  ExitCodeSuccess),
+		("Unknown action returns failure",                          new[] { "-kfile:" + tempFolder + "/noaction.csx", "doesnotexist" },  ExitCodeFailure),
+		("Missing script file returns failure",                     new[] { "-kfile:" + tempFolder + "/missing.csx", "any" },            ExitCodeFailure),
+	};
 
-	Files.WriteTextFile(scriptPass,
-		"int pass(string[] args){ Msg.Print(\"pass\"); return 0; }");
-	Files.WriteTextFile(scriptReturn,
-		"int ret7(string[] args){ return 7; }");
-	Files.WriteTextFile(scriptAbort,
-		"int abort(string[] args){ Msg.PrintAndAbort(\"forced abort\"); return 0; }");
-	Files.WriteTextFile(scriptThrow,
-		"int thrower(string[] args){ throw new Exception(\"forced throw\"); }");
-	Files.WriteTextFile(scriptVoidReturn,
-		"void voidret(string[] args){ Msg.Print(\"void return\"); }");
-	Files.WriteTextFile(scriptNoAction,
-		"int someaction(string[] args){ return 0; }");
+	Msg.Print("Tool    : " + Path.GetFullPath(mkbBinary));
+	Msg.Print("Sandbox : " + Path.GetFullPath(tempFolder));
+	Msg.RawPrint(Environment.NewLine);
 
-	ExpectExitCode("successful script returns success", Exec(mkbBinary, new string[] { "-kfile:" + scriptPass, "pass" }, true), 0);
-	ExpectExitCode("explicit return value is preserved", Exec(mkbBinary, new string[] { "-kfile:" + scriptReturn, "ret7" }, true), 7);
-	ExpectExitCode("PrintAndAbort normalizes to generic failure", Exec(mkbBinary, new string[] { "-kfile:" + scriptAbort, "abort" }, true), ExitCodeFailure);
-	ExpectExitCode("unhandled script exception normalizes to generic failure", Exec(mkbBinary, new string[] { "-kfile:" + scriptThrow, "thrower" }, true), ExitCodeFailure);
-	ExpectExitCode("invalid action return type normalizes to generic failure", Exec(mkbBinary, new string[] { "-kfile:" + scriptVoidReturn, "voidret" }, true), ExitCodeFailure);
-	ExpectExitCode("kconfig returns failure while unimplemented", Exec(mkbBinary, "kconfig", true), ExitCodeFailure);
-	ExpectExitCode("kcache help returns success", Exec(mkbBinary, new string[] { "kcache", "help" }, true), 0);
-	ExpectExitCode("kcache without subcommand returns failure", Exec(mkbBinary, "kcache", true), ExitCodeFailure);
-	ExpectExitCode("kcache unknown subcommand returns failure", Exec(mkbBinary, new string[] { "kcache", "invalid" }, true), ExitCodeFailure);
-	ExpectExitCode("no action defaults to help success", Exec(mkbBinary, new string[] { "-kfile:" + scriptNoAction }, true), 0);
-	ExpectExitCode("unknown action returns failure", Exec(mkbBinary, new string[] { "-kfile:" + scriptNoAction, "doesnotexist" }, true), ExitCodeFailure);
-	ExpectExitCode("missing script file returns failure", Exec(mkbBinary, new string[] { "-kfile:" + tempFolder + "/missing.csx", "any" }, true), ExitCodeFailure);
+	int passed = 0;
+	int failed = 0;
+	for (int i = 0; i < cases.Count; i++){
+		var c = cases[i];
+		Msg.Print($"[{i + 1:00}/{cases.Count:00}] {c.Name}");
+		Msg.BeginIndent();
+		// Child output is collected but never echoed, keeping the report clean
+		Tool tool = new Tool("exitcodes");
+		tool.CaptureOutput = false;
+		tool.ExpectedExitCode = c.Expected;
+		ToolResult result = tool.CommandSync(mkbBinary, c.Args, null);
+		Msg.Print("command  : mkb " + string.Join(" ", c.Args).Replace(tempFolder + "/", ""));
+		Msg.PrintTask($"exitcode : {("expected " + c.Expected + ", got " + result.ExitCode),-24}");
+		if (result.ExitCode == c.Expected){
+			Msg.PrintTaskSuccess("OK");
+			passed++;
+		} else {
+			Msg.PrintTaskError("FAILED");
+			failed++;
+			PrintChildOutput(result);
+		}
+		Msg.EndIndent();
+		Msg.RawPrint(Environment.NewLine);
+	}
 
 	Folders.Delete(tempFolder, true);
+
+	Msg.PrintTask($"Summary : {passed} of {cases.Count} contracts verified ");
+	if (failed == 0)
+		Msg.PrintTaskSuccess("OK");
+	else
+		Msg.PrintTaskError($"{failed} FAILED");
 
 	Msg.EndIndent();
 	Msg.EndIndent();
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
-	return 0;
+	if (failed != 0){
+		Msg.PrintError($"Exit code contract tests failed: {failed} of {cases.Count}");
+		return ExitCodeFailure;
+	}
+	return ExitCodeSuccess;
 }
 
-void ExpectExitCode(string testName, int actual, int expected){
-	if (actual != expected){
-		Msg.PrintAndAbort($"{testName}: expected exit code {expected}, got {actual}");
+/// <summary>
+/// Prints the captured output of a failed case, so the reason is visible without polluting the passing ones.
+/// </summary>
+/// <param name="result">Result of the child tool execution.</param>
+void PrintChildOutput(ToolResult result){
+	const int maxLines = 10;
+	// Normalize line endings and drop blank lines so only meaningful output is shown
+	List<string> lines = new List<string>();
+	foreach (string line in result.Stdout) {
+		string clean = line.TrimEnd('\r', '\n');
+		if (!string.IsNullOrWhiteSpace(clean))
+			lines.Add(clean);
 	}
-	Msg.Print($"{testName}: {actual}");
+	foreach (string line in result.Stderr) {
+		string clean = line.TrimEnd('\r', '\n');
+		if (!string.IsNullOrWhiteSpace(clean))
+			lines.Add(clean);
+	}
+	if (lines.Count == 0)
+		return;
+	Msg.Print("output   :");
+	Msg.BeginIndent();
+	for (int i = 0; i < lines.Count && i < maxLines; i++)
+		Msg.Print("| " + lines[i]);
+	if (lines.Count > maxLines)
+		Msg.Print($"| ... ({lines.Count - maxLines} more lines)");
+	Msg.EndIndent();
 }

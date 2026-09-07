@@ -46,7 +46,7 @@
 - [Misc] Warning-clean build: dropped the framework-provided System.Text.Json package reference and fixed an inexact stream read (CA2022) in the file-content comparison
 - [Misc] Examples: added `00.base/mkb.exitcodes.csx` (exit-code contract) and `08.loadresolution` (two repos sharing the same helper layout, one embedded inside the other's dependency folder, asserting each script binds its own repo's helpers); the SDL2 example disables `-msse3` on ARM64 and filters sources per platform; the MSYS2 extras test is skipped on non-Windows hosts
 - [Feature] bin2obj extension: added Mach-O 64-bit object output (x86_64 and arm64) so binary embedding works on macOS; COFF output on other hosts is unchanged
-- [Misc] Examples: exit code and network tests rewritten with per check reports and colored OK / FAILED tags, child tool output is no longer dumped on screen; the network test downloads the project release assets (verified by size) and checks the expected failures against missing urls, the previous 1GB test file sits behind a bot check and returns 403
+- [Misc] Examples: exit code, built in types, child scripts, #load resolution, files / folders / compression and network tests rewritten with per check reports and colored OK / FAILED tags, child tool output is no longer dumped on screen; the network test downloads the project release assets (verified by size) and checks the expected failures against missing urls, the previous 1GB test file sits behind a bot check and returns 403
 
 ## [1.4.24072788]
 - [Feature] Added methods in Http API to support uploads and credentials

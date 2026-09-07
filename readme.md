@@ -1,5 +1,11 @@
 # Kombine Build System
 
+<table>
+  <tr>
+    <td><a href="https://github.com/kollective-networks/kltv.kombine/releases/latest"><img src="https://img.shields.io/github/v/release/kollective-networks/kltv.kombine?sort=date" alt="Kombine Release"/></a></td>
+  </tr>
+</table>
+
 - [Overview](#overview)
 - [Features](#features)
 - [Feature state](doc/features.md)

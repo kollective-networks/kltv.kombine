@@ -5,7 +5,7 @@
     <LocalDebuggerWorkingDirectory>$(SolutionDir)\examples</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerDebuggerType>ManagedCore</LocalDebuggerDebuggerType>
-    <LocalDebuggerCommandArguments>-ksrb -ksdbg extensions</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-ksrb -ksdbg test</LocalDebuggerCommandArguments>
     <LocalDebuggerCommandArgumentsHistory>help|-ksrb -ksdbg help|-ksrb -ksdbg test|-ksrb -ksdbg extensions|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup>

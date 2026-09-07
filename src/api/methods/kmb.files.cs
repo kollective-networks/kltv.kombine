@@ -225,9 +225,12 @@ namespace Kltv.Kombine.Api {
 						byte[] two = new byte[BYTES_TO_READ];
 
 						for (int i = 0; i < iterations; i++) {
-							fs1.Read(one, 0, BYTES_TO_READ);
-							fs2.Read(two, 0, BYTES_TO_READ);
-							if (BitConverter.ToInt64(one, 0) != BitConverter.ToInt64(two, 0)) {
+							// ReadAtLeast returns the real byte count (a stream read may return fewer bytes
+							// than requested); compare only the bytes actually read so a final short block
+							// cannot match on stale buffer contents.
+							int read1 = fs1.ReadAtLeast(one, BYTES_TO_READ, throwOnEndOfStream: false);
+							int read2 = fs2.ReadAtLeast(two, BYTES_TO_READ, throwOnEndOfStream: false);
+							if (read1 != read2 || !one.AsSpan(0, read1).SequenceEqual(two.AsSpan(0, read2))) {
 								Msg.PrintMod("[-] Files mismatched by content.", ".files", Msg.LogLevels.Verbose);
 								Msg.BeginIndent();
 								Msg.PrintMod("File:" + first, ".files", Msg.LogLevels.Verbose);

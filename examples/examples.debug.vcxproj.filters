@@ -49,6 +49,13 @@
     <None Include="07.extras\01.msys2\msys2.build.csx" />
     <None Include="07.extras\01.msys2\msys2.packages.csx" />
     <None Include="07.extras\00.sdl2\sdl2.csx" />
+    <None Include="08.loadresolution\mkb.loadresolution.csx" />
+    <None Include="08.loadresolution\repo-a\kombine.csx" />
+    <None Include="08.loadresolution\repo-a\scripts\build\helper.csx" />
+    <None Include="08.loadresolution\repo-a\ext\mod.csx" />
+    <None Include="08.loadresolution\repo-a\ext\repo-b\kombine.csx" />
+    <None Include="08.loadresolution\repo-a\ext\repo-b\scripts\build\helper.csx" />
+    <None Include="08.loadresolution\repo-a\ext\repo-b\ext\mod.csx" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="06.extensions\04.bin2cpp\src\main.cpp" />

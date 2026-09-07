@@ -107,7 +107,7 @@ public static class Git {
 	/// <param name="uri">Uri for the repository</param>
 	/// <param name="path">Path to drop the files</param>
 	/// <param name="branch">Branch name to clone if required(optional).</param>
-	/// <returns></returns>
+	/// <returns>True if the clone succeeded, false otherwise.</returns>
 	public static bool Clone(string uri,string path,string? branch = null,bool showdettach = false) {
 		KList args = "clone";
 		if (branch != null) {
@@ -121,7 +121,11 @@ public static class Git {
 		args += " --recurse-submodules";
 		args += uri;
 		args += path;
-		Exec("git",args.Flatten(),true);
+		int code = Exec("git",args.Flatten(),true);
+		if (code != 0) {
+			Msg.PrintWarning("Git clone failed with exit code " + code + " for: " + uri);
+			return false;
+		}
 		return true;
 	}
 
@@ -133,44 +137,37 @@ public static class Git {
 	/// submodules are also updated. The method assumes that the specified path is a valid Git repository. No validation is
 	/// performed on the repository state before or after the pull operation.</remarks>
 	/// <param name="path">The file system path to the root directory of the Git repository to update. Cannot be null or empty.</param>
-	/// <returns>true if the pull operation completes; otherwise, false.</returns>
+	/// <returns>true if the pull operation completed successfully; otherwise, false.</returns>
 	public static bool Pull(string path) {
 		Folders.SetCurrentFolder(path,true);
-		Exec("git","pull  --recurse-submodules",true);
+		int code = Exec("git","pull  --recurse-submodules",true);
 		Folders.CurrentFolderPop();
+		if (code != 0) {
+			Msg.PrintWarning("Git pull failed with exit code " + code + " on: " + path);
+			return false;
+		}
 		return true;
 	}
 
 	/// <summary>
-	/// Apply a patch file over a directory
+	/// Apply a patch file over a directory.
+	/// NOT IMPLEMENTED YET: it prints an error and returns false.
 	/// </summary>
 	/// <param name="patchFile">Patch file to be applied</param>
 	/// <param name="patchDir">Base directory to apply the patch</param>
-	/// <returns>true if was applied or already applied, false otherwise</returns>
+	/// <returns>False always since it is not implemented yet.</returns>
 	public static bool Patch(string patchFile, string patchDir) {
-		if (Files.Exists(patchFile) == false) {
-			Msg.PrintWarning("Patch file does not exist");
-			return false;
-		}
-		string patchText = Files.ReadTextFile(patchFile);
-		// Convert the patch to Unix line endings. This is necessary to avoid
-		// whitespace errors with git apply.
-		patchText = patchText.Replace("\r\n","\n");
-		// Git apply fails silently if not run relative to a respository root.
-		// if not is_checkout(patch_dir):
-		// 		sys.stdout.write('... patch directory is not a repository root.\n')
-		// def is_checkout(path):
-		// """ Returns true if the path represents a git checkout. """
-		// return os.path.exists(os.path.join(path, '.git'))
-		//
-		//
-
+		Msg.PrintError("Git.Patch is not implemented yet.");
+		return false;
+		// Implementation notes for when this is done:
+		// Convert the patch to Unix line endings to avoid whitespace errors with git apply.
+		// Git apply fails silently if not run relative to a repository root, so check for
+		// a .git folder in patchDir first.
 		// git apply -p0 --ignore-whitespace
 		// git apply -p0 --numstat
 		// git apply -p0 --reverse --check
 		// git apply -p0 --check
 		// git apply -p0
-		return true;
 	}
 
 	/// <summary>
@@ -250,8 +247,11 @@ public static class Git {
 	/// <param name="files">files to be added</param>
 	public static void Add(KList files){
 		foreach (KValue file in files) {
-			var gitAdd = $"git add \"{file}\"";
-			Shell("cmd", $"/C {gitAdd}");
+			// Execute git directly so this works on any OS (no cmd/shell dependency)
+			int code = Exec("git", $"add \"{file}\"", true);
+			if (code != 0) {
+				Msg.PrintWarning("Git add failed with exit code " + code + " for: " + file);
+			}
 		}
 	}
 

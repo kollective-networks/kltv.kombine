@@ -104,7 +104,8 @@ namespace Kltv.Kombine.Api {
 			int retCode = KombineMain.RunScript(script, action, args, changedir);
 			if (exitonerror) {
 				if (retCode != 0) {
-					Msg.PrintAndAbortMod("Script execution returned error: " + script + " exitcode:" + retCode, ".statics.kombine", Msg.LogLevels.Verbose);
+					// The abort reason must be visible at any log level
+					Msg.PrintAndAbortMod("Script execution returned error: " + script + " exitcode:" + retCode, ".statics.kombine");
 					return retCode;
 				}
 			}
@@ -194,14 +195,20 @@ namespace Kltv.Kombine.Api {
 			var d = from source in target.GetMembers().ToList()
 					where source.MemberType == MemberTypes.Property
 					select source;
-			List<MemberInfo> members = d.Where(memberInfo => d.Select(c => c.Name)
+			// Copy only the properties present in BOTH the source object and the target type
+			List<MemberInfo> members = d.Where(memberInfo => z.Select(c => c.Name)
 			.ToList().Contains(memberInfo.Name)).ToList();
 			PropertyInfo? propertyInfo;
 			object? value;
 			foreach (var memberInfo in members) {
 				propertyInfo = typeof(T).GetProperty(memberInfo.Name);
 				value = myobj.GetType().GetProperty(memberInfo.Name)?.GetValue(myobj, null);
-				propertyInfo?.SetValue(x, value, null);
+				try {
+					propertyInfo?.SetValue(x, value, null);
+				} catch (Exception ex) {
+					// Incompatible or read only property: skip it instead of crashing the cast
+					Msg.PrintWarningMod("Cast: could not copy property " + memberInfo.Name + ": " + ex.Message, ".statics", Msg.LogLevels.Verbose);
+				}
 			}
 			return (T?)x;
 		}

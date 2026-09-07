@@ -187,7 +187,10 @@ namespace Kltv.Kombine {
 			// since we want a hash of the scriptname no matter if its invoked
 			// as relative path, absolute or just the name, we will use the complete filename
 			// as the key for the cache.
-			scriptname = Path.GetFullPath(scriptname);
+			// URLs are used as they come: the key must be the origin itself, no matter from
+			// which folder the script is executed, so remote scripts are cached per origin.
+			if (!(scriptname.StartsWith("http://") || scriptname.StartsWith("https://")))
+				scriptname = Path.GetFullPath(scriptname);
 			StringBuilder sb = new StringBuilder();
 			byte[] GetHash;
 			using (HashAlgorithm algorithm = SHA256.Create()) {

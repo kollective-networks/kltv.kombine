@@ -44,17 +44,22 @@ namespace Kltv.Kombine {
 				where source.MemberType == MemberTypes.Property select source ;
 			var d = from source in target.GetMembers().ToList()
 				where source.MemberType == MemberTypes.Property select source;
-			List<MemberInfo> members = d.Where(memberInfo => d.Select(c => c.Name)
+			// Copy only the properties present in BOTH the source object and the target type
+			List<MemberInfo> members = d.Where(memberInfo => z.Select(c => c.Name)
 			.ToList().Contains(memberInfo.Name)).ToList();
 			PropertyInfo? propertyInfo;
 			object? value;
 			foreach (var memberInfo in members) {
 				propertyInfo = typeof(T).GetProperty(memberInfo.Name);
 				value = myobj.GetType().GetProperty(memberInfo.Name)?.GetValue(myobj,null);
-				propertyInfo?.SetValue(x,value,null);
-			}   
+				try {
+					propertyInfo?.SetValue(x,value,null);
+				} catch {
+					// Incompatible or read only property: skip it instead of crashing the cast
+				}
+			}
 			return (T?)x;
-		}  		
+		}
 	}
 
 	/// <summary>

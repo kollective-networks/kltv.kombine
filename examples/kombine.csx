@@ -90,7 +90,7 @@ int extensions(string[] args){
 }
 
 /// <summary>
-/// 
+/// Execute the extra example scripts tests (sdl2, msys2)
 /// </summary>
 /// <param name="args"></param>
 /// <returns></returns>

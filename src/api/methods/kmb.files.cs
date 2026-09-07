@@ -149,7 +149,8 @@ namespace Kltv.Kombine.Api {
 							}
 						}
 					}
-					File.Copy(source, destination);
+					// Overwrite the destination: incremental copies must be able to update older files
+					File.Copy(source, destination, true);
 					return true;
 				} else {
 					Msg.PrintMod("The file to copy doesn't exist.", ".files", Msg.LogLevels.Verbose);

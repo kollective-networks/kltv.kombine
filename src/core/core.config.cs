@@ -33,6 +33,13 @@ namespace Kltv.Kombine
 		public static bool BuildDebug { get; private set; } = false;
 
 		/// <summary>
+		/// Wait for a debugger to be attached before executing the script action.
+		/// It implies BuildDebug. Intended to debug scripts attaching to the process,
+		/// which is the reliable method when the tool is the single file executable.
+		/// </summary>
+		public static bool DebugWait { get; private set; } = false;
+
+		/// <summary>
 		/// If the script should be rebuilded
 		/// </summary>
 		public static bool Rebuild { get; private set; } = false;
@@ -94,6 +101,7 @@ namespace Kltv.Kombine
 		/// [parameters] They are optional and can be any of the following:
 		///
 		/// -ksdbg: Script will include debug information so script debugging will be possible
+		/// -ksdbgw: As -ksdbg but waits for a debugger to attach before executing the action
 		/// -ko:silent or -ko:s  : Output will be silent
 		/// -ko:normal or -ko:n	 : Output will be normal
 		/// -ko:verbose or -ko:v : Output will be verbose
@@ -163,6 +171,12 @@ namespace Kltv.Kombine
 				BuildDebug = true;
 				return true;
 			}
+			if (cmd == "-ksdbgw") {
+				// Implies debug build: without debug information attaching is useless
+				BuildDebug = true;
+				DebugWait = true;
+				return true;
+			}
 			if ( (cmd == "-ksrb") || cmd == "-ksrebuild") {
 				Rebuild = true;
 				return true;
@@ -228,6 +242,8 @@ namespace Kltv.Kombine
 			Msg.Print("");
 			Msg.Print("-ksdbg");
 			Msg.Print("   Script will include debug information so script debugging will be possible.");
+			Msg.Print("-ksdbgw");
+			Msg.Print("   As -ksdbg but the tool waits for a debugger to attach before executing the action.");
 			Msg.Print("-ksrb or -ksrebuild");
 			Msg.Print("   Script will be rebuilded even if it is cached.");
 			Msg.Print("-ko:silent or -ko:s");

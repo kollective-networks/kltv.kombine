@@ -12,7 +12,7 @@
 #load "extensions/clang.csx"
 
 // Remember, this is just used for intellisense, nothing else
-#r "../../../out/bin/win-x64/debug/mkb.dll"
+#r "../../../../out/bin/win-x64/debug/mkb.dll"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;

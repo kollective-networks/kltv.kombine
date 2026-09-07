@@ -191,6 +191,13 @@ public class Clang {
 	/// <returns>Argument to be added if any</returns>
 	public ProcessFileDelegate? ProcessFile;
 
+	/// <summary>
+	/// Whether a failed task should abort the script. It is set from the abortwhenfailed
+	/// parameter of the operation in progress. When false, failures are reported but the
+	/// remaining queued commands keep running so all the errors can be seen at once.
+	/// </summary>
+	private bool AbortWhenFailed = true;
+
 
 	/// <summary>
 	/// Clean the provided object list and output folder
@@ -227,6 +234,8 @@ public class Clang {
 			Msg.Print("Script was rebuilt we will rebuild as well. Forcing rebuild.",Msg.LogLevels.Verbose);
 			rebuild = true;
 		}
+		// Propagate to the task callbacks if a failed task should abort the script
+		AbortWhenFailed = abortwhenfailed;
 		// Prepare includes & defines & switches
 		KValue includes = string.Empty;
 		KValue defines = string.Empty;
@@ -257,12 +266,14 @@ public class Clang {
 		// Sanitize
 		includes = includes.ReduceWhitespace();
 		defines = defines.ReduceWhitespace();
-		if (Options.Verbose) {
-			Options.SwitchesCC.Add("-v");
-			Options.SwitchesCXX.Add("-v");
-		}
 		switchesCC = Options.SwitchesCC.Flatten().ReduceWhitespace();
 		switchesCXX = Options.SwitchesCXX.Flatten().ReduceWhitespace();
+		// Verbose is applied per invocation, without polluting the user options
+		// since they may be shared with / inherited by other scripts.
+		if (Options.Verbose) {
+			switchesCC += " -v";
+			switchesCXX += " -v";
+		}
 		Msg.Print("Switches for C compiler: ");
 		Msg.BeginIndent();
 		foreach (KValue v in Options.SwitchesCC){
@@ -346,6 +357,8 @@ public class Clang {
 	/// <param name="output">Static library output</param>
 	/// <returns>Tool result with the execution.</returns>
 	public ToolResult Librarian(KList objs,KValue output, bool abortwhenfailed = true) {
+		// Propagate to the task callbacks if a failed task should abort the script
+		AbortWhenFailed = abortwhenfailed;
 		// Create and configure the tool
 		Tool tool = new Tool("clang");
 		// We allow only one instance of the librarian running
@@ -404,6 +417,8 @@ public class Clang {
 	/// <param name="abortwhenfailed">If we should abort when failed. Default true.</param>
 	/// <returns></returns>
 	public ToolResult Linker(KList objs,KValue output,bool SharedLibrary = false, bool abortwhenfailed = true) {
+		// Propagate to the task callbacks if a failed task should abort the script
+		AbortWhenFailed = abortwhenfailed;
 		// Create the tool to be executed
 		Tool tool = new Tool("clang");
 		// Prepare includes & libraries & switches
@@ -438,17 +453,20 @@ public class Clang {
 		Msg.EndIndent();
 		libdirs = libdirs.ReduceWhitespace();
 		libs = libs.ReduceWhitespace();
-		if (Options.Verbose) {
-			Options.SwitchesLD.Add("-v");
-		}
-		if (SharedLibrary) {
-			Options.SwitchesLD.Add("-shared");
-		}
 		if ( (Host.IsLinux() || Host.IsMacOS()) && SharedLibrary) {
 			// On linux/macOS we need to prefix the library with "lib"
 			output = output.WithNamePrefix("lib");
 		}
 		switchesLD = Options.SwitchesLD.Flatten().ReduceWhitespace();
+		// Verbose and shared are applied per invocation, without polluting the user options:
+		// they may be shared with / inherited by other scripts, and adding "-shared" there
+		// would silently turn later binaries into shared libraries.
+		if (Options.Verbose) {
+			switchesLD += " -v";
+		}
+		if (SharedLibrary) {
+			switchesLD += " -shared";
+		}
 		Msg.Print("Switches for Linker: "+switchesLD);
 		// Create the required output folder for the binary
 		Folders.Create(output.AsFolder());
@@ -581,8 +599,11 @@ public class Clang {
 				if (s2 != string.Empty)
 					Msg.PrintError(s2);
 			}
-			Msg.PrintAndAbort("Error: " + task + " " + element + " failed.");
 			Msg.EndIndent();
+			// Abort (cancelling the remaining queued commands) only when requested; with
+			// abortwhenfailed false the rest keep running to show all the errors at once.
+			if (AbortWhenFailed)
+				Msg.PrintAndAbort("Error: " + task + " " + element + " failed.");
 			return;
 		}
 		if (res.Stderr.Length != 0) {

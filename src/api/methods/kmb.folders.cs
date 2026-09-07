@@ -175,6 +175,7 @@ namespace Kltv.Kombine.Api {
 					Directory.Delete(folder);
 				} catch (Exception ex) {
 					Msg.PrintWarningMod("Failed deleting / set attributes: " + folder + " error: " + ex.Message, ".folders",Msg.LogLevels.Verbose);
+					return false;
 				}
 			} else {
 				Msg.PrintMod("Folder to delete does not exists: "+folder, ".folders", Msg.LogLevels.Verbose);

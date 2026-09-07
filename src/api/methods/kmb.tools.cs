@@ -116,7 +116,13 @@ namespace Kltv.Kombine.Api {
 			string argsstr = string.Empty;
 			if (args != null) {
 				foreach (string s in args) {
-					argsstr += " " + s;
+					string arg = s;
+					// Arguments containing spaces are quoted (unless already quoted by the user)
+					// so they reach the tool as a single argument
+					if (arg.Contains(' ') && !arg.StartsWith("\"")) {
+						arg = "\"" + arg.Replace("\"", "\\\"") + "\"";
+					}
+					argsstr += " " + arg;
 				}
 			}
 			return CommandSync(cmd, argsstr, id);
@@ -156,7 +162,8 @@ namespace Kltv.Kombine.Api {
 				Msg.PrintWarningMod("[err] Error launching sync. Cannot wait for the process to finish.", "."+ToolTag,Msg.LogLevels.Verbose);
 				return res;
 			}
-			if (ExitCode != 0) {
+			// Check against the expected exit code (zero by default)
+			if (ExitCode != ExpectedExitCode) {
 				Msg.PrintWarningMod("[err] Error launching sync. Executed with errors.", "."+ToolTag, Msg.LogLevels.Verbose);
 				res = new(p.GetOutput(),p.GetErrors(), ToolStatus.Failed, ExitCode, p.Id);
 				return res;
@@ -227,7 +234,14 @@ namespace Kltv.Kombine.Api {
 					ChildProcess.KillAllChilds();
 					break;
 				}
-				CommandAsync(c.cmd, c.args, c.callback, c.id);
+				// Wrap the user callback so the result is stored in this exact command instance.
+				// Matching by id after the fact is not reliable: ids are user data and may be
+				// null or duplicated, which would cross assign the results.
+				AsyncCommand current = c;
+				CommandAsync(current.cmd, current.args, (ref ToolResult results) => {
+					current.callback?.Invoke(ref results);
+					current.res = results;
+				}, current.id);
 				CommandAsyncWaitAll(ConcurrentCommands);
 			}
 			// Wait for all the commands to finish
@@ -240,7 +254,11 @@ namespace Kltv.Kombine.Api {
 			List<string> astderr = new List<string>();
 			foreach (AsyncCommand c in asyncCommands) {
 				if (c.res == null) {
-					Msg.PrintWarningMod("Error fetching results for async command. Looks like was not executed.", ".tool." + ToolTag, Msg.LogLevels.Verbose);
+					// A queued command without result was never executed (failed to launch or was
+					// cancelled). The global status must be downgraded so the script can report it.
+					Msg.PrintWarningMod("Queued command was not executed (launch failed or cancelled): " + c.cmd, ".tool." + ToolTag);
+					status = ToolStatus.Failed;
+					offendingExitCode = -1;
 					continue;
 				}
 				// If some result was failed, switch global to failed and copy the exit code
@@ -345,14 +363,8 @@ namespace Kltv.Kombine.Api {
 						Msg.PrintErrorMod("Script exception: " + ex.Message, ".exec.script");
 					}
 				}
-				// And finally append the result to our tasks just if its required to be evaluated later
-				if (asyncCommands != null) {
-					foreach (AsyncCommand cmd in asyncCommands) {
-						if (cmd.id == proc.Id) {
-							cmd.res = res;
-						}
-					}
-				}
+				// Note: for queued commands the result is stored on the command instance by the
+				// wrapper delegate set in ExecuteCommands, so no id matching is required here.
 			}
 			// And finally this task has been finished
 			Interlocked.Decrement(ref PendingAsyncTasks);

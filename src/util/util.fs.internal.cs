@@ -105,6 +105,11 @@ namespace Kltv.Kombine {
 		/// <returns>The file modification time.</returns>
 		internal static long GetModifiedTimeUTC(string filename) {
 			try {
+				// A missing file would silently return the 1601 sentinel date; report it instead
+				if (!File.Exists(filename)) {
+					Msg.PrintWarningMod("Modified time requested for a non existent file: " + filename, ".fsapi", Msg.LogLevels.Verbose);
+					return 0;
+				}
 				DateTime mTime = File.GetLastWriteTimeUtc(filename);
 				long modTime = (long)mTime.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
 				Msg.PrintMod("Checking modified access for: " + filename + " Time: " + modTime, ".fsapi", Msg.LogLevels.Debug);

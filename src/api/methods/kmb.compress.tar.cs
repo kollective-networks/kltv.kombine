@@ -161,6 +161,26 @@ namespace Kltv.Kombine.Api {
 			}
 
 			/// <summary>
+			/// Safe-extraction boundary check. Mirrors the guard SharpCompress applies to
+			/// WriteEntryToDirectory: an entry whose composed path resolves outside the destination
+			/// folder (archive path traversal, "zip-slip") is rejected. Used for the manual-path
+			/// branches (long @PaxHeader names and directory entries) that bypass the library guard.
+			/// </summary>
+			/// <param name="outputFolder">Destination root folder.</param>
+			/// <param name="candidatePath">Composed target path to validate.</param>
+			/// <returns>True if candidatePath resolves inside outputFolder, false otherwise.</returns>
+			private static bool IsInsideOutputFolder(string outputFolder, string candidatePath) {
+				string root = Path.GetFullPath(outputFolder);
+				if (!root.EndsWith(Path.DirectorySeparatorChar) && !root.EndsWith(Path.AltDirectorySeparatorChar))
+					root += Path.DirectorySeparatorChar;
+				string full = Path.GetFullPath(candidatePath);
+				StringComparison cmp = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+				if (full.StartsWith(root, cmp))
+					return true;
+				return string.Equals(full, root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), cmp);
+			}
+
+			/// <summary>
 			/// Decompress a tar file into a folder.
 			/// </summary>
 			/// <param name="tarPath">Tar file to decompress</param>
@@ -173,9 +193,9 @@ namespace Kltv.Kombine.Api {
 				try {
 					using (var fs = new FileStream(tarPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
 						ReaderOptions r = new SharpCompress.Readers.ReaderOptions();
-						using (var tar = ReaderFactory.Open(fs,r)) {
+						using (var tar = ReaderFactory.OpenReader(fs,r)) {
 							ExtractionOptions exOp = new ExtractionOptions() { ExtractFullPath = true, Overwrite = overwrite };
-							exOp.WriteSymbolicLink = (sender, e) => {
+							exOp.SymbolicLinkHandler = (sender, e) => {
 								Msg.PrintMod("Symbolic Links not supported: " + e, ".compress", Msg.LogLevels.Verbose);
 							};
 							string nextFileName = string.Empty;
@@ -217,11 +237,18 @@ namespace Kltv.Kombine.Api {
 									if (!tar.Entry.IsDirectory) {
 										// Beware, check the existence of a defined filename but also if it matches the entry
 										if ( (nextFileName != string.Empty) && (nextFileName.StartsWith(tar.Entry.Key) ) ) {
+											string longTarget = outputFolder + Path.DirectorySeparatorChar + nextFileName;
+											// Safe-extract: refuse an entry whose (long) name escapes the destination folder (path traversal / zip-slip).
+											if (!IsInsideOutputFolder(outputFolder, longTarget)) {
+												Msg.PrintErrorMod("Refusing entry outside destination (path traversal): " + nextFileName, ".compress", Msg.LogLevels.Normal);
+												nextFileName = string.Empty;
+												continue;
+											}
 											Msg.PrintMod("Unpacking file (long): " + nextFileName, ".compress", Msg.LogLevels.Verbose);
-											string? folder = Path.GetDirectoryName(outputFolder + Path.DirectorySeparatorChar + nextFileName);
+											string? folder = Path.GetDirectoryName(longTarget);
 											if (folder != null)
 												Folders.Create(folder);
-											tar.WriteEntryToFile(outputFolder + Path.DirectorySeparatorChar + nextFileName, exOp);
+											tar.WriteEntryToFile(longTarget, exOp);
 											nextFileName = string.Empty;
 										} else {
 											Msg.PrintMod("Unpacking file: " + tar.Entry.Key, ".compress", Msg.LogLevels.Verbose);
@@ -229,7 +256,13 @@ namespace Kltv.Kombine.Api {
 										}
 									} else {
 										// If its a folder, just create it
-										string? folder = Path.GetDirectoryName(outputFolder + Path.DirectorySeparatorChar + tar.Entry.Key);
+										string dirTarget = outputFolder + Path.DirectorySeparatorChar + tar.Entry.Key;
+										// Safe-extract: refuse a directory entry that escapes the destination folder.
+										if (!IsInsideOutputFolder(outputFolder, dirTarget)) {
+											Msg.PrintErrorMod("Refusing directory entry outside destination (path traversal): " + tar.Entry.Key, ".compress", Msg.LogLevels.Normal);
+											continue;
+										}
+										string? folder = Path.GetDirectoryName(dirTarget);
 										if (folder != null)
 											Folders.Create(folder);
 									}

@@ -28,6 +28,7 @@ int test(string[] args){
 	Msg.Print("Testing: Base functions");
 	Kombine("00.base/mkb.version.csx","test",args);
 	Kombine("00.base/mkb.admin.csx","test",args);
+	Kombine("00.base/mkb.exitcodes.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: Simple script (two actions)");
@@ -41,6 +42,10 @@ int test(string[] args){
 	Msg.Print("");
 	Msg.Print("Testing: Child scripts");
 	Kombine("03.child/mkb.child.csx","test",args);
+	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
+	Msg.Print("Testing: #load resolution");
+	Kombine("08.loadresolution/mkb.loadresolution.csx","test",args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: Files & folders & compression");
@@ -101,10 +106,15 @@ int extras(string[] args){
 	Kombine("07.extras/00.sdl2/sdl2.csx", "build", args);
 	Kombine("07.extras/00.sdl2/sdl2.csx", "clean", args);
 	Msg.Print("----------------------------------------------------------");
-	Msg.Print("");
-	Msg.Print("Testing: msys2");
-	Kombine("07.extras/01.msys2/msys2.packages.csx", "test", args);
-	Kombine("07.extras/01.msys2/msys2.build.csx", "build", args);
-	Kombine("07.extras/01.msys2/msys2.build.csx", "clean", args);
+	if (Host.IsWindows()) {
+		Msg.Print("");
+		Msg.Print("Testing: msys2");
+		Kombine("07.extras/01.msys2/msys2.packages.csx", "test", args);
+		Kombine("07.extras/01.msys2/msys2.build.csx", "build", args);
+		Kombine("07.extras/01.msys2/msys2.build.csx", "clean", args);
+	} else {
+		Msg.Print("");
+		Msg.Print("Testing: msys2 (skipped on non-Windows platform)");
+	}
 	return 0;
 }

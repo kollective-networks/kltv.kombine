@@ -34,21 +34,25 @@ namespace Kltv.Kombine {
 		/// Cache actions. Execute cache related actions.
 		/// </summary>
 		/// <param name="args">Arguments for the action.</param>
-		internal static void Action(string[] args) {
+		internal static int Action(string[] args) {
 			if (args.Length == 0) {
 				Msg.PrintErrorMod("No arguments specified. Exiting.", ".cache");
-				return;
+				return Constants.ExitCodeFailure;
 			}
 			if (args[0] == "clear") {
 				Msg.Print("[*] Deleting all cache folders.");
 				Folders.Delete(CacheFolder,true);
+				return Constants.ExitCodeSuccess;
 			}
 			if (args[0] == "help") {
 				Msg.BeginIndent();
 				Msg.Print("");
 				Msg.Print("kcache clear: Deletes all cache folders.");
 				Msg.EndIndent();
+				return Constants.ExitCodeSuccess;
 			}
+			Msg.PrintErrorMod("Unknown cache action: " + args[0], ".cache");
+			return Constants.ExitCodeFailure;
 		}
 
 
@@ -74,7 +78,7 @@ namespace Kltv.Kombine {
 				// This is a fatal error, we can't continue without the cache folder
 				Msg.PrintErrorMod("Failed to fetch/Create cache folder: "+ ex.Message,".cache");
 				Msg.Deinitialize();
-				Environment.Exit(-1);
+				Environment.Exit(Constants.ExitCodeFailure);
 			}
 		}
 
@@ -209,5 +213,3 @@ namespace Kltv.Kombine {
 
 	}
 }
-
-

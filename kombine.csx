@@ -9,8 +9,8 @@
 //
 // Use dotnet doc extension
 // 
-#load "dotnet.doc.csx"
-#load "github.csx"
+#load "extensions/dotnet.doc.csx"
+#load "extensions/github.csx"
 
 
 // Remember, this is just used for intellisense, nothing else

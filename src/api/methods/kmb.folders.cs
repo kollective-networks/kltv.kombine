@@ -436,8 +436,21 @@ namespace Kltv.Kombine.Api {
 		/// <param name="filename">The filename to search for (may include relative path)</param>
 		/// <returns>The result or empty if nothing found.</returns>
 		public static KValue SearchBackPath(string filename){
+			return SearchBackPath(filename, null);
+		}
+
+		/// <summary>
+		/// Search for a filename (which may have relative paht) from the given start folder and backwards
+		/// If no start folder is given, it will take the script folder and, failing that, the current working folder
+		/// </summary>
+		/// <param name="filename">The filename to search for (may include relative path)</param>
+		/// <param name="startFolder">Folder to start the search from or null for the ambient script folder.</param>
+		/// <returns>The result or empty if nothing found.</returns>
+		internal static string SearchBackPath(string filename, string? startFolder){
 			Msg.PrintMod("BackPath search for: " + filename, ".folders", Msg.LogLevels.Verbose);
-			string? cpath = CurrentScriptFolder;
+			string? cpath = startFolder;
+			if (string.IsNullOrEmpty(cpath))
+				cpath = CurrentScriptFolder;
 			if (string.IsNullOrEmpty(cpath))
 				cpath = CurrentWorkingFolder;
 			while(cpath != null) {
@@ -463,7 +476,20 @@ namespace Kltv.Kombine.Api {
 		/// <param name="filename">The filename to search for (may include relative paths)</param>
 		/// <returns>The result or empty if nothing found.</returns>
 		public static string SearchForwardPath(string filename) {
-			string? cpath = CurrentScriptFolder;
+			return SearchForwardPath(filename, null);
+		}
+
+		/// <summary>
+		/// Search for a filename (which may have relative paht) from the given start folder and forwards
+		/// If no start folder is given, it will take the script folder and, failing that, the current working folder
+		/// </summary>
+		/// <param name="filename">The filename to search for (may include relative paths)</param>
+		/// <param name="startFolder">Folder to start the search from or null for the ambient script folder.</param>
+		/// <returns>The result or empty if nothing found.</returns>
+		internal static string SearchForwardPath(string filename, string? startFolder) {
+			string? cpath = startFolder;
+			if (string.IsNullOrEmpty(cpath))
+				cpath = CurrentScriptFolder;
 			if (string.IsNullOrEmpty(cpath))
 				cpath = CurrentWorkingFolder;
 			// Look in the current folder
@@ -497,14 +523,21 @@ namespace Kltv.Kombine.Api {
 		/// <summary>
 		/// Resolve a filename by the given order.
 		/// Absolute path
-		/// Relative path from current working directory
+		/// Relative path from the including file directory (when provided)
 		/// Relative path from script directory
-		/// Relative path from forward trace
+		/// Relative path from current working directory
 		/// Relative path from backward trace
+		/// Relative path from the tool directory
+		/// Relative path from forward trace (opt-in only, -kforward)
+		/// The forward trace (recursive walk of every subfolder, first match wins) is out of the
+		/// default chain: with repos that embed other repos sharing the same relative layout it can
+		/// silently bind a foreign copy of the file, and the state cache then persists the wrong bind.
 		/// </summary>
 		/// <param name="path">Path+file to look for.</param>
+		/// <param name="baseDir">Directory of the file containing the reference, when it comes from an already loaded include. Null otherwise.</param>
+		/// <param name="scriptDir">Directory of the script being compiled/executed. Ambient current script folder when null.</param>
 		/// <returns>Place where is found or null if any.</returns>
-		internal static string? ResolveFilename(string path){
+		internal static string? ResolveFilename(string path, string? baseDir = null, string? scriptDir = null){
 			string? look = null;
 
 			// Check if its an URL
@@ -528,26 +561,34 @@ namespace Kltv.Kombine.Api {
 				Msg.PrintMod("ResolveReference for absolute path:" + path + " does not exists.", ".folders", Msg.LogLevels.Debug);
 				return null;
 			}
-			// Is relative path
+			// Fetch the ambient script folder when no explicit one was given
+			if (string.IsNullOrEmpty(scriptDir))
+				scriptDir = Folders.CurrentScriptFolder;
+			// Including file directory
+			//
+			if (string.IsNullOrEmpty(baseDir) == false) {
+				look = Path.Combine(baseDir, path);
+				if (Files.Exists(look)) {
+					Msg.PrintMod("ResolveReference (IncludingFileDirectory):" + look, ".folders", Msg.LogLevels.Debug);
+					return Path.GetFullPath(look);
+				}
+			}
+			// Script directory
+			//
+			if (string.IsNullOrEmpty(scriptDir) == false) {
+				look = Path.Combine(scriptDir, path);
+				if (Files.Exists(look)) {
+					Msg.PrintMod("ResolveReference (ScriptDirectory):" + look, ".folders", Msg.LogLevels.Debug);
+					return Path.GetFullPath(look);
+				}
+			}
+			// Current working directory
 			if (Files.Exists(path)) {
 				Msg.PrintMod("ResolveReference (CurrentDirectory):" + path, ".folders", Msg.LogLevels.Debug);
 				return Path.GetFullPath(path);
 			}
-			// Script directory
-			//
-			look = Path.Combine(Folders.CurrentScriptFolder, path);
-			if ( (look != null) && (Files.Exists(look)) ) {
-				Msg.PrintMod("ResolveReference (ScriptDirectory):" + look, ".folders", Msg.LogLevels.Debug);
-				return Path.GetFullPath(look);
-			}
-			// Forward trace directories
-			look = Folders.SearchForwardPath(path);
-			if (string.IsNullOrEmpty(look)== false){
-				Msg.PrintMod("ResolveReference (BacktraceDirectory):" + look, ".folders", Msg.LogLevels.Debug);
-				return Path.GetFullPath(look);
-			}
 			// Backtrace directories
-			look = Folders.SearchBackPath(path);
+			look = Folders.SearchBackPath(path, scriptDir);
 			if (string.IsNullOrEmpty(look)== false){
 				Msg.PrintMod("ResolveReference (BacktraceDirectory):" + look, ".folders", Msg.LogLevels.Debug);
 				return Path.GetFullPath(look);
@@ -557,6 +598,20 @@ namespace Kltv.Kombine.Api {
 			if ((look != null) && (Files.Exists(look))) {
 				Msg.PrintMod("ResolveReference (ToolDirectory):" + look, ".exec.folders", Msg.LogLevels.Debug);
 				return Path.GetFullPath(look);
+			}
+			// Forward trace directories, only when explicitly requested (-kforward)
+			// When not requested we still probe on this failure path so the diagnostic can name
+			// the file that the retired behavior would have picked.
+			look = Folders.SearchForwardPath(path, scriptDir);
+			if (string.IsNullOrEmpty(look) == false){
+				if (Config.ResolveForward) {
+					Msg.PrintWarningMod("ResolveReference (ForwardDirectory, -kforward): " + path + " -> " + look, ".folders");
+					Msg.PrintWarningMod("Forward resolution is deprecated: make the reference relative to the including script.", ".folders");
+					return Path.GetFullPath(look);
+				}
+				Msg.PrintErrorMod("'" + path + "' only resolves through the retired recursive forward search (-> " + look + ").", ".folders");
+				Msg.PrintErrorMod("Fix the reference to be relative to the including script, or run with -kforward as a temporary bridge.", ".folders");
+				return null;
 			}
 			return null;
 		}

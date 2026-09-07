@@ -53,6 +53,11 @@ namespace Kltv.Kombine
 		public static bool SaveAlwaysOnExit {get; private set; } = false;
 
 		/// <summary>
+		/// If the deprecated recursive forward search may resolve #load / child script references (-kforward)
+		/// </summary>
+		public static bool ResolveForward { get; private set; } = false;
+
+		/// <summary>
 		/// Action to be executed
 		/// </summary>
 		public static string Action { get; private set; } = string.Empty;
@@ -116,6 +121,10 @@ namespace Kltv.Kombine
 		/// </summary>
 		private static void ParseCommandLine() {
 			string[] commands = Environment.GetCommandLineArgs();
+			// Standard help aliases. Only honored when used alone as the first and only argument,
+			// so "-h"/"--help" remain usable as action names or action parameters.
+			if (commands.Length == 2 && ((commands[1] == "-h") || (commands[1] == "--help")))
+				commands[1] = "khelp";
 			List<string> parameters = new List<string>();
 			// Parse tool parameters
 			for (int a = 0; a != commands.Length; a++) {
@@ -203,6 +212,10 @@ namespace Kltv.Kombine
 				ScriptFile = cmd.Substring(7);
 				return true;
 			}
+			if (cmd == "-kforward") {
+				ResolveForward = true;
+				return true;
+			}
 			return false;
 		}
 
@@ -221,9 +234,10 @@ namespace Kltv.Kombine
 		/// 
 		/// </summary>
 		public static void ShowHelp() {
-			Msg.BeginIndent();
+			ShowBanner();
 			Msg.Print("mkb [parameters] [action] [action parameters]");
 			Msg.Print("");
+			Msg.BeginIndent();
 			Msg.Print("[parameters] They are optional and can be any of the following:");
 			Msg.Print("");
 			Msg.Print("-ksdbg");
@@ -240,13 +254,15 @@ namespace Kltv.Kombine
 			Msg.Print("   Script output will be debug.");
 			Msg.Print("-kfile:filename");
 			Msg.Print("   Indicates which script file we should execute (default kombine.csx)");
+			Msg.Print("-kforward");
+			Msg.Print("   Allows the deprecated recursive forward search to resolve #load / child script references.");
 			Msg.Print("");
 			Msg.Print("[action] Action to be executed. If not specified the default action is \"khelp\"");
 			Msg.Print("         The action is used to specify which function in the script should be called after evaluation but");
 			Msg.Print("         there are some reserved actions for the tool itself which cannot be used for the scripts:");
 			Msg.Print("");
 			Msg.Print(" kversion: Shows tool version and exit.");
-			Msg.Print(" khelp: Show this help and exit.");
+			Msg.Print(" khelp: Show this help and exit. Also available as \"-h\" or \"--help\" when used alone.");
 			Msg.Print(" kconfig: Manages the tool configuration.");
 			Msg.Print(" kcache: Manages the tool cache.");
 			Msg.Print("");

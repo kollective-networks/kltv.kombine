@@ -31,7 +31,8 @@ namespace Kltv.Kombine {
 		/// -ko:verbose or -ko:v : Output will be verbose
 		/// -ko:debug or -ko:d   : Output will be debug
 		/// -kfile: Indicates which script file we should execute (default kombine.csx)
-		/// 
+		/// -kforward: Allows the deprecated recursive forward search to resolve #load / child script references
+		///
 		/// [action] Action to be executed. If not specified the default action is "khelp"
 		/// The action is used to specify which function in the script should be called after evaluation but
 		/// there are some reserved actions for the tool itself which cannot be used for the scripts:
@@ -64,22 +65,22 @@ namespace Kltv.Kombine {
 			if (Config.Action == "khelp") {
 				Config.ShowHelp();
 				Msg.Deinitialize();
-				return 0;
+				return Constants.ExitCodeSuccess;
 			}
 			if (Config.Action == "kversion") {
 				Config.ShowBanner();
 				Msg.Deinitialize();
-				return 0;
+				return Constants.ExitCodeSuccess;
 			}
 			if (Config.Action == "kcache") {
-				Cache.Action(Config.ActionParameters);
+				int cacheResult = Cache.Action(Config.ActionParameters);
 				Msg.Deinitialize();
-				return 0;
+				return cacheResult;
 			}
 			if (Config.Action == "kconfig") {
 				Msg.PrintErrorMod("Not yet implemented", ".main");
 				Msg.Deinitialize();
-				return 0;
+				return Constants.ExitCodeFailure;
 			}
 
 			// Future use: "kupdate" to update to latest version automatically
@@ -93,7 +94,7 @@ namespace Kltv.Kombine {
 			if (Config.Action == string.Empty) {
 				Msg.PrintErrorMod("No action specified. Exiting.", ".main");
 				Msg.Deinitialize();
-				return -1;
+				return Constants.ExitCodeFailure;
 			}
 			if (string.IsNullOrEmpty(Config.ScriptFile) == false) {
 				// First script always change the current folder if required.
@@ -103,7 +104,7 @@ namespace Kltv.Kombine {
 			} else {
 				Msg.PrintErrorMod("Script file not defined. Exiting.", ".main");
 				Msg.Deinitialize();
-				return -1;
+				return Constants.ExitCodeFailure;
 			}
 		}
 
@@ -151,7 +152,7 @@ namespace Kltv.Kombine {
 				Msg.BeginIndent();
 			// Execute the script. 
 			//
-			int result = 0;
+			int result = Constants.ExitCodeSuccess;
 			Msg.PrintMod("Script to execute: " + script + " with action: " + action, ".main", Msg.LogLevels.Debug);
 			try {
 				result = main.Execute(action, args);
@@ -160,7 +161,7 @@ namespace Kltv.Kombine {
 				Msg.PrintErrorMod("Exception executing script: " + e.Message, ".main");
 				if (kombineScript != null)
 					Msg.EndIndent();
-				result = -1;
+				result = Constants.ExitCodeFailure;
 			}
 			if (Config.SaveAlwaysOnExit) {
 				// If we want to enable state saving on all executions
@@ -194,7 +195,7 @@ namespace Kltv.Kombine {
 			Msg.PrintErrorMod("User cancel execution.", ".main");
 			ChildProcess.KillAllChilds();
 			Msg.PrintErrorMod("All processes killed.", ".main");
-			Environment.Exit(-1);
+			Environment.Exit(Constants.ExitCodeCanceled);
 		}
 
 		/// <summary>
@@ -206,10 +207,6 @@ namespace Kltv.Kombine {
 
 	}
 }
-
-
-
-
 
 
 

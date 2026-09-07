@@ -108,30 +108,27 @@ namespace Kltv.Kombine.Types {
 		/// <returns>The created list with the arguments</returns>
 		public KList ToArgs(){
 			KList list = new KList();
-			string[] delimiters = { " " };
-			string[] b = m_value.Split(delimiters,StringSplitOptions.RemoveEmptyEntries);
+			StringBuilder current = new StringBuilder();
 			bool inquote = false;
-			string current = "";
-			foreach(string item in b){
-				if (item.Contains("\"")){
-					if (inquote){
-						current += " "+item;
-						list.Add(current);
-						current = "";
-						inquote = false;
-						continue;
-					} else{
-						current = item;
-						inquote = true;
-						continue;
+			// Character based split: whitespace separates arguments unless inside quotes.
+			// This also handles single token quoted arguments and unterminated quotes.
+			foreach(char c in m_value){
+				if (c == '"'){
+					inquote = !inquote;
+					current.Append(c);
+					continue;
+				}
+				if (!inquote && char.IsWhiteSpace(c)){
+					if (current.Length > 0){
+						list.Add(current.ToString());
+						current.Clear();
 					}
+					continue;
 				}
-				if (!inquote){
-					list.Add(item);
-				} else{
-					current += " "+item;
-				}
+				current.Append(c);
 			}
+			if (current.Length > 0)
+				list.Add(current.ToString());
 			return list;
 		}
 
@@ -281,15 +278,14 @@ namespace Kltv.Kombine.Types {
 		private string m_value = string.Empty;
 
 		/// <summary>
-		/// Object comparison operator. Compares reference and content.
+		/// Object comparison operator. Compares content against KValues and strings.
+		/// Any other type is considered not equal (it does not throw).
 		/// </summary>
 		public override bool Equals(object? obj) {
-			if (ReferenceEquals(obj, null)) {
-				return false;
-			}
-			if (m_value == ((KValue)obj).m_value) {
-				return true;
-			}
+			if (obj is KValue kv)
+				return m_value == kv.m_value;
+			if (obj is string s)
+				return m_value == s;
 			return false;
 		}
 
@@ -350,7 +346,7 @@ namespace Kltv.Kombine.Types {
 		/// <returns>the new value</returns>
 		private static KValue ConvertToUnixPath(KValue path) {
 			string a = path;
-			a.Replace("\\", "/");
+			a = a.Replace("\\", "/");
 			return new KValue() { m_value = a };
 		}
 

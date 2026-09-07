@@ -39,7 +39,8 @@ namespace Kltv.Kombine.Api {
 				if (registry[name].ContainsKey(key)) {
 					Msg.PrintWarningMod("Registry key already exists: "+key,".reg",Msg.LogLevels.Verbose);
 					if (ExitIfError) {
-						Msg.PrintAndAbortMod("Aborting",".reg",Msg.LogLevels.Verbose);
+						// The abort reason must be visible at any log level
+						Msg.PrintAndAbortMod("Registry key already exists: "+key,".reg");
 					}
 					return false;
 				} else {
@@ -64,7 +65,8 @@ namespace Kltv.Kombine.Api {
 			}
 			Msg.PrintWarningMod("Registry key not found: "+key,".reg",Msg.LogLevels.Verbose);
 			if (ExitIfError) {
-				Msg.PrintAndAbortMod("Aborting",".reg",Msg.LogLevels.Verbose);
+				// The abort reason must be visible at any log level
+				Msg.PrintAndAbortMod("Registry key not found: "+key,".reg");
 			}
 			return new KValue();
 		}
@@ -93,14 +95,16 @@ namespace Kltv.Kombine.Api {
 			if (KombineMain.CurrentRunningScript == null) {
 				Msg.PrintWarningMod("No script running. Cannot share object: "+name,".share",Msg.LogLevels.Verbose);
 				if (ExitIfError) {
-					Msg.PrintAndAbortMod("Aborting",".share",Msg.LogLevels.Verbose);
+					// The abort reason must be visible at any log level
+					Msg.PrintAndAbortMod("No script running. Cannot share object: "+name,".share");
 				}
 				return false;
 			}
 			if (KombineMain.CurrentRunningScript.State.SharedObjects.ContainsKey(name)) {
 				Msg.PrintWarningMod("Shared object already exists: "+name,".share",Msg.LogLevels.Verbose);
 				if (ExitIfError) {
-					Msg.PrintAndAbortMod("Aborting",".share",Msg.LogLevels.Verbose);
+					// The abort reason must be visible at any log level
+					Msg.PrintAndAbortMod("Shared object already exists: "+name,".share");
 				}
 				return false;
 			} else {
@@ -119,7 +123,8 @@ namespace Kltv.Kombine.Api {
 			if (KombineMain.CurrentRunningScript == null) {
 				Msg.PrintWarningMod("No script running. Cannot fetch object: "+name,".share",Msg.LogLevels.Verbose);
 				if (ExitIfError) {
-					Msg.PrintAndAbortMod("Aborting",".share",Msg.LogLevels.Verbose);
+					// The abort reason must be visible at any log level
+					Msg.PrintAndAbortMod("No script running. Cannot fetch object: "+name,".share");
 				}
 				return null;
 			}
@@ -128,7 +133,8 @@ namespace Kltv.Kombine.Api {
 			}
 			Msg.PrintWarningMod("Shared object not found: "+name,".share",Msg.LogLevels.Verbose);
 			if (ExitIfError) {
-				Msg.PrintAndAbortMod("Aborting",".share",Msg.LogLevels.Verbose);
+				// The abort reason must be visible at any log level
+				Msg.PrintAndAbortMod("Shared object not found: "+name,".share");
 			}
 			return null;
 		}
@@ -140,7 +146,8 @@ namespace Kltv.Kombine.Api {
 			if (KombineMain.CurrentRunningScript == null) {
 				Msg.PrintWarningMod("No script running. Cannot fetch objects",".share",Msg.LogLevels.Verbose);
 				if (ExitIfError) {
-					Msg.PrintAndAbortMod("Aborting",".share",Msg.LogLevels.Verbose);
+					// The abort reason must be visible at any log level
+					Msg.PrintAndAbortMod("No script running. Cannot fetch objects",".share");
 				}
 				return;
 			}			

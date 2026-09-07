@@ -25,6 +25,7 @@ namespace Kltv.Kombine {
 		/// [parameters] They are optional and can be any of the following:
 		/// 
 		/// -ksdbg: Script will include debug information so script debugging will be possible
+		/// -ksdbgw: As -ksdbg but waits for a debugger to attach before executing the action
 		/// -ksrb or -ksrebuild: Script will be rebuilded even if it is cached
 		/// -ko:silent or -ko:s  : Output will be silent
 		/// -ko:normal or -ko:n	 : Output will be normal
@@ -97,6 +98,11 @@ namespace Kltv.Kombine {
 				return Constants.ExitCodeFailure;
 			}
 			if (string.IsNullOrEmpty(Config.ScriptFile) == false) {
+				// If requested, wait for a debugger to be attached before executing the script.
+				// This is the reliable way to debug scripts when running the single file executable,
+				// since the debuggers fail to launch/auto-detect single file apphosts but attaching works.
+				if (Config.DebugWait)
+					WaitForDebugger();
 				// First script always change the current folder if required.
 				int result = RunScript(Config.ScriptFile, Config.Action, Config.ActionParameters, true);
 				Msg.Deinitialize();
@@ -180,7 +186,22 @@ namespace Kltv.Kombine {
 		} 
 
 		/// <summary>
-		/// This handler is used to trap from the actual Kombine console an exit event 
+		/// Waits until a managed debugger is attached to this process (-ksdbgw flag).
+		/// It prints the process id so the user can pick it from the IDE attach dialog.
+		/// The wait can be aborted with Ctrl+C like any other execution.
+		/// </summary>
+		private static void WaitForDebugger() {
+			if (System.Diagnostics.Debugger.IsAttached)
+				return;
+			Msg.Print("Waiting for a debugger to attach. PID: " + Environment.ProcessId + " (Ctrl+C to abort)");
+			while (!System.Diagnostics.Debugger.IsAttached) {
+				Thread.Sleep(200);
+			}
+			Msg.Print("Debugger attached. Resuming execution.");
+		}
+
+		/// <summary>
+		/// This handler is used to trap from the actual Kombine console an exit event
 		/// that means, ctrl+c ... the idea is to add a gracefully exit
 		/// </summary>
 		/// <param name="sender"></param>

@@ -239,37 +239,46 @@ namespace Kltv.Kombine.Types {
 			}
 		}
 
-	
+
+		// Operators return a new list and never modify the operands, so expressions
+		// like "KList c = a + b;" do not silently change "a".
+
 		public static KList operator+(KList a, KList b) {
-			a.m_list.AddRange(b.m_list);
-			return a;
+			KList n = new KList(a);
+			n.m_list.AddRange(b.m_list);
+			return n;
 		}
 
 		public static KList operator+(KList a, KValue b) {
-			a.Add(b);
-			return a;
+			KList n = new KList(a);
+			n.Add(b);
+			return n;
 		}
 
 		public static KList operator+(KList a, string b) {
-			a.Add(b);
-			return a;
+			KList n = new KList(a);
+			n.Add(b);
+			return n;
 		}
 
 		public static KList operator-(KList a, KValue b) {
-			a.m_list.Remove(b);
-			return a;
+			KList n = new KList(a);
+			n.m_list.Remove(b);
+			return n;
 		}
 
 		public static KList operator-(KList a,string b){
-			a.m_list.Remove(b);
-			return a;
+			KList n = new KList(a);
+			n.m_list.Remove(b);
+			return n;
 		}
 
 		public static KList operator-(KList a,KList b){
+			KList n = new KList(a);
 			foreach(KValue item in b){
-				a.m_list.Remove(item);
+				n.m_list.Remove(item);
 			}
-			return a;
+			return n;
 		}
 
 		public static bool operator==(KList a,KList b){

@@ -149,9 +149,21 @@ namespace Kltv.Kombine {
 		private List<string> OutputErr = new();
 
 		/// <summary>
-		/// 
+		///
 		/// </summary>
 		private bool ProcessExited = false;
+
+		/// <summary>
+		/// Signals that the process was successfully launched.
+		/// </summary>
+		private bool ProcessLaunched = false;
+
+		/// <summary>
+		/// Signaled when the process exit has been fully handled (exit code fetched).
+		/// WaitExit uses this event instead of the process handle because the exit handler
+		/// disposes the handle, which races with waiters for fast exiting processes.
+		/// </summary>
+		private readonly ManualResetEventSlim ProcessExitedEvent = new ManualResetEventSlim(false);
 
 		/// <summary>
 		/// Class to intercept the output streams in raw format without altering the contents.
@@ -206,34 +218,16 @@ namespace Kltv.Kombine {
 		/// <param name="pExitCode">Variable to receive the exit code</param>
 		/// <returns>true if the process was launched, false otherwise</returns>
 		public bool WaitExit(out int pExitCode) {
-			Process? process = ProcessHandle;
-			if (process != null) {
-				try {
-					process.WaitForExit();
-					// Prefer ExitCode captured by ExitedExecutionHandler if available.
-					if (ProcessExited == true) {
-						pExitCode = ExitCode;
-						return true;
-					}
-					// Fallback path if the event has not been processed yet.
-					pExitCode = process.ExitCode;
-					ExitCode = pExitCode;
-					return true;
-				} catch (Exception) {
-					if (ProcessExited == true) {
-						pExitCode = ExitCode;
-						return true;
-					}
-					pExitCode = 0;
-					return false;
-				}
+			// If the process was never launched there is nothing to wait for
+			if (ProcessLaunched == false) {
+				pExitCode = 0;
+				return false;
 			}
-			if (ProcessExited == true) {
-				pExitCode = ExitCode;
-				return true;
-			}
-			pExitCode = 0;
-			return false;
+			// Wait on the exit event and not on the process handle: for fast exiting processes
+			// the exit handler may have already fetched the exit code and disposed the handle.
+			ProcessExitedEvent.Wait();
+			pExitCode = ExitCode;
+			return true;
 		}
 
 		/// <summary>
@@ -252,7 +246,8 @@ namespace Kltv.Kombine {
 					return false;
 				return true;
 			}
-			return ProcessExited;
+			// No handle: either never launched or already exited and disposed
+			return false;
 		}
 
 		/// <summary>
@@ -362,8 +357,9 @@ namespace Kltv.Kombine {
 							ProcessInfo.RedirectStandardInput = true;
 							ProcessInfo.RedirectStandardOutput = true;
 							ProcessInfo.RedirectStandardError = true;
-							ProcessInfo.StandardOutputEncoding = Encoding.ASCII;
-							ProcessInfo.StandardErrorEncoding = Encoding.ASCII;
+							// UTF8 so non ascii tool output (paths, localized messages) is not mangled
+							ProcessInfo.StandardOutputEncoding = Encoding.UTF8;
+							ProcessInfo.StandardErrorEncoding = Encoding.UTF8;
 						}
 					}
 					// Exit handler
@@ -402,6 +398,7 @@ namespace Kltv.Kombine {
 							// Add the process to the list of running processes
 							Msg.PrintMod("Adding process to the list of running processes: " + this.Name, ".exec", Msg.LogLevels.Debug);
 							CurrentRunningProcesses.Add(this);
+							ProcessLaunched = true;
 							// If we're using shell, we cannot capture.
 							if (!UseShell) {
 								// If we're not using the shell, start reading the stderr / stdout of the child process
@@ -484,6 +481,8 @@ namespace Kltv.Kombine {
 					ProcessHandle = null;
 				}
 				CurrentRunningProcesses.Remove(this);
+				// Signal any waiter that the exit has been fully handled (exit code available)
+				ProcessExitedEvent.Set();
 			}
 		}
 

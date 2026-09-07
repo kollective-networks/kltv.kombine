@@ -55,6 +55,7 @@ namespace Kltv.Kombine.Api {
 				bar = new ProgressBar();
 				progress = new Dictionary<object, float>();
 			}
+			bool ok = true;
 			using (var file = new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.Read)) {
 				try{
 					if (showprogress){
@@ -62,18 +63,32 @@ namespace Kltv.Kombine.Api {
 					} else {
 						client.DownloadDataAsync(uri, file).Wait();
 					}
-					LastReturnCode = 200; // Assuming success for downloads
+					LastReturnCode = 200;
 					LastResponse = "";
 				} catch(Exception e){
-					Msg.PrintErrorMod("Error downloading file: "+e.Message,".http",Msg.LogLevels.Verbose);
-					LastReturnCode = -1;
+					// Unwrap the aggregate exception to reach the real cause and, if it carries
+					// an HTTP status code, store it so the script can inspect LastReturnCode.
+					Exception cause = e;
+					if (e is AggregateException ae && ae.InnerException != null)
+						cause = ae.InnerException;
+					Msg.PrintErrorMod("Error downloading file: "+cause.Message,".http",Msg.LogLevels.Verbose);
+					if (cause is HttpRequestException hre && hre.StatusCode.HasValue)
+						LastReturnCode = (int)hre.StatusCode.Value;
+					else
+						LastReturnCode = -1;
 					LastResponse = "";
-					return false;
+					ok = false;
 				}
 			}
 			bar?.Dispose();
 			progress?.Clear();
 			bar = null;
+			if (!ok) {
+				// Do not leave a partial/empty file behind on a failed download
+				if (Files.Exists(path))
+					Files.Delete(path);
+				return false;
+			}
 			Msg.Print("Download finished");
 			return true;
 		}
@@ -115,9 +130,9 @@ namespace Kltv.Kombine.Api {
 				progress = new Dictionary<object, float>();
 			}
 			bool bres;
+			List<Stream> StreamList = new List<Stream>();
 			try{
 				List<Task> DownloadList = new List<Task>();
-				List<Stream> StreamList = new List<Stream>();
 				for (int i = 0; i < uris.Length;i++){
 					Stream file = new FileStream(paths[i], FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
 					StreamList.Add(file);
@@ -127,10 +142,6 @@ namespace Kltv.Kombine.Api {
 						DownloadList.Add(client.DownloadDataAsync(uris[i], file));
 				}
 				bres = Task.WaitAll(DownloadList.ToArray(),-1);
-				// Dispose all streams
-				for(int i = 0; i < StreamList.Count;i++){
-					StreamList[i].Dispose();
-				}
 				if (bres) {
 					LastReturnCode = 200;
 					LastResponse = "";
@@ -139,17 +150,27 @@ namespace Kltv.Kombine.Api {
 					LastResponse = "";
 				}
 			} catch(Exception ex){
-				Msg.PrintErrorMod("Error downloading file: "+ex.Message,".http",Msg.LogLevels.Verbose);
+				// Unwrap the aggregate exception to reach the real cause and, if it carries
+				// an HTTP status code, store it so the script can inspect LastReturnCode.
+				Exception cause = ex;
+				if (ex is AggregateException ae && ae.InnerException != null)
+					cause = ae.InnerException;
+				Msg.PrintErrorMod("Error downloading files: "+cause.Message,".http",Msg.LogLevels.Verbose);
+				if (cause is HttpRequestException hre && hre.StatusCode.HasValue)
+					LastReturnCode = (int)hre.StatusCode.Value;
+				else
+					LastReturnCode = -1;
+				LastResponse = "";
+				return false;
+			} finally {
+				// Dispose all streams, also on failure, to not leave the files locked
+				for(int i = 0; i < StreamList.Count;i++){
+					StreamList[i].Dispose();
+				}
 				progress?.Clear();
 				bar?.Dispose();
 				bar = null;
-				LastReturnCode = -1;
-				LastResponse = "";
-				return false;
 			}
-			progress?.Clear();
-			bar?.Dispose();
-			bar = null;
 			if (bres == false){
 				Msg.PrintErrorMod("Error downloading files.",".http",Msg.LogLevels.Verbose);
 				return false;
@@ -173,16 +194,15 @@ namespace Kltv.Kombine.Api {
 			}
 			try{
 				Task<HttpResponseMessage> result = client.GetAsync(uri);
-				result.Result.EnsureSuccessStatusCode();
 				result.Wait();
+				// Always store the real status code so the script can inspect it on failures too
+				LastReturnCode = (int)result.Result.StatusCode;
 				if (result.Result.IsSuccessStatusCode){
 					Task<string> content = result.Result.Content.ReadAsStringAsync();
 					content.Wait();
-					LastReturnCode = (int)result.Result.StatusCode;
 					LastResponse = content.Result;
 					return content.Result;
 				}
-				LastReturnCode = (int)result.Result.StatusCode;
 				LastResponse = "";
 				Msg.PrintErrorMod("Error getting document: "+result.Result.StatusCode,".http",Msg.LogLevels.Verbose);
 			} catch(Exception e) {
@@ -382,49 +402,19 @@ namespace Kltv.Kombine.Api {
 					 (response.StatusCode == HttpStatusCode.TemporaryRedirect) || 
 					 (response.StatusCode == HttpStatusCode.PermanentRedirect) ) {
 					Msg.PrintWarningMod("The requested url has been redirected to: "+response.Headers.Location,".http",Msg.LogLevels.Verbose);
-					if (response.Headers is null){
-						Msg.PrintWarningMod("The requested url has been redirected but no headers were provided.",".http",Msg.LogLevels.Verbose);
-						return;
-					}
-					if (response.Headers.Location is null){
+					if (response.Headers is null || response.Headers.Location is null){
 						Msg.PrintWarningMod("The requested url has been redirected but no location was provided.",".http",Msg.LogLevels.Verbose);
-						return;
+						throw new HttpRequestException("Download redirected without location.", null, response.StatusCode);
 					}
 					await client.DownloadDataAsync(response.Headers.Location.AbsoluteUri, destination, progress, cancellationToken);
 					return;
-				}  else if (response.StatusCode == HttpStatusCode.NoContent) {
-					Msg.PrintWarningMod("The requested url has no content.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.NotFound) {
-					Msg.PrintWarningMod("The requested url was not found.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.Unauthorized) {
-					Msg.PrintWarningMod("The requested url requires authentication.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.Forbidden) {
-					Msg.PrintWarningMod("The requested url is forbidden.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.InternalServerError) {
-					Msg.PrintWarningMod("The requested url has an internal server error.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.ServiceUnavailable) {
-					Msg.PrintWarningMod("The requested url is unavailable.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.BadGateway) {
-					Msg.PrintWarningMod("The requested url has a bad gateway.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.GatewayTimeout) {
-					Msg.PrintWarningMod("The requested url has a gateway timeout.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.RequestTimeout) {
-					Msg.PrintWarningMod("The requested url has a request timeout.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable) {
-					Msg.PrintWarningMod("The requested url has a range not satisfiable.",".http",Msg.LogLevels.Verbose);
-					return;
-				} else if (response.StatusCode == HttpStatusCode.NotImplemented) {
-					Msg.PrintWarningMod("The requested url has not been implemented.",".http",Msg.LogLevels.Verbose);
-					return;
+				}
+				// Any non success status is a failed download. We throw carrying the status code so the
+				// callers (DownloadFile / DownloadFiles) can report the error and store the status,
+				// instead of silently reporting success.
+				if (!response.IsSuccessStatusCode) {
+					Msg.PrintWarningMod("The requested url returned an error status: " + (int)response.StatusCode + " (" + response.StatusCode + ")", ".http", Msg.LogLevels.Verbose);
+					throw new HttpRequestException("Download failed with status: " + (int)response.StatusCode + " (" + response.StatusCode + ")", null, response.StatusCode);
 				}
 				var contentLength = response.Content.Headers.ContentLength;
 				if (!contentLength.HasValue) {

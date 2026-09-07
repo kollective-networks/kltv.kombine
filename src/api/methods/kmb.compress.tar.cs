@@ -98,11 +98,17 @@ namespace Kltv.Kombine.Api {
 						using (var tar = new TarWriter(fs, new TarWriterOptions(compType, true))) {
 
 							foreach (string folder in folderPaths) {
+								DirectoryInfo dirInfo = new DirectoryInfo(folder);
 								string[] files = Directory.GetFiles(folder, "*", SearchOption.AllDirectories);
 								foreach (string file in files) {
 									string f;
 									if (includeFolder == true) {
-										f = file;
+										// Entry names must be relative to the folder parent so the folder
+										// itself is included, never absolute paths
+										if (dirInfo.Parent != null)
+											f = Path.GetRelativePath(dirInfo.Parent.FullName, Path.GetFullPath(file));
+										else
+											f = Path.GetRelativePath(dirInfo.FullName, Path.GetFullPath(file));
 									} else {
 										f = Path.GetRelativePath(folder, file);
 									}

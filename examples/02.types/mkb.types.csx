@@ -39,7 +39,7 @@ if (src2.Contains("item1")){
 KList src3 = src;
 // Also to append both
 src3 += src2;
-Msg.Print("Now src3 has the content of src and src2 "+src.Flatten());
+Msg.Print("Now src3 has the content of src and src2 "+src3.Flatten());
 // You can use the methods also
 src3.Add(src2);
 // And search for duplicates

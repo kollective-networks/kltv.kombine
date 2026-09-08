@@ -67,6 +67,18 @@ namespace Kltv.Kombine {
 			public override SourceText ReadText(string resolvedPath) {
 				Msg.PrintMod("ReadText:"+resolvedPath,".exec.script.sourceresolver", Msg.LogLevels.Debug);
 
+				// The minimum version the loaded file declares: an unsatisfied one fails the script before the compile
+				string? versionError = null;
+				try {
+					versionError = KombineScript.CheckRequiredVersion(resolvedPath, File.ReadLines(resolvedPath).Take(40));
+				} catch (Exception ex) {
+					Msg.PrintWarningMod("Source cannot be read. Exception:"+ex.Message,".exec.script.sourceresolver", Msg.LogLevels.Verbose);
+					return SourceText.From("");
+				}
+				if (versionError != null) {
+					KombineMain.CurrentRunningScript?.VersionErrors.Add(versionError);
+					return SourceText.From("");
+				}
 				try {
 					using (Stream stream = OpenRead(resolvedPath)) {
 						return SourceText.From(stream, null, SourceHashAlgorithm.Sha1, true, true);

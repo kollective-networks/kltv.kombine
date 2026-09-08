@@ -96,6 +96,32 @@ namespace Kltv.Kombine.Api {
 		public bool CaptureOutput {get;set;} = false;
 
 		/// <summary>
+		/// Delegate of the output fragments delivered while a command runs.
+		/// </summary>
+		/// <param name="text">The fragment, ending with the newline or the carriage return that closed it (a progress
+		/// indicator redrawn with carriage returns arrives one update at a time), or the tail of the stream.</param>
+		public delegate void OutputFragment(string text);
+
+		/// <summary>
+		/// Called with every fragment the tool writes to its standard output while it runs, independently of
+		/// CaptureOutput. The fragments are still collected in the result. Null by default.
+		/// </summary>
+		public OutputFragment? OnStdout { get; set; } = null;
+
+		/// <summary>
+		/// Called with every fragment the tool writes to its standard error while it runs, independently of
+		/// CaptureOutput. The fragments are still collected in the result. Null by default.
+		/// </summary>
+		public OutputFragment? OnStderr { get; set; } = null;
+
+		/// <summary>
+		/// Time in milliseconds a synchronous command may run. Zero, the default, means no limit. When it expires
+		/// the process and its children are killed and the result is Failed with exit code -1 and a last standard
+		/// error line "timeout after N ms".
+		/// </summary>
+		public int Timeout { get; set; } = 0;
+
+		/// <summary>
 		/// Internal object to lock the tool for output order.
 		/// </summary>
 		private object Lock = new object();
@@ -152,13 +178,18 @@ namespace Kltv.Kombine.Api {
 					Msg.RawPrint(s); 
 				};
 			}
+			// Fragments delivered to the script while the command runs
+			if (OnStdout != null)
+				p.OnStdoutLine += (string s) => { OnStdout(s); };
+			if (OnStderr != null)
+				p.OnStderrLine += (string s) => { OnStderr(s); };
 			if (id != null)
 				p.Id = id;
 			if (p.Launch() == false) {
 				Msg.PrintWarningMod("[err] Error launching sync. Could not launch.", "."+ToolTag,Msg.LogLevels.Verbose);
 				return res;
 			}
-			if (p.WaitExit(out int ExitCode) == false) {
+			if (p.WaitExit(Timeout, out int ExitCode) == false) {
 				Msg.PrintWarningMod("[err] Error launching sync. Cannot wait for the process to finish.", "."+ToolTag,Msg.LogLevels.Verbose);
 				return res;
 			}
@@ -324,6 +355,11 @@ namespace Kltv.Kombine.Api {
 					Msg.RawPrint(s); 
 				};
 			}
+			// Fragments delivered to the script while the command runs
+			if (OnStdout != null)
+				p.OnStdoutLine += (string s) => { OnStdout(s); };
+			if (OnStderr != null)
+				p.OnStderrLine += (string s) => { OnStderr(s); };
 			if (id != null)
 				p.Id = id;
 			if (CommandAsyncResult != null)

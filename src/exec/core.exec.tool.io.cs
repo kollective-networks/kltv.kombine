@@ -167,6 +167,25 @@ namespace Kltv.Kombine {
 		}
 
 		/// <summary>
+		/// Waits for the reader threads to consume the remaining output once the process exited, so the
+		/// captured output is complete when the exit is signaled. The threads end at the end of the
+		/// streams, which follows the exit; the wait is bounded for a child that inherited the pipes.
+		/// </summary>
+		/// <param name="timeoutMs">Milliseconds to wait for each thread.</param>
+		public void WaitForOutputEnd(int timeoutMs) {
+			try {
+				stdoutThread?.Join(timeoutMs);
+			} catch (Exception ex) {
+				Msg.PrintMod("Childprocess IO wait stdout thread: " + ex.Message,".exec.io",Msg.LogLevels.Debug);
+			}
+			try {
+				stderrThread?.Join(timeoutMs);
+			} catch (Exception ex) {
+				Msg.PrintMod("Childprocess IO wait stderr thread: " + ex.Message,".exec.io",Msg.LogLevels.Debug);
+			}
+		}
+
+		/// <summary>
 		/// Stops both the standard input and stardard error background reader threads (via the Abort() method)        
 		/// </summary>
 		public void StopMonitoringProcessOutput() {

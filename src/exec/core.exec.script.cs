@@ -13,6 +13,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Kltv.Kombine.Api;
 
 namespace Kltv.Kombine {
@@ -163,6 +164,40 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 		/// Reasons of the references that could not be resolved while compiling, collected by the source resolver.
 		/// </summary>
 		internal List<string> ResolveErrors { get; } = new List<string>();
+
+		/// <summary>
+		/// Minimum version failures of the loaded files, collected by the source resolver before the compile.
+		/// </summary>
+		internal List<string> VersionErrors { get; } = new List<string>();
+
+		/// <summary>
+		/// Checks the minimum Kombine version a script declares in its first lines with
+		/// "#pragma kombine requires major.minor". Several declarations: the highest wins.
+		/// </summary>
+		/// <param name="file">The script file, named in the message.</param>
+		/// <param name="lines">Its lines; only the first forty are looked at.</param>
+		/// <returns>Null when satisfied or not declared, the failure message otherwise.</returns>
+		internal static string? CheckRequiredVersion(string file, IEnumerable<string> lines) {
+			Regex declaration = new Regex(@"^\s*#pragma\s+kombine\s+requires\s+(\d+)\.(\d+)\b", RegexOptions.IgnoreCase);
+			int required = 0;
+			string requiredText = string.Empty;
+			int count = 0;
+			foreach (string line in lines) {
+				if (count++ >= 40)
+					break;
+				Match m = declaration.Match(line);
+				if (!m.Success)
+					continue;
+				int version = (int.Parse(m.Groups[1].Value) << 8) | int.Parse(m.Groups[2].Value);
+				if (version > required) {
+					required = version;
+					requiredText = m.Groups[1].Value + "." + m.Groups[2].Value;
+				}
+			}
+			if (required == 0 || required <= KombineMain.Version.HexVersion)
+				return null;
+			return "Kombine version " + requiredText + " at minimum is required to use " + file + " (running " + KombineMain.Version.Major + "." + KombineMain.Version.Minor + "." + KombineMain.Version.Build + ")";
+		}
 
 		/// <summary>
 		/// Reports a failure of this script execution. The entry script prints it, since nobody else can;
@@ -388,6 +423,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 		/// <returns>True if compilation was okey. False otherwise</returns>
 		private bool Compile(string filename, bool Debug = false) {
 			ResolveErrors.Clear();
+			VersionErrors.Clear();
 			// Load the script text
 			string? scriptText = FetchScriptText(filename,Debug);
 			if (scriptText == null){
@@ -445,7 +481,9 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				// With the nullable context disabled, scripts using nullable annotations would emit
 				// CS8632 on every compile. Suppress it until the nullable context can be re-enabled.
 				options = options.WithSpecificDiagnosticOptions(new Dictionary<string, ReportDiagnostic> {
-					{ "CS8632", ReportDiagnostic.Suppress }
+					{ "CS8632", ReportDiagnostic.Suppress },
+					// "#pragma kombine requires" is read by the engine before compiling; the compiler does not know it
+					{ "CS1633", ReportDiagnostic.Suppress }
 				});
 				// Optimization level & debug
 				if (Debug) {
@@ -536,6 +574,11 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				// We may want to check BuildResults even if building exceptions are trapped.
 				// Warnings are reported but only errors (or warnings promoted to errors) abort the build.
 				//
+				if (VersionErrors.Count > 0) {
+					// A loaded file needs a newer Kombine: that is the reason, whatever the compiler said
+					ReportFailure(ErrorCode.NotSupported, string.Join("\n", VersionErrors));
+					return false;
+				}
 				bool HasErrors = BuildResults.Any(res => res.Severity == DiagnosticSeverity.Error || res.IsWarningAsError);
 				if (HasErrors) {
 					if (ResolveErrors.Count > 0) {
@@ -626,6 +669,12 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			}
 			if (scriptText == null || scriptText.Length == 0) {
 				ReportFailure(ErrorCode.InvalidArgument, "The script file '" + filename + "' is empty");
+				return null;
+			}
+			// The minimum version the script declares, checked before anything is compiled
+			string? versionError = CheckRequiredVersion(filename, scriptText.Split('\n'));
+			if (versionError != null) {
+				ReportFailure(ErrorCode.NotSupported, versionError);
 				return null;
 			}
 			Msg.PrintMod("Compiling script.", ".exec.script", Msg.LogLevels.Debug);

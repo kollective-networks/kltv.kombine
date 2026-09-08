@@ -1,10 +1,15 @@
 ## [Unreleased]
 
+- [Feature] `Tool.OnStdout` and `Tool.OnStderr` deliver the output fragments while a command runs; `Tool.Timeout` kills a synchronous command that runs longer. See doc/api.md, Tool
+- [Feature] `#pragma kombine requires <major.minor>`: a script or extension declares the minimum Kombine version, reported instead of compiler errors by an older engine. See doc/api.md, Script Basics
+- [Feature] Git extension rewritten: one verb per git command (clone, pull, fetch, checkout, submodule, push, ls-remote, status, info, diff, ls-files, check-ignore, rev-parse, merge-base, patch, add, commit, tag, archive, clean, sparse-checkout, worktree, lfs, bundle, hooks), options per verb with the previous defaults, results in `Git.Last<Verb>`, `Git.LastError`, output modes, abort on failure, authentication inheritance. See doc/extensions/git.md
+- [Misc] Git extension: `Pull` defaults to fast forward only, `Patch` is implemented, the git example tests every verb by groups
 - [Feature] Progress reporting: `ITaskProgress` contract with bar, dots and plain renderers, selectable per facility (`Http.Progress`, `Progress.Default`). See doc/api.md, Progress
 - [Feature] `Folders.Copy` honors `CopyOptions.ShowProgress` through `Folders.Progress`
 - [Feature] `Compress.Zip` and `Compress.Tar` show a progress line through `Compress.Progress`; `Compress.ShowProgress` or the `showprogress` argument silence it. See doc/api.md, Compress
 - [Feature] Error reporting: every facility exposes `LastError` (`ErrorCode` and message) so scripts explain failures themselves. See doc/api.md, Error reporting
 - [Feature] `Engine.ForwardSearch`, `Engine.RebuildScripts` and `Engine.LastError`: the script side of `-kforward` and `-ksrb`, and the reason of a failed child script. See doc/api.md, Engine settings
+- [Bugfix] Tool: the captured output of a very short command could miss its last fragments; the exit is signaled once the output readers end
 - [Bugfix] `Compress.Tar.Decompress` creates the destination folder and returns false when entries are refused or not extracted
 - [Bugfix] Failed compressions leave no partial archive; xz compression returns false instead of aborting
 - [Misc] Zip extraction goes entry by entry like tar: refused (path traversal) and failed entries are reported, existing files with overwrite disabled are skipped and reported as `AlreadyExists` (tar too); archive entries always use `/`

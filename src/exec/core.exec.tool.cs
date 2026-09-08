@@ -231,6 +231,68 @@ namespace Kltv.Kombine {
 		}
 
 		/// <summary>
+		/// Wait for the process to exit at most the given time. When the time expires the process and its
+		/// children are killed, the exit code is -1, TimedOut is set and a last stderr line says so.
+		/// </summary>
+		/// <param name="timeoutMs">Milliseconds to wait. Zero or less waits without limit.</param>
+		/// <param name="pExitCode">Variable to receive the exit code</param>
+		/// <returns>true if the process was launched, false otherwise</returns>
+		public bool WaitExit(int timeoutMs, out int pExitCode) {
+			if (timeoutMs <= 0)
+				return WaitExit(out pExitCode);
+			if (ProcessLaunched == false) {
+				pExitCode = 0;
+				return false;
+			}
+			if (ProcessExitedEvent.Wait(timeoutMs) == false)
+				TimeoutExpired(timeoutMs);
+			pExitCode = ExitCode;
+			return true;
+		}
+
+		/// <summary>
+		/// Signals that the process was killed because the wait time of WaitExit expired.
+		/// </summary>
+		public bool TimedOut { get; private set; } = false;
+
+		/// <summary>
+		/// Kills the process after the wait time expired. The kill runs outside the process list lock: the exit
+		/// callback of the process holds the process object lock while it calls the exit handler, which takes the
+		/// list lock, so disposing or waiting under the list lock would deadlock. The handle stays alive, so the
+		/// normal exit handler fetches the exit code, disposes the handle and signals the exit.
+		/// </summary>
+		private void TimeoutExpired(int timeoutMs) {
+			Process? handle;
+			lock (CurrentRunningProcessesLock) {
+				if (ProcessExited)
+					return;
+				TimedOut = true;
+				handle = ProcessHandle;
+			}
+			Msg.PrintWarningMod("Timeout after " + timeoutMs + " ms, killing: " + this.Name, ".exec", Msg.LogLevels.Verbose);
+			try {
+				// Descendants as well: a shell or a launcher would otherwise leave the real worker running
+				handle?.Kill(true);
+			} catch (Exception ex) {
+				Msg.PrintWarningMod("Error when killing a timed out tool: " + this.Name + " Message:" + ex.Message, ".exec", Msg.LogLevels.Verbose);
+			}
+			// The exit handler runs now that the process is gone; if it does not, close the bookkeeping here
+			if (ProcessExitedEvent.Wait(10000) == false) {
+				lock (CurrentRunningProcessesLock) {
+					if (ProcessExited == false) {
+						Msg.PrintWarningMod("No exit notification after killing: " + this.Name, ".exec", Msg.LogLevels.Verbose);
+						ProcessExited = true;
+						CurrentRunningProcesses.Remove(this);
+						ProcessExitedEvent.Set();
+					}
+				}
+			}
+			ExitCode = -1;
+			ProcessTime = timeoutMs;
+			OutputErr.Add("timeout after " + timeoutMs + " ms");
+		}
+
+		/// <summary>
 		/// Environment variables to be passed to the child process
 		/// </summary>
 		public Dictionary<string,string> Environment { get; set; } = new Dictionary<string, string>();
@@ -259,6 +321,7 @@ namespace Kltv.Kombine {
 				try {
 					if ( (!UseShell) && (ProcessHandle != null) ){
 						if (OutputCapture) {
+							Msg.PrintMod("Kill: stopping the output readers of " + this.Name, ".exec", Msg.LogLevels.Debug);
 							if (OutputCharCapture){
 								Outstreams?.StopMonitoringProcessOutput();
 							} else {
@@ -269,8 +332,11 @@ namespace Kltv.Kombine {
 					}
 					if (ProcessHandle != null) { 
 						// We kill descendants as well.
+						Msg.PrintMod("Kill: killing the process tree of " + this.Name, ".exec", Msg.LogLevels.Debug);
 						ProcessHandle.Kill(true);
+						Msg.PrintMod("Kill: disposing the handle of " + this.Name, ".exec", Msg.LogLevels.Debug);
 						ProcessHandle.Dispose();
+						Msg.PrintMod("Kill: done with " + this.Name, ".exec", Msg.LogLevels.Debug);
 						ProcessHandle = null;
 					}
 				} catch (Exception ex) {
@@ -459,6 +525,8 @@ namespace Kltv.Kombine {
 					// so, if we don't wait we will miss output lines for processes which runs quickly
 					Msg.PrintMod("Waiting for process to exit (flushing): " + this.Name, ".exec", Msg.LogLevels.Debug);
 					ProcessHandle.WaitForExit();
+					// The reader threads may still hold the last fragments: the output is complete only when they end
+					Outstreams?.WaitForOutputEnd(5000);
 					Msg.PrintMod("Fetching exitcode: " + this.Name, ".exec", Msg.LogLevels.Debug);
 					ExitCode = ProcessHandle.ExitCode;
 					Msg.PrintMod("Fetching process time: " + this.Name, ".exec", Msg.LogLevels.Debug);

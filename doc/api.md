@@ -56,6 +56,20 @@ from an URL (remote scripts are cached):
 #load "https://raw.githubusercontent.com/kollective-networks/kltv.kombine/main/extensions/clang.csx"
 ```
 
+A script or an extension can declare the minimum Kombine version it needs in its first lines:
+
+```csharp
+#pragma kombine requires 1.6
+```
+
+Kombine reads it before compiling, in the main script, in the loaded files and in the child
+scripts. An older Kombine prints "Kombine version 1.6 at minimum is required to use
+extensions/git.csx (running 1.5.24359387)" and exits with 1 instead of showing compiler errors;
+for a child script the calling one gets a 1 and `Engine.LastError` with `NotSupported`. Several
+files may declare a version: the highest wins. The compiler does not know the pragma and would
+warn about it (CS1633): Kombine suppresses that warning, and the `.editorconfig` at the root of
+the repository silences it in the editors.
+
 ### Default usings
 
 The following namespaces are imported automatically, so everything in this document can
@@ -650,6 +664,8 @@ asynchronously with a concurrency limit. For simple cases prefer the global
 | `bool UseShell` | If true, commands are launched through the system shell (sync commands only). Default false. |
 | `uint ConcurrentCommands` | Number of queued commands executed concurrently by `ExecuteCommands`. Default 1. Combine with `Host.ProcessorCount()`. |
 | `bool CaptureOutput` | If true, the tool output (stdout/stderr) is echoed to the console while it runs. Default false. |
+| `OutputFragment? OnStdout` / `OutputFragment? OnStderr` | Called with every fragment the tool writes while it runs, independently of `CaptureOutput`. A fragment ends with the newline or the carriage return that closed it, so a progress indicator redrawn with carriage returns arrives one update at a time. The fragments are still collected in the result. Null by default. |
+| `int Timeout` | Milliseconds a synchronous command may run. Zero (default) means no limit. When it expires the process and its children are killed and the result is `Failed` with exit code -1 and a last stderr line "timeout after N ms". |
 
 **`Tool.ToolStatus`:** `Undefined`, `Success`, `Failed`, `Warnings`, `NoChanges`, `Pending`.
 

@@ -34,7 +34,7 @@ An URL can be used as well; the file is fetched and cached:
 | --- | --- | --- |
 | [clang.csx](../extensions/clang.csx) | [clang.md](extensions/clang.md) | Clang compiler wrapper: compile, link, static libraries, clang-format, compile_commands.json. |
 | [clang.doc.csx](../extensions/clang.doc.csx) | [clang.doc.md](extensions/clang.doc.md) | Generates Markdown documentation from clang-doc YAML output. |
-| [git.csx](../extensions/git.csx) | [git.md](extensions/git.md) | Git operations: version, clone, pull, modified files, staging, pre-commit hooks. |
+| [git.csx](../extensions/git.csx) | [git.md](extensions/git.md) | Git for build scripts: one verb per git command (clone, pull, fetch, checkout, submodules, push, status, info, diff, patch, tags, archives, worktrees, bundles, hooks...), results in `Git.Last<Verb>`, output modes, authentication inheritance. Requires Kombine 1.6. |
 | [github.csx](../extensions/github.csx) | [github.md](extensions/github.md) | GitHub releases: create, upload assets, publish. |
 | [bin2cpp.csx](../extensions/bin2cpp.csx) | [bin2cpp.md](extensions/bin2cpp.md) | Embeds binary files into C++ sources as byte arrays. |
 | [bin2obj.csx](../extensions/bin2obj.csx) | [bin2obj.md](extensions/bin2obj.md) | Embeds binary files into object files as data sections (COFF, Mach-O on macOS). |

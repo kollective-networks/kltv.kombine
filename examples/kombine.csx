@@ -81,6 +81,11 @@ int extensions(string[] args){
 	Msg.Print("----------------------------------------------------------");
 
 	Msg.Print("");
+	Msg.Print("Testing: git");
+	Kombine("06.extensions/02.git/mkb.ext.git.csx", "test", args);
+	Msg.Print("----------------------------------------------------------");
+
+	Msg.Print("");
 	Msg.Print("Testing: Bin2cpp");	
 	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "build", args);
 	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "clean", args);

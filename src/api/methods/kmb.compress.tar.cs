@@ -7,14 +7,11 @@
 ---------------------------------------------------------------------------------------------------------*/
 
 using Kltv.Kombine.Types;
-using System.Data;
 using System.IO;
 using SharpCompress.Common;
 using SharpCompress.Writers.Tar;
 using SharpCompress.Writers;
-using SharpCompress.Readers.Tar;
 using SharpCompress.Readers;
-using System.Reflection.PortableExecutable;
 
 
 namespace Kltv.Kombine.Api {
@@ -24,6 +21,7 @@ namespace Kltv.Kombine.Api {
 		/// <summary>
 		/// Tar compression methods.
 		/// Failures are reported through the return value and LastError; nothing is printed at normal level.
+		/// Every operation shows its progress through Compress.Progress unless silenced.
 		/// </summary>
 		public static class Tar {
 
@@ -62,16 +60,21 @@ namespace Kltv.Kombine.Api {
 			/// Records a failure and logs it at verbose level.
 			/// </summary>
 			private static bool Fail(ErrorCode code, string message, string source) {
-				LastError = new ApiError(code, message, source);
-				Msg.PrintWarningMod(LastError.ToString(), ".compress.tar", Msg.LogLevels.Verbose);
-				return false;
+				return Fail(new ApiError(code, message, source));
 			}
 
 			/// <summary>
 			/// Records a failure from an exception and logs it at verbose level.
 			/// </summary>
 			private static bool Fail(Exception ex, string source) {
-				LastError = ApiError.From(ex, source);
+				return Fail(ApiError.From(ex, source));
+			}
+
+			/// <summary>
+			/// Records a failure and logs it at verbose level.
+			/// </summary>
+			private static bool Fail(ApiError error) {
+				LastError = error;
 				Msg.PrintWarningMod(LastError.ToString(), ".compress.tar", Msg.LogLevels.Verbose);
 				return false;
 			}
@@ -133,9 +136,10 @@ namespace Kltv.Kombine.Api {
 			/// <param name="overwrite">If archive should be overwritten, default true</param>
 			/// <param name="includeFolder">If true, include the folder in the tar file.</param>
 			/// <param name="compressionType">Compression type, default gzip</param>
+			/// <param name="showprogress">If the progress line should be shown. Null takes Compress.ShowProgress.</param>
 			/// <returns>True if fine, false otherwise (see LastError).</returns>
-			public static bool CompressFolder(string folderPath, string outputFile,bool overwrite = true,bool includeFolder = true, TarCompressionType compressionType = TarCompressionType.Gzip) {
-				return CompressFolders(new string[] { folderPath }, outputFile,overwrite,includeFolder,compressionType);
+			public static bool CompressFolder(string folderPath, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = TarCompressionType.Gzip, bool? showprogress = null) {
+				return CompressFolders(new string[] { folderPath }, outputFile, overwrite, includeFolder, compressionType, showprogress);
 			}
 
 			/// <summary>
@@ -146,8 +150,9 @@ namespace Kltv.Kombine.Api {
 			/// <param name="overwrite">If archive should be overwritten, default true</param>
 			/// <param name="includeFolder">If true, include the given folders in the tar file and not only the folder contents an descentants.</param>
 			/// <param name="compressionType">Compression type, default gzip</param>
+			/// <param name="showprogress">If the progress line should be shown. Null takes Compress.ShowProgress.</param>
 			/// <returns>True if fine, false otherwise (see LastError).</returns>
-			public static bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = TarCompressionType.Gzip) {
+			public static bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = TarCompressionType.Gzip, bool? showprogress = null) {
 				LastError = ApiError.None;
 				Msg.PrintMod("Compressing folders: " + string.Join(", ", folderPaths), ".compress.tar", Msg.LogLevels.Verbose);
 				// Validate everything before touching the output, so a failure leaves nothing behind
@@ -157,35 +162,28 @@ namespace Kltv.Kombine.Api {
 				}
 				if (!MapCompression(compressionType, outputFile, out CompressionType compType))
 					return false;
+				// The files are collected first: the totals feed the progress line
+				List<ArchiveFile>? files = CollectFiles(folderPaths, includeFolder, out long totalBytes, out ApiError error);
+				if (files == null)
+					return Fail(error);
 				if (!PrepareOutput(outputFile, overwrite))
 					return false;
+				ArchiveProgress progress = new ArchiveProgress(Reporter(showprogress), "file", "files");
+				progress.Start("Compressing", outputFile, totalBytes, files.Count);
 				try {
 					using (var fs = new FileStream(outputFile, FileMode.Create)) {
 						using (var tar = new TarWriter(fs, new TarWriterOptions(compType, true))) {
-
-							foreach (string folder in folderPaths) {
-								DirectoryInfo dirInfo = new DirectoryInfo(folder);
-								string[] files = Directory.GetFiles(folder, "*", SearchOption.AllDirectories);
-								foreach (string file in files) {
-									string f;
-									if (includeFolder == true) {
-										// Entry names must be relative to the folder parent so the folder
-										// itself is included, never absolute paths
-										if (dirInfo.Parent != null)
-											f = Path.GetRelativePath(dirInfo.Parent.FullName, Path.GetFullPath(file));
-										else
-											f = Path.GetRelativePath(dirInfo.FullName, Path.GetFullPath(file));
-									} else {
-										f = Path.GetRelativePath(folder, file);
-									}
-									Msg.PrintMod("Compressing file: " + f, ".compress.tar", Msg.LogLevels.Verbose);
-									tar.Write(f, file);
-								}
+							foreach (ArchiveFile file in files) {
+								Msg.PrintMod("Compressing file: " + file.Entry, ".compress.tar", Msg.LogLevels.Verbose);
+								tar.Write(file.Entry, file.Path);
+								progress.Entry(file.Size);
 							}
 						}
 					}
+					progress.Done();
 					return true;
 				} catch (System.Exception ex) {
+					progress.Failed();
 					RemovePartial(outputFile);
 					return Fail(ex, outputFile);
 				}
@@ -198,8 +196,9 @@ namespace Kltv.Kombine.Api {
 			/// <param name="outputFile">Output tar file</param>
 			/// <param name="overwrite">If archive should be overwriten, default true</param>
 			///	<param name="compressionType">Compression type, default gzip</param>
+			/// <param name="showprogress">If the progress line should be shown. Null takes Compress.ShowProgress.</param>
 			/// <returns>True if fine, false otherwise (see LastError).</returns>
-			public static bool CompressFile(string filePath, string outputFile,bool overwrite = true,TarCompressionType compressionType = TarCompressionType.Gzip) {
+			public static bool CompressFile(string filePath, string outputFile, bool overwrite = true, TarCompressionType compressionType = TarCompressionType.Gzip, bool? showprogress = null) {
 				LastError = ApiError.None;
 				Msg.PrintMod("Compressing file: " + filePath, ".compress.tar", Msg.LogLevels.Verbose);
 				if (!Files.Exists(filePath))
@@ -208,51 +207,38 @@ namespace Kltv.Kombine.Api {
 					return false;
 				if (!PrepareOutput(outputFile, overwrite))
 					return false;
+				long size = FileSize(filePath);
+				ArchiveProgress progress = new ArchiveProgress(Reporter(showprogress), "file", "files");
+				progress.Start("Compressing", outputFile, size, 1);
 				try {
 					using (var fs = new FileStream(outputFile, FileMode.Create)) {
 						using (var tar = new TarWriter(fs, new TarWriterOptions(compType, true))) {
-							string f2 = Path.GetFileName(filePath);
-							tar.Write(f2, filePath);
+							tar.Write(Path.GetFileName(filePath), filePath);
+							progress.Entry(size);
 						}
 					}
+					progress.Done();
 					return true;
 				} catch (System.Exception ex) {
+					progress.Failed();
 					RemovePartial(outputFile);
 					return Fail(ex, outputFile);
 				}
 			}
 
 			/// <summary>
-			/// Safe-extraction boundary check. Mirrors the guard SharpCompress applies to
-			/// WriteEntryToDirectory: an entry whose composed path resolves outside the destination
-			/// folder (archive path traversal, "zip-slip") is rejected. Used for the manual-path
-			/// branches (long @PaxHeader names and directory entries) that bypass the library guard.
-			/// </summary>
-			/// <param name="outputFolder">Destination root folder.</param>
-			/// <param name="candidatePath">Composed target path to validate.</param>
-			/// <returns>True if candidatePath resolves inside outputFolder, false otherwise.</returns>
-			private static bool IsInsideOutputFolder(string outputFolder, string candidatePath) {
-				string root = Path.GetFullPath(outputFolder);
-				if (!root.EndsWith(Path.DirectorySeparatorChar) && !root.EndsWith(Path.AltDirectorySeparatorChar))
-					root += Path.DirectorySeparatorChar;
-				string full = Path.GetFullPath(candidatePath);
-				StringComparison cmp = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-				if (full.StartsWith(root, cmp))
-					return true;
-				return string.Equals(full, root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), cmp);
-			}
-
-			/// <summary>
 			/// Decompress a tar file into a folder. The folder is created if needed.
-			/// Entries that try to escape the destination folder (path traversal) are refused, and any
-			/// refused or failed entry makes the call return false with LastError set to Failed; the
-			/// remaining entries are still extracted.
+			/// Entries that try to escape the destination folder (path traversal) are refused, a file that
+			/// exists when overwrite is disabled is skipped, and the remaining entries are still extracted.
+			/// Any skipped entry makes the call return false: AlreadyExists when only existing files were
+			/// skipped, Failed otherwise.
 			/// </summary>
 			/// <param name="tarPath">Tar file to decompress</param>
 			/// <param name="outputFolder">Output folder</param>
-			/// <param name="overwrite">If archive(s) should be overwritten, default true</param>
+			/// <param name="overwrite">If existing files should be overwritten, default true</param>
+			/// <param name="showprogress">If the progress line should be shown. Null takes Compress.ShowProgress.</param>
 			/// <returns>True if every entry was extracted, false otherwise (see LastError).</returns>
-			public static bool Decompress(string tarPath, string outputFolder,bool overwrite = true) {
+			public static bool Decompress(string tarPath, string outputFolder, bool overwrite = true, bool? showprogress = null) {
 				LastError = ApiError.None;
 				Msg.PrintMod("Decompressing file: " + tarPath, ".compress.tar", Msg.LogLevels.Verbose);
 				if (!Files.Exists(tarPath))
@@ -262,8 +248,13 @@ namespace Kltv.Kombine.Api {
 					return Fail(ErrorCode.IoError, "The destination folder could not be created: " + Folders.LastError.Message, outputFolder);
 				int failed = 0;
 				int refused = 0;
+				int existing = 0;
+				// The reader is forward only and the archive may be compressed, so the number of entries is
+				// unknown up front: the progress follows the position in the archive being read
+				ArchiveProgress progress = new ArchiveProgress(Reporter(showprogress), "entry", "entries");
 				try {
 					using (var fs = new FileStream(tarPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
+						progress.Start("Decompressing", tarPath, fs.Length, 0);
 						ReaderOptions r = new SharpCompress.Readers.ReaderOptions();
 						using (var tar = ReaderFactory.OpenReader(fs,r)) {
 							ExtractionOptions exOp = new ExtractionOptions() { ExtractFullPath = true, Overwrite = overwrite };
@@ -305,6 +296,7 @@ namespace Kltv.Kombine.Api {
 									}
 									continue;
 								}
+								progress.Position(fs.Position, fs.Length);
 								try {
 									if (!tar.Entry.IsDirectory) {
 										// Beware, check the existence of a defined filename but also if it matches the entry
@@ -317,15 +309,26 @@ namespace Kltv.Kombine.Api {
 												nextFileName = string.Empty;
 												continue;
 											}
-											Msg.PrintMod("Unpacking file (long): " + nextFileName, ".compress.tar", Msg.LogLevels.Verbose);
 											string? folder = Path.GetDirectoryName(longTarget);
 											if (folder != null)
 												Folders.Create(folder);
-											tar.WriteEntryToFile(longTarget, exOp);
+											if (!overwrite && File.Exists(longTarget)) {
+												Msg.PrintMod("Entry already exists, overwrite is disabled: " + nextFileName, ".compress.tar", Msg.LogLevels.Verbose);
+												existing++;
+											} else {
+												Msg.PrintMod("Unpacking file (long): " + nextFileName, ".compress.tar", Msg.LogLevels.Verbose);
+												tar.WriteEntryToFile(longTarget, exOp);
+											}
 											nextFileName = string.Empty;
 										} else {
-											Msg.PrintMod("Unpacking file: " + tar.Entry.Key, ".compress.tar", Msg.LogLevels.Verbose);
-											tar.WriteEntryToDirectory(outputFolder, exOp);
+											string target = Path.Combine(outputFolder, tar.Entry.Key);
+											if (!overwrite && File.Exists(target)) {
+												Msg.PrintMod("Entry already exists, overwrite is disabled: " + tar.Entry.Key, ".compress.tar", Msg.LogLevels.Verbose);
+												existing++;
+											} else {
+												Msg.PrintMod("Unpacking file: " + tar.Entry.Key, ".compress.tar", Msg.LogLevels.Verbose);
+												tar.WriteEntryToDirectory(outputFolder, exOp);
+											}
 										}
 									} else {
 										// If its a folder, just create it
@@ -349,14 +352,14 @@ namespace Kltv.Kombine.Api {
 						}
 					}
 				} catch (System.Exception ex) {
+					progress.Failed();
 					return Fail(ex, tarPath);
 				}
-				if (refused > 0 || failed > 0) {
-					string reason = refused > 0 ? refused + " entries refused (path traversal)" : string.Empty;
-					if (failed > 0)
-						reason += (reason.Length > 0 ? ", " : string.Empty) + failed + " entries not extracted";
-					return Fail(ErrorCode.Failed, reason, tarPath);
+				if (refused > 0 || failed > 0 || existing > 0) {
+					progress.Failed();
+					return Fail(ExtractionError(refused, failed, existing, tarPath));
 				}
+				progress.Done();
 				return true;
 			}
 		}

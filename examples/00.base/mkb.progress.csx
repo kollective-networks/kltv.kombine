@@ -41,6 +41,7 @@ int test(string[] args){
 	Check("Progress.Default", Progress.Default.GetType().Name, Console.IsOutputRedirected ? "ProgressPlain" : "ProgressBar");
 	Check("Http.Progress", Http.Progress == null ? "not set (uses Progress.Default)" : Http.Progress.GetType().Name, "not set (uses Progress.Default)");
 	Check("Http.ShowProgress", Show(Http.ShowProgress), "true");
+	Check("Compress.ShowProgress", Show(Compress.ShowProgress), "true");
 	EndBanner();
 
 	//
@@ -131,6 +132,14 @@ int test(string[] args){
 	Check("Folders.Progress set", Folders.Progress == null ? "null" : Folders.Progress.GetType().Name, "ProgressDots");
 	Folders.Progress = null;
 	Check("Folders.Progress reset", Folders.Progress == null ? "not set (uses Progress.Default)" : "set", "not set (uses Progress.Default)");
+	Compress.Progress = new ProgressDots();
+	Check("Compress.Progress set", Compress.Progress == null ? "null" : Compress.Progress.GetType().Name, "ProgressDots");
+	Compress.Progress = null;
+	Check("Compress.Progress reset", Compress.Progress == null ? "not set (uses Progress.Default)" : "set", "not set (uses Progress.Default)");
+	Compress.ShowProgress = false;
+	Check("Compress.ShowProgress off", Show(Compress.ShowProgress), "false");
+	Compress.ShowProgress = true;
+	Check("Compress.ShowProgress on", Show(Compress.ShowProgress), "true");
 	ITaskProgress previous = Progress.Default;
 	Progress.Default = new ProgressDots { Color = ConsoleColor.Green };
 	Check("Progress.Default set", Progress.Default.GetType().Name, "ProgressDots");
@@ -229,7 +238,7 @@ void Check(string what, string actual, string expected){
 /// <param name="ok">Outcome of the check.</param>
 /// <param name="expected">Expected value, shown when the check failed.</param>
 void Verify(string what, string actual, bool ok, string expected){
-	Msg.PrintTask($"{what,-24} : {actual,-36} ");
+	Msg.PrintTask($"{what,-26} : {actual,-36} ");
 	if (ok){
 		Msg.PrintTaskSuccess("OK");
 		passed++;

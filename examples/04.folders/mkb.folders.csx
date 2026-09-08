@@ -225,10 +225,13 @@ void TestZip(){
 	Banner("[7/9] Zip compression");
 	string root = Sandbox + "/zip";
 	Folders.Create(root);
+	// The archive operations show a progress line (Compress.Progress, a bar by default): shown for the
+	// first round trip and silenced for the rest to keep the report short
 	// A folder, with the folder itself included or with its contents only
 	Check("CompressFolder", Show(Compress.Zip.CompressFolder("folder1", root + "/folder.zip")), "true");
 	Check("Decompress", Show(Compress.Zip.Decompress(root + "/folder.zip", root + "/out1/")), "true");
 	Check("folder included", Show(Files.Exists(root + "/out1/folder1/src/file1.txt")), "true");
+	Compress.ShowProgress = false;
 	Check("CompressFolder contents", Show(Compress.Zip.CompressFolder("folder1", root + "/contents.zip", true, false)), "true");
 	Compress.Zip.Decompress(root + "/contents.zip", root + "/out2/");
 	Check("folder not included", Show(Files.Exists(root + "/out2/src/file1.txt")), "true");
@@ -248,6 +251,10 @@ void TestZip(){
 	Check("no archive left", Show(Files.Exists(root + "/broken.zip")), "false");
 	Check("Decompress missing", Show(Compress.Zip.Decompress(root + "/nothing.zip", root + "/out5/")), "false");
 	Check("Decompress error", Compress.Zip.LastError.Code.ToString(), "NotFound");
+	// Existing files with overwrite disabled are skipped and reported
+	Check("Decompress no overwrite", Show(Compress.Zip.Decompress(root + "/folder.zip", root + "/out1/", false)), "false");
+	Check("skipped error", Compress.Zip.LastError.Code.ToString(), "AlreadyExists");
+	Compress.ShowProgress = true;
 	EndBanner();
 }
 
@@ -258,6 +265,8 @@ void TestTar(){
 	Banner("[8/9] Tar compression");
 	string root = Sandbox + "/tar";
 	Folders.Create(root);
+	// The progress line is silenced for the round trips and shown as dots for the several folders case below
+	Compress.ShowProgress = false;
 	// Round trip of a folder with every supported compression type (xz is extraction only)
 	(string Ext, TarCompressionType Type)[] types = {
 		(".tar",     TarCompressionType.None),
@@ -278,8 +287,11 @@ void TestTar(){
 	Check("CompressFolder contents", Show(Compress.Tar.CompressFolder("folder1", root + "/contents.tar.gz", true, false)), "true");
 	Compress.Tar.Decompress(root + "/contents.tar.gz", root + "/outc/");
 	Check("folder not included", Show(Files.Exists(root + "/outc/src/file1.txt")), "true");
-	Check("CompressFolders", Show(Compress.Tar.CompressFolders(new string[] { "child", "folder1" }, root + "/folders.tar.gz")), "true");
-	Compress.Tar.Decompress(root + "/folders.tar.gz", root + "/outf/");
+	// Several folders, with the progress line rendered as dots: the renderer is selected by assigning Compress.Progress
+	Compress.Progress = new ProgressDots();
+	Check("CompressFolders", Show(Compress.Tar.CompressFolders(new string[] { "child", "folder1" }, root + "/folders.tar.gz", showprogress: true)), "true");
+	Compress.Tar.Decompress(root + "/folders.tar.gz", root + "/outf/", showprogress: true);
+	Compress.Progress = null;
 	Check("both folders present", Show(Files.Exists(root + "/outf/child/child.csx") && Files.Exists(root + "/outf/folder1/parent.csx")), "true");
 	Check("CompressFile", Show(Compress.Tar.CompressFile(Fixture, root + "/file.tar.bz2", true, TarCompressionType.Bzip2)), "true");
 	Compress.Tar.Decompress(root + "/file.tar.bz2", root + "/outs/");
@@ -295,6 +307,10 @@ void TestTar(){
 	Check("no archive left", Show(Files.Exists(root + "/broken.tar.gz")), "false");
 	Check("Decompress missing", Show(Compress.Tar.Decompress(root + "/nothing.tar.gz", root + "/outm/")), "false");
 	Check("Decompress error", Compress.Tar.LastError.Code.ToString(), "NotFound");
+	// Existing files with overwrite disabled are skipped and reported
+	Check("Decompress no overwrite", Show(Compress.Tar.Decompress(root + "/folders.tar.gz", root + "/outf/", false)), "false");
+	Check("skipped error", Compress.Tar.LastError.Code.ToString(), "AlreadyExists");
+	Compress.ShowProgress = true;
 	EndBanner();
 }
 

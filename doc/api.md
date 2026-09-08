@@ -463,14 +463,25 @@ missing source or archive, `AlreadyExists` for an existing output with overwrite
 disabled, `NotSupported`, `IoError` or `Failed`. A failed compression leaves no partial
 archive behind.
 
+Every operation shows a progress line through `Compress.Progress` (see [Progress](#progress)),
+in the shape "Compressing app.zip: [bar] 45% 120/300 files done"; extractions read
+"Decompressing sdk.tar.xz: [bar] 60% 87 entries done". `Compress.ShowProgress = false` silences
+every call and the `showprogress` argument of a call overrides that setting. A call that fails
+before the work starts (missing source, existing output, unsupported compression) prints nothing.
+
+| Member | Description |
+| --- | --- |
+| `ITaskProgress? Progress` | Reporter of the progress line, shared by every format. Not set by default: `Progress.Default` is used. |
+| `bool ShowProgress` | If the progress line is shown (default true). |
+
 ### Compress.Zip
 
 | Method | Description |
 | --- | --- |
-| `bool CompressFolder(string folderPath, string outputFile, bool overwrite = true, bool includeFolder = true)` | Compresses a folder into a zip file. With `includeFolder` the folder itself is included; otherwise only its contents. |
-| `bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true, bool includeFolder = true)` | Compresses a list of folders into a zip file. |
-| `bool CompressFile(string filePath, string outputFile, bool overwrite = true)` | Compresses a single file into a zip file. |
-| `bool Decompress(string zipPath, string outputFolder, bool overwrite = true)` | Decompresses a zip file into a folder. |
+| `bool CompressFolder(string folderPath, string outputFile, bool overwrite = true, bool includeFolder = true, bool? showprogress = null)` | Compresses a folder into a zip file. With `includeFolder` the folder itself is included; otherwise only its contents. |
+| `bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true, bool includeFolder = true, bool? showprogress = null)` | Compresses a list of folders into a zip file. |
+| `bool CompressFile(string filePath, string outputFile, bool overwrite = true, bool? showprogress = null)` | Compresses a single file into a zip file. |
+| `bool Decompress(string zipPath, string outputFolder, bool overwrite = true, bool? showprogress = null)` | Decompresses a zip file into a folder, created if needed. The entries are extracted one by one: entries that would escape the destination folder are refused and, with `overwrite` disabled, existing files are skipped; the rest are still extracted. The call returns false with `AlreadyExists` when only existing files were skipped, `Failed` when entries were refused or not extracted, saying how many. |
 
 ### Compress.Tar
 
@@ -481,10 +492,10 @@ archive behind.
 
 | Method | Description |
 | --- | --- |
-| `bool CompressFolder(string folderPath, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = Gzip)` | Compresses a folder into a tar file. |
-| `bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = Gzip)` | Compresses a list of folders into a tar file. |
-| `bool CompressFile(string filePath, string outputFile, bool overwrite = true, TarCompressionType compressionType = Gzip)` | Compresses a single file into a tar file. |
-| `bool Decompress(string tarPath, string outputFolder, bool overwrite = true)` | Decompresses a tar file into a folder, created if needed. The format is auto-detected (`.tar`, `.tar.gz`, `.tar.bz2`, `.tar.lz`, `.tar.xz`); symbolic links are skipped. Entries that would escape the destination folder are refused: the rest are still extracted, but the call returns false with `Failed` saying how many entries were refused or not extracted. |
+| `bool CompressFolder(string folderPath, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = Gzip, bool? showprogress = null)` | Compresses a folder into a tar file. |
+| `bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = Gzip, bool? showprogress = null)` | Compresses a list of folders into a tar file. |
+| `bool CompressFile(string filePath, string outputFile, bool overwrite = true, TarCompressionType compressionType = Gzip, bool? showprogress = null)` | Compresses a single file into a tar file. |
+| `bool Decompress(string tarPath, string outputFolder, bool overwrite = true, bool? showprogress = null)` | Decompresses a tar file into a folder, created if needed. The format is auto-detected (`.tar`, `.tar.gz`, `.tar.bz2`, `.tar.lz`, `.tar.xz`); symbolic links are skipped. Entries that would escape the destination folder are refused and, with `overwrite` disabled, existing files are skipped; the rest are still extracted. The call returns false with `AlreadyExists` when only existing files were skipped, `Failed` when entries were refused or not extracted, saying how many. |
 
 ```csharp
 Compress.Zip.CompressFolder("out/bin/win-x64/release/", "out/pkg/app.win.zip", true, false);
@@ -788,11 +799,13 @@ facility left unconfigured at once.
 | --- | --- | --- |
 | Http downloads | `Http.Progress` | `Http.ShowProgress = false` (or the `showprogress` parameter of the call) prints nothing. |
 | Folder copies | `Folders.Progress` | The `CopyOptions.ShowProgress` flag of `Folders.Copy` enables the line. |
+| Archives | `Compress.Progress` | `Compress.ShowProgress = false` (or the `showprogress` argument of the call) prints nothing. |
 | Extensions | their own `Progress` member | as documented by each extension |
 
 ```csharp
 Http.Progress = new ProgressDots();        // downloads report with dots from now on
 Folders.Progress = new ProgressBar();      // folder copies keep the bar
+Compress.Progress = new ProgressDots();    // archives report with dots as well
 Progress.Default = new ProgressPlain();    // anything else prints only the messages
 Http.ShowProgress = false;                 // downloads print nothing at all
 ```

@@ -2,10 +2,12 @@
 
 - [Feature] Progress reporting: `ITaskProgress` contract with bar, dots and plain renderers, selectable per facility (`Http.Progress`, `Progress.Default`). See doc/api.md, Progress
 - [Feature] `Folders.Copy` honors `CopyOptions.ShowProgress` through `Folders.Progress`
+- [Feature] `Compress.Zip` and `Compress.Tar` show a progress line through `Compress.Progress`; `Compress.ShowProgress` or the `showprogress` argument silence it. See doc/api.md, Compress
 - [Feature] Error reporting: every facility exposes `LastError` (`ErrorCode` and message) so scripts explain failures themselves. See doc/api.md, Error reporting
 - [Feature] `Engine.ForwardSearch`, `Engine.RebuildScripts` and `Engine.LastError`: the script side of `-kforward` and `-ksrb`, and the reason of a failed child script. See doc/api.md, Engine settings
 - [Bugfix] `Compress.Tar.Decompress` creates the destination folder and returns false when entries are refused or not extracted
 - [Bugfix] Failed compressions leave no partial archive; xz compression returns false instead of aborting
+- [Misc] Zip extraction goes entry by entry like tar: refused (path traversal) and failed entries are reported, existing files with overwrite disabled are skipped and reported as `AlreadyExists` (tar too); archive entries always use `/`
 - [Misc] `Folders.SetCurrentFolder`, `Folders.CurrentFolderPop` and `KValue.Export` return bool
 - [Misc] Engine messages a script can handle through its return value or `LastError` are logged at verbose level only
 - [Misc] Child script failures (not found, unresolved references, compile errors, missing action) print nothing: `Kombine()` returns 1 and `Engine.LastError` carries the reason

@@ -18,11 +18,32 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.files", "kombine.fi
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.doc", "kombine.doc", "{F05B3102-A39E-49B1-822C-D71C7FED8D27}"
 	ProjectSection(SolutionItems) = preProject
+		doc\api.md = doc\api.md
 		doc\building.md = doc\building.md
+		doc\debug.md = doc\debug.md
+		doc\extensions.md = doc\extensions.md
 		doc\features.md = doc\features.md
 		doc\licenses.md = doc\licenses.md
 		doc\reasons.md = doc\reasons.md
 		doc\todo.md = doc\todo.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.doc.extensions", "kombine.doc.extensions", "{162D30D5-273F-4948-8712-4E9F3043A808}"
+	ProjectSection(SolutionItems) = preProject
+		doc\extensions\bin2cpp.md = doc\extensions\bin2cpp.md
+		doc\extensions\bin2obj.md = doc\extensions\bin2obj.md
+		doc\extensions\clang.doc.md = doc\extensions\clang.doc.md
+		doc\extensions\clang.md = doc\extensions\clang.md
+		doc\extensions\dotnet.doc.md = doc\extensions\dotnet.doc.md
+		doc\extensions\git.md = doc\extensions\git.md
+		doc\extensions\github.md = doc\extensions\github.md
+		doc\extensions\modder.md = doc\extensions\modder.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.doc.assets", "kombine.doc.assets", "{1B125C5E-F25F-4820-A376-9EE5119435D3}"
+	ProjectSection(SolutionItems) = preProject
+		doc\assets\intellisense.png = doc\assets\intellisense.png
+		doc\assets\toolresult.png = doc\assets\toolresult.png
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kombine.extensions", "kombine.extensions", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
@@ -52,6 +73,10 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{162D30D5-273F-4948-8712-4E9F3043A808} = {F05B3102-A39E-49B1-822C-D71C7FED8D27}
+		{1B125C5E-F25F-4820-A376-9EE5119435D3} = {F05B3102-A39E-49B1-822C-D71C7FED8D27}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FF7354B4-11A5-4D8D-B188-3235B11CA8CD}

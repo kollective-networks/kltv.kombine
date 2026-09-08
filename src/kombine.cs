@@ -26,13 +26,13 @@ namespace Kltv.Kombine {
 		/// 
 		/// -ksdbg: Script will include debug information so script debugging will be possible
 		/// -ksdbgw: As -ksdbg but waits for a debugger to attach before executing the action
-		/// -ksrb or -ksrebuild: Script will be rebuilded even if it is cached
+		/// -ksrb or -ksrebuild: Script will be rebuilt even if it is cached
 		/// -ko:silent or -ko:s  : Output will be silent
 		/// -ko:normal or -ko:n	 : Output will be normal
 		/// -ko:verbose or -ko:v : Output will be verbose
 		/// -ko:debug or -ko:d   : Output will be debug
 		/// -kfile: Indicates which script file we should execute (default kombine.csx)
-		/// -kforward: Allows the deprecated recursive forward search to resolve #load / child script references
+		/// -kforward: Allows the forward search of the subfolders to resolve #load / child script references (disabled by default)
 		///
 		/// [action] Action to be executed. If not specified the default action is "khelp"
 		/// The action is used to specify which function in the script should be called after evaluation but
@@ -44,7 +44,7 @@ namespace Kltv.Kombine {
 		/// kcache: Manages the tool cache (not fully implemented)
 		/// 
 		/// [action parameters]
-		/// They are optional and belongs to the specified action. In case of scripts,they are passed to the
+		/// They are optional and belong to the specified action. In case of scripts, they are passed to the
 		/// executed function as parameters.
 		///
 		/// </summary>

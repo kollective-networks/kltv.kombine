@@ -102,7 +102,7 @@ void TestChildScripts(string[] args){
 	Banner("[3/9] Child scripts and backward search");
 	int code = Kombine("child/child.csx", "test", args, false);
 	Check("child.csx returned", code.ToString(), "0");
-	// The automatic forward search on dispatch is deprecated (-kforward): locate the script explicitly
+	// The forward search on dispatch is disabled by default (-kforward): locate the script explicitly
 	string childscript = Folders.SearchForwardPath("child.csx");
 	Verify("SearchForwardPath child", Tail(childscript, 2), Unix(childscript).EndsWith("/child/child.csx"), "a path ending in /child/child.csx");
 	code = Kombine(childscript, "test", args, false);
@@ -140,6 +140,7 @@ void TestFiles(){
 	Files.WriteTextFile(other, "This is my rifle, is my wife");
 	Check("Compare same size", Show(Files.Compare(renamed, other)), "true");
 	Check("Compare different", Show(Files.Compare(renamed, other, Files.CompareOptions.CompareContents)), "false");
+	Check("Compare error", Files.LastError.Code.ToString(), "Different");
 	Check("Delete", Show(Files.Delete(moved)), "true");
 	Check("Delete gone", Show(Files.Exists(moved)), "false");
 	EndBanner();
@@ -150,18 +151,28 @@ void TestFiles(){
 /// </summary>
 void TestMissingFiles(){
 	Banner("[5/9] File operations on a missing file (expected to fail)");
-	Msg.Print("The engine reports the missing file for the read and size operations, those lines are expected:");
+	// Every failure is reported through the return value and Files.LastError, nothing is printed
 	string missing = Sandbox + "/files/missing.txt";
 	string target = Sandbox + "/files/target.txt";
 	Check("Exists", Show(Files.Exists(missing)), "false");
 	Check("ReadTextFile", Quote(Files.ReadTextFile(missing)), "\"\"");
+	Check("ReadTextFile error", Files.LastError.Code.ToString(), "NotFound");
 	Check("GetFileSize", Files.GetFileSize(missing).ToString(), "-1");
+	Check("GetFileSize error", Files.LastError.Code.ToString(), "NotFound");
 	Check("GetModifiedTime", Files.GetModifiedTime(missing).ToString(), "0");
+	Check("GetModifiedTime error", Files.LastError.Code.ToString(), "NotFound");
 	Check("Rename", Show(Files.Rename(missing, target)), "false");
+	Check("Rename error", Files.LastError.Code.ToString(), "NotFound");
 	Check("Copy", Show(Files.Copy(missing, target)), "false");
+	Check("Copy error", Files.LastError.Code.ToString(), "NotFound");
 	Check("Compare", Show(Files.Compare(missing, Sandbox + "/files/renamed.txt")), "false");
+	Check("Compare error", Files.LastError.Code.ToString(), "NotFound");
 	Check("Delete", Show(Files.Delete(missing)), "false");
+	Check("Delete error", Files.LastError.Code.ToString(), "NotFound");
 	Check("nothing created", Show(Files.Exists(target)), "false");
+	// The message and the item are ready to be shown by the script
+	Verify("LastError message", Files.LastError.Message, Files.LastError.Message.Length > 0, "a message explaining the failure");
+	Verify("LastError source", Tail(Files.LastError.Source, 2), Unix(Files.LastError.Source).EndsWith("/files/missing.txt"), "the missing file");
 	EndBanner();
 }
 
@@ -182,17 +193,28 @@ void TestFolders(){
 	string flat = root + "/flat";
 	Check("Copy top level only", Show(Folders.Copy("folder1", flat)), "true");
 	Check("subfolder not copied", Show(Folders.Exists(flat + "/src")), "false");
+	// With ShowProgress the copy prints a progress line through Folders.Progress (the engine default here)
+	string shown = root + "/shown";
+	Check("Copy with progress", Show(Folders.Copy("folder1", shown, Folders.CopyOptions.IncludeSubFolders | Folders.CopyOptions.ShowProgress)), "true");
+	Check("shown file exists", Show(Files.Exists(shown + "/src/file1.txt")), "true");
+	// Unchanged files are skipped but still counted, so the progress reaches the end
+	Check("Copy again, only modified", Show(Folders.Copy("folder1", shown, Folders.CopyOptions.IncludeSubFolders | Folders.CopyOptions.OnlyModifiedFiles | Folders.CopyOptions.ShowProgress)), "true");
+	Check("Copy missing with progress", Show(Folders.Copy(root + "/absent", root + "/absent2", Folders.CopyOptions.ShowProgress)), "false");
 	// Move
 	string moved = root + "/moved";
 	Check("Move", Show(Folders.Move(copied, moved)), "true");
 	Check("Move source gone", Show(Folders.Exists(copied)), "false");
 	Check("Move onto existing", Show(Folders.Move(moved, flat)), "false");
+	Check("Move error", Folders.LastError.Code.ToString(), "AlreadyExists");
 	// Delete: a folder with subfolders needs the recursive flag
 	Check("Delete not recursive", Show(Folders.Delete(root + "/created", false)), "false");
+	Check("Delete error", Folders.LastError.Code.ToString(), "IoError");
 	Check("Delete recursive", Show(Folders.Delete(root + "/created", true)), "true");
 	Check("Delete gone", Show(Folders.Exists(root + "/created")), "false");
 	Check("Delete missing", Show(Folders.Delete(root + "/missing", true)), "true");
 	Check("Copy missing source", Show(Folders.Copy(root + "/missing", root + "/missing2")), "false");
+	Check("Copy error", Folders.LastError.Code.ToString(), "NotFound");
+	Check("nothing created", Show(Folders.Exists(root + "/missing2")), "false");
 	EndBanner();
 }
 
@@ -218,10 +240,14 @@ void TestZip(){
 	Check("CompressFile", Show(Compress.Zip.CompressFile(Fixture, root + "/file.zip")), "true");
 	Compress.Zip.Decompress(root + "/file.zip", root + "/out4/");
 	Check("file round trip", Show(Files.Compare(Fixture, root + "/out4/file1.txt", Files.CompareOptions.CompareContents)), "true");
-	// Failing cases
+	// Failing cases: false plus the reason in Compress.Zip.LastError, and no partial archive left behind
 	Check("CompressFile no overwrite", Show(Compress.Zip.CompressFile(Fixture, root + "/file.zip", false)), "false");
+	Check("no overwrite error", Compress.Zip.LastError.Code.ToString(), "AlreadyExists");
 	Check("CompressFolder missing", Show(Compress.Zip.CompressFolder(root + "/missing", root + "/broken.zip")), "false");
+	Check("missing error", Compress.Zip.LastError.Code.ToString(), "NotFound");
+	Check("no archive left", Show(Files.Exists(root + "/broken.zip")), "false");
 	Check("Decompress missing", Show(Compress.Zip.Decompress(root + "/nothing.zip", root + "/out5/")), "false");
+	Check("Decompress error", Compress.Zip.LastError.Code.ToString(), "NotFound");
 	EndBanner();
 }
 
@@ -239,11 +265,10 @@ void TestTar(){
 		(".tar.bz2", TarCompressionType.Bzip2),
 		(".tar.lz",  TarCompressionType.Lzma),
 	};
-	// Note: unlike zip, tar extraction needs the destination folder to exist
+	// The destination folder is created by Decompress
 	foreach (var t in types){
 		string archive = root + "/folder" + t.Ext;
 		string outdir = root + "/out" + t.Ext + "/";
-		Folders.Create(outdir);
 		bool ok = Compress.Tar.CompressFolder("folder1", archive, true, true, t.Type)
 			&& Compress.Tar.Decompress(archive, outdir)
 			&& Files.Compare(Fixture, outdir + "folder1/src/file1.txt", Files.CompareOptions.CompareContents);
@@ -251,24 +276,25 @@ void TestTar(){
 	}
 	// Contents only, several folders and a single file
 	Check("CompressFolder contents", Show(Compress.Tar.CompressFolder("folder1", root + "/contents.tar.gz", true, false)), "true");
-	Folders.Create(root + "/outc");
 	Compress.Tar.Decompress(root + "/contents.tar.gz", root + "/outc/");
 	Check("folder not included", Show(Files.Exists(root + "/outc/src/file1.txt")), "true");
 	Check("CompressFolders", Show(Compress.Tar.CompressFolders(new string[] { "child", "folder1" }, root + "/folders.tar.gz")), "true");
-	Folders.Create(root + "/outf");
 	Compress.Tar.Decompress(root + "/folders.tar.gz", root + "/outf/");
 	Check("both folders present", Show(Files.Exists(root + "/outf/child/child.csx") && Files.Exists(root + "/outf/folder1/parent.csx")), "true");
 	Check("CompressFile", Show(Compress.Tar.CompressFile(Fixture, root + "/file.tar.bz2", true, TarCompressionType.Bzip2)), "true");
-	Folders.Create(root + "/outs");
 	Compress.Tar.Decompress(root + "/file.tar.bz2", root + "/outs/");
 	Check("file round trip", Show(Files.Compare(Fixture, root + "/outs/file1.txt", Files.CompareOptions.CompareContents)), "true");
-	// xz archives can be extracted (compressing to xz is not supported)
-	Folders.Create(root + "/outx");
+	// xz archives can be extracted, compressing to xz is not supported and says so
 	Check("Decompress .tar.xz", Show(Compress.Tar.Decompress("test.files/test.tar.xz", root + "/outx/")), "true");
 	Check("xz entries extracted", Show(Files.Exists(root + "/outx/exe/test.exe") && Files.Exists(root + "/outx/jpg/test.jpg") && Folders.Exists(root + "/outx/Empty")), "true");
-	// Failing cases
+	Check("CompressFile to xz", Show(Compress.Tar.CompressFile(Fixture, root + "/file.tar.xz", true, TarCompressionType.Lzma2)), "false");
+	Check("xz error", Compress.Tar.LastError.Code.ToString(), "NotSupported");
+	// Failing cases: false plus the reason in Compress.Tar.LastError, and no partial archive left behind
 	Check("CompressFolder missing", Show(Compress.Tar.CompressFolder(root + "/missing", root + "/broken.tar.gz")), "false");
+	Check("missing error", Compress.Tar.LastError.Code.ToString(), "NotFound");
+	Check("no archive left", Show(Files.Exists(root + "/broken.tar.gz")), "false");
 	Check("Decompress missing", Show(Compress.Tar.Decompress(root + "/nothing.tar.gz", root + "/outm/")), "false");
+	Check("Decompress error", Compress.Tar.LastError.Code.ToString(), "NotFound");
 	EndBanner();
 }
 
@@ -287,8 +313,9 @@ void TestSafeExtract(){
 		("../escaped_dir/", Array.Empty<byte>(), true)
 	});
 	File.WriteAllBytes(root + "/evil.tar", evil);
-	Msg.Print("The engine reports every refused entry, the line below is expected:");
-	Check("Decompress evil.tar", Show(Compress.Tar.Decompress(root + "/evil.tar", root + "/out/")), "true");
+	// The refused entries make the call fail, the benign ones are still extracted
+	Check("Decompress evil.tar", Show(Compress.Tar.Decompress(root + "/evil.tar", root + "/out/")), "false");
+	Check("refusal reported", Compress.Tar.LastError.Code.ToString(), "Failed");
 	Check("benign entry extracted", Show(Files.Exists(root + "/out/benign.txt")), "true");
 	Check("file entry refused", Show(Files.Exists(root + "/escaped_file")), "false");
 	Check("directory entry refused", Show(Folders.Exists(root + "/escaped_dir")), "false");

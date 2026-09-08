@@ -2,69 +2,93 @@
 
 # Building Kombine
 
-This documented is intended for people which wants to build Kombine by themselves, to modify it or to add new features.
-First, Kombine is not being built with Kombine. Even if its totally possible we had no intentions to use C# as a production language, hence we decided to not spent time creating the corresponding Kombine extensions to deal with [the CSC](https://learn.microsoft.com/en-us/answers/questions/1138661/how-can-i-use-csc-exe--net-framework-executable).
+This document is for people who want to build Kombine themselves, modify it or add new
+features.
 
-In case of CSC is not a easy task since you need to append all the different references to be consideer into the assembly building. Another option is just call "dotnet build" but just to execute that a Kombine script is not required. If you add a CSC extension to build directly C# without mess with the constrainst of Dotnet we encourage you to share it (so all the rest can tweak the build process).
+Kombine is not built with Kombine. It would be possible, but C# is not a production
+language for us, so we did not spend time on a Kombine extension for
+[the C# compiler](https://learn.microsoft.com/en-us/answers/questions/1138661/how-can-i-use-csc-exe--net-framework-executable):
+driving it directly means appending every reference the assembly needs, and calling
+`dotnet build` does not require a Kombine script at all. If you write an extension that
+builds C# directly with the compiler, without the constraints of the dotnet tooling,
+please share it so everybody can tweak the build process.
 
-Anyway Kombine is used in the Kombine building process partially, see [generating the packages](#generating-the-packages)
+Kombine is used in its own build process anyway, for the tests and the packages: see
+[the root script actions](#the-root-script-actions).
 
-## Requisites and recomended environment
+## Requirements
 
-In order to build Kombine then you need Dotnet SDK, to be more specific, Dotnet 10. 
-You can gran your copy from [here at Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
+The Dotnet SDK 10, available [from Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
+Nothing else is required: Kombine is pure managed C# code.
 
-Anything else is required since Kombine is only pure C# managed code.
+Visual Studio (a solution is provided) is encouraged to modify the code, but any other
+IDE, or a text editor and the command line, work as well.
 
-Once you have cloned this repository and you have Dotnet 8 installed, build Kombine is easy as:
-```dotnet build``` or ```dotnet build -r yourplatform here```
-We provided a *"directory.build.props"* file so everything from build is stored into an "out" folder with the following structure:
+## Building
+
+From the `src` folder:
 
 ```
-out/bin
-out/bin/linux-x64/debug
-out/bin/linux-x64/release
-out/bin/osx-64/debug
-out/bin/osx-64/release
-out/bin/win-64/debug
-out/bin/win-64/release
+dotnet build                           debug configuration for the current system
+dotnet build -c Release                release configuration
+dotnet build -c Release -r linux-x64   release configuration for another runtime
 ```
 
-By default it will build the debug configuration, you can pass -c Release to build the release one to the Dotnet command line. By default it will build with the OS you're using but you can pass the -r your-runtime to specify which target OS you want to generate.
+A `directory.build.props` file sends every output to the `out` folder:
 
-Also you can use the provided Kombine script to build the project, just execute ```kombine build``` which is just a wrapper on top of dotnet build.
+```
+out/bin/<rid>/debug      debug binaries (win-x64, linux-x64, osx-x64)
+out/bin/<rid>/release    release binaries
+out/pub/<rid>/release    single file, self contained publish output
+out/pkg                  packages created by the publish action
+out/tmp                  intermediate files
+```
 
-Usage of Visual Studio (a solution is provided) is encouraged if you want to modify the code, but you can use any other IDE or just a text editor and command line.
+The examples reference `out/bin/win-x64/debug/mkb.dll` for intellisense only; they run
+with whatever `mkb` binary you invoke.
 
+## The root script actions
 
-## Generating the packages
+The repository root holds a [kombine.csx](../kombine.csx) with the actions used to build,
+test and publish the tool. Run them from the repository root with `mkb <action>`; `mkb`
+alone prints the list.
 
-For this case we use Kombine. There is one Kombine script in the root of the repository which supports two actions:
+| Action | What it does |
+| --- | --- |
+| `help` | Default action. Prints the list of actions. |
+| `build` | `dotnet build -c debug` for the current system, output in `out/bin/<rid>/debug`. Run it after changing the engine so the examples execute the fresh binary. |
+| `smoke` | Light smoke tests of the engine core: runs the `test` action of the [examples runner](#the-examples-runner), which covers the version functions, admin rights, the exit code contract, progress reporting, the built in types, child scripts, `#load` resolution, files, folders and compression, and the network API. Needs network access and nothing else. |
+| `test` | The full tests: the smoke tests plus the `extensions` action of the examples runner (clang build, clang docs, bin2cpp and bin2obj, which need the clang and llvm tools in the path) and the `extras` action (sdl2 built from a git clone and, on Windows, msys2 packages). |
+| `publish` | Generates the version number, builds the release binaries for Windows, Linux and macOS in both flavours (unpacked and single file self contained) and compresses them into `out/pkg/`, together with the reference assembly (`kombine.ref.zip`) and `version.txt`. |
+| `release` | Publishes the packages created by `publish` as a GitHub release: creates the release for the version found in `out/pkg/version.txt`, uploads the packages as assets and publishes it. The GitHub token, with permission to manage releases, must be in the `kltv_token` environment variable. |
 
-- "build": Just a wrapper on top of dotnet build
-- "publish": This one builds in release for the three target OS (Windows, Linux and Mac OSX) the two flavors (unpacked and single file). It generates the diferent packages (.tar.gz / zip) including the reference assembly as well.
-- "test": Executes all the provided examples as a test
+The version number is generated by `publish` from the current date (see
+`GenVersionBuildNumber` in the [API reference](api.md#global-functions-statics)).
 
-All the packages are dropped into /out/pkg/
+### The examples runner
 
-Version build number is generated automatically.
+[examples/kombine.csx](../examples/kombine.csx) is the script the tests use. From the
+`examples` folder:
 
-The publish action generates the configuration and updates the doc/api.md file with the latest's changes using an xml to markdown extension which is on the scripts folder (pretty simple and ugly yet)
+| Action | What it does |
+| --- | --- |
+| `test` | The engine examples: `00.base`, `01.simple`, `02.types`, `03.child`, `08.loadresolution`, `04.folders` and `05.network`. |
+| `extensions` | The extension examples: clang (build, clean, help), clang docs, bin2cpp and bin2obj. |
+| `extras` | The real world examples: sdl2 and, on Windows, msys2. |
+| `all` | The three actions above in sequence. |
 
-If you want to publish the packages on github you can use the action "release" which is just a wrapper on top of "publish" and then it will use the generated packages to create a new release on github with the corresponding assets.
-You must provide the GITHUB_TOKEN secret in order to use that action, you can generate it from your github account with the corresponding permissions to create releases.
-The token must be placed in the "kltv_token" environment variable
+Every example prints a report with one aligned line per check and a summary, and returns
+a non-zero code when a check fails, so a failing example stops the runner.
 
 ## Source code structure
 
-Source structure is very intuitive.
-
 ```
-src/api contains what is exposed to the scripts (types and methods)
-src/cache the tiny code to manage built assemblies cache
-src/core the tool configuration and command line / script state
-src/exec the tool executor and script executor
-util/ has some extension methods and other things are not being used but lying there just in case.
+src/api      what is exposed to the scripts: the types (KValue, KList) and the methods
+             (Msg, Files, Folders, Compress, Http, Tool, Share, Progress, ...)
+src/cache    the built assemblies cache
+src/core     the tool configuration, the command line and the script state
+src/exec     the tool executor and the script executor (compilation, #load and #r resolution)
+src/util     file system helpers and extension methods
 ```
 
 Any extension is welcome.

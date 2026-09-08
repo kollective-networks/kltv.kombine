@@ -22,7 +22,8 @@ namespace Kltv.Kombine.Api {
 	public static partial class Compress{
 
 		/// <summary>
-		/// Tar compression methods
+		/// Tar compression methods.
+		/// Failures are reported through the return value and LastError; nothing is printed at normal level.
 		/// </summary>
 		public static class Tar {
 
@@ -47,9 +48,81 @@ namespace Kltv.Kombine.Api {
 				/// </summary>
 				Lzma,
 				/// <summary>
-				/// .tar.xz extension
+				/// .tar.xz extension. Extraction only: compressing with it fails with NotSupported.
 				/// </summary>
 				Lzma2,
+			}
+
+			/// <summary>
+			/// Last failure of a Tar call. Reset at the start of every call, set when it fails.
+			/// </summary>
+			public static ApiError LastError { get; private set; } = ApiError.None;
+
+			/// <summary>
+			/// Records a failure and logs it at verbose level.
+			/// </summary>
+			private static bool Fail(ErrorCode code, string message, string source) {
+				LastError = new ApiError(code, message, source);
+				Msg.PrintWarningMod(LastError.ToString(), ".compress.tar", Msg.LogLevels.Verbose);
+				return false;
+			}
+
+			/// <summary>
+			/// Records a failure from an exception and logs it at verbose level.
+			/// </summary>
+			private static bool Fail(Exception ex, string source) {
+				LastError = ApiError.From(ex, source);
+				Msg.PrintWarningMod(LastError.ToString(), ".compress.tar", Msg.LogLevels.Verbose);
+				return false;
+			}
+
+			/// <summary>
+			/// Removes a partially written archive after a failure, so nothing misleading is left behind.
+			/// </summary>
+			private static void RemovePartial(string outputFile) {
+				try {
+					if (File.Exists(outputFile))
+						File.Delete(outputFile);
+				} catch (Exception ex) {
+					Msg.PrintWarningMod("Could not remove the partial archive: " + outputFile + " " + ex.Message, ".compress.tar", Msg.LogLevels.Verbose);
+				}
+			}
+
+			/// <summary>
+			/// Checks the output file against the overwrite option, deleting it when allowed.
+			/// </summary>
+			private static bool PrepareOutput(string outputFile, bool overwrite) {
+				if (!Files.Exists(outputFile))
+					return true;
+				if (!overwrite)
+					return Fail(ErrorCode.AlreadyExists, "The output file already exists and overwrite is disabled", outputFile);
+				Msg.PrintMod("Overwriting file: " + outputFile, ".compress.tar", Msg.LogLevels.Verbose);
+				if (!Files.Delete(outputFile))
+					return Fail(ErrorCode.AccessDenied, "The existing output file could not be replaced: " + Files.LastError.Message, outputFile);
+				return true;
+			}
+
+			/// <summary>
+			/// Maps the compression type to the writer one. Lzma2 (xz) is extraction only.
+			/// </summary>
+			private static bool MapCompression(TarCompressionType compressionType, string outputFile, out CompressionType compType) {
+				compType = CompressionType.None;
+				switch (compressionType) {
+					case TarCompressionType.None:
+						compType = CompressionType.None;
+						return true;
+					case TarCompressionType.Gzip:
+						compType = CompressionType.GZip;
+						return true;
+					case TarCompressionType.Bzip2:
+						compType = CompressionType.BZip2;
+						return true;
+					case TarCompressionType.Lzma:
+						compType = CompressionType.LZip;
+						return true;
+					default:
+						return Fail(ErrorCode.NotSupported, "Lzma2 (.tar.xz) compression is not supported, only its extraction", outputFile);
+				}
 			}
 
 			/// <summary>
@@ -60,7 +133,7 @@ namespace Kltv.Kombine.Api {
 			/// <param name="overwrite">If archive should be overwritten, default true</param>
 			/// <param name="includeFolder">If true, include the folder in the tar file.</param>
 			/// <param name="compressionType">Compression type, default gzip</param>
-			/// <returns>True if fine, false otherwise.</returns>
+			/// <returns>True if fine, false otherwise (see LastError).</returns>
 			public static bool CompressFolder(string folderPath, string outputFile,bool overwrite = true,bool includeFolder = true, TarCompressionType compressionType = TarCompressionType.Gzip) {
 				return CompressFolders(new string[] { folderPath }, outputFile,overwrite,includeFolder,compressionType);
 			}
@@ -73,27 +146,20 @@ namespace Kltv.Kombine.Api {
 			/// <param name="overwrite">If archive should be overwritten, default true</param>
 			/// <param name="includeFolder">If true, include the given folders in the tar file and not only the folder contents an descentants.</param>
 			/// <param name="compressionType">Compression type, default gzip</param>
-			/// <returns>True if fine, false otherwise.</returns>
+			/// <returns>True if fine, false otherwise (see LastError).</returns>
 			public static bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = TarCompressionType.Gzip) {
-				Msg.PrintMod("Compressing folders: " + string.Join(", ", folderPaths), ".compress", Msg.LogLevels.Verbose);
-				// Check if the file exists and delete it if it does
-				if (overwrite == true && Files.Exists(outputFile)) {
-					Msg.PrintMod("Overwriting file: " + outputFile, ".compress", Msg.LogLevels.Verbose);
-					Files.Delete(outputFile);
+				LastError = ApiError.None;
+				Msg.PrintMod("Compressing folders: " + string.Join(", ", folderPaths), ".compress.tar", Msg.LogLevels.Verbose);
+				// Validate everything before touching the output, so a failure leaves nothing behind
+				foreach (string folderPath in folderPaths) {
+					if (!Directory.Exists(folderPath))
+						return Fail(ErrorCode.NotFound, "The folder to compress does not exist", folderPath);
 				}
+				if (!MapCompression(compressionType, outputFile, out CompressionType compType))
+					return false;
+				if (!PrepareOutput(outputFile, overwrite))
+					return false;
 				try {
-					CompressionType compType = CompressionType.None;
-					if (compressionType == TarCompressionType.None)
-						compType = CompressionType.None;
-					if (compressionType == TarCompressionType.Gzip)
-						compType = CompressionType.GZip;
-					if (compressionType == TarCompressionType.Bzip2)
-						compType = CompressionType.BZip2;
-					if (compressionType == TarCompressionType.Lzma)
-						compType = CompressionType.LZip;
-					if (compressionType == TarCompressionType.Lzma2) {
-						Msg.PrintAndAbortMod("Lzma2 (.tar.xz) compression not supported", ".compress", Msg.LogLevels.Normal);
-					}
 					using (var fs = new FileStream(outputFile, FileMode.Create)) {
 						using (var tar = new TarWriter(fs, new TarWriterOptions(compType, true))) {
 
@@ -112,7 +178,7 @@ namespace Kltv.Kombine.Api {
 									} else {
 										f = Path.GetRelativePath(folder, file);
 									}
-									Msg.PrintMod("Compressing file: " + f, ".compress", Msg.LogLevels.Verbose);
+									Msg.PrintMod("Compressing file: " + f, ".compress.tar", Msg.LogLevels.Verbose);
 									tar.Write(f, file);
 								}
 							}
@@ -120,8 +186,8 @@ namespace Kltv.Kombine.Api {
 					}
 					return true;
 				} catch (System.Exception ex) {
-					Msg.PrintErrorMod("Error tar compressing folders: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
-					return false;
+					RemovePartial(outputFile);
+					return Fail(ex, outputFile);
 				}
 			}
 
@@ -132,27 +198,17 @@ namespace Kltv.Kombine.Api {
 			/// <param name="outputFile">Output tar file</param>
 			/// <param name="overwrite">If archive should be overwriten, default true</param>
 			///	<param name="compressionType">Compression type, default gzip</param>
-			/// <returns>True if fine, false otherwise.</returns>
+			/// <returns>True if fine, false otherwise (see LastError).</returns>
 			public static bool CompressFile(string filePath, string outputFile,bool overwrite = true,TarCompressionType compressionType = TarCompressionType.Gzip) {
-				Msg.PrintMod("Compressing file: " + filePath, ".compress", Msg.LogLevels.Verbose);
-				// Check if the file exists and delete it if it does
-				if (overwrite == true && Files.Exists(outputFile)) {
-					Msg.PrintMod("Overwriting file: " + outputFile, ".compress", Msg.LogLevels.Verbose);
-					Files.Delete(outputFile);
-				}
+				LastError = ApiError.None;
+				Msg.PrintMod("Compressing file: " + filePath, ".compress.tar", Msg.LogLevels.Verbose);
+				if (!Files.Exists(filePath))
+					return Fail(ErrorCode.NotFound, "The file to compress does not exist", filePath);
+				if (!MapCompression(compressionType, outputFile, out CompressionType compType))
+					return false;
+				if (!PrepareOutput(outputFile, overwrite))
+					return false;
 				try {
-					CompressionType compType = CompressionType.None;
-					if (compressionType == TarCompressionType.None)
-						compType = CompressionType.None;
-					if (compressionType == TarCompressionType.Gzip)
-						compType = CompressionType.GZip;
-					if (compressionType == TarCompressionType.Bzip2)
-						compType = CompressionType.BZip2;
-					if (compressionType == TarCompressionType.Lzma)
-						compType = CompressionType.LZip;
-					if (compressionType == TarCompressionType.Lzma2) {
-						Msg.PrintAndAbortMod("Lzma2 (.tar.xz) compression not supported", ".compress", Msg.LogLevels.Normal);
-					}
 					using (var fs = new FileStream(outputFile, FileMode.Create)) {
 						using (var tar = new TarWriter(fs, new TarWriterOptions(compType, true))) {
 							string f2 = Path.GetFileName(filePath);
@@ -161,8 +217,8 @@ namespace Kltv.Kombine.Api {
 					}
 					return true;
 				} catch (System.Exception ex) {
-					Msg.PrintErrorMod("Error tar compressing folders: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
-					return false;
+					RemovePartial(outputFile);
+					return Fail(ex, outputFile);
 				}
 			}
 
@@ -187,22 +243,32 @@ namespace Kltv.Kombine.Api {
 			}
 
 			/// <summary>
-			/// Decompress a tar file into a folder.
+			/// Decompress a tar file into a folder. The folder is created if needed.
+			/// Entries that try to escape the destination folder (path traversal) are refused, and any
+			/// refused or failed entry makes the call return false with LastError set to Failed; the
+			/// remaining entries are still extracted.
 			/// </summary>
 			/// <param name="tarPath">Tar file to decompress</param>
 			/// <param name="outputFolder">Output folder</param>
 			/// <param name="overwrite">If archive(s) should be overwritten, default true</param>
-			/// <returns>True if fine, false otherwise.</returns>
+			/// <returns>True if every entry was extracted, false otherwise (see LastError).</returns>
 			public static bool Decompress(string tarPath, string outputFolder,bool overwrite = true) {
-				Msg.PrintMod("Decompressing file: " + tarPath, ".compress", Msg.LogLevels.Verbose);
-				// Check if the file exists and delete it if it does
+				LastError = ApiError.None;
+				Msg.PrintMod("Decompressing file: " + tarPath, ".compress.tar", Msg.LogLevels.Verbose);
+				if (!Files.Exists(tarPath))
+					return Fail(ErrorCode.NotFound, "The archive to decompress does not exist", tarPath);
+				// The extraction library needs the destination folder to exist
+				if (!Folders.Create(outputFolder))
+					return Fail(ErrorCode.IoError, "The destination folder could not be created: " + Folders.LastError.Message, outputFolder);
+				int failed = 0;
+				int refused = 0;
 				try {
 					using (var fs = new FileStream(tarPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
 						ReaderOptions r = new SharpCompress.Readers.ReaderOptions();
 						using (var tar = ReaderFactory.OpenReader(fs,r)) {
 							ExtractionOptions exOp = new ExtractionOptions() { ExtractFullPath = true, Overwrite = overwrite };
 							exOp.SymbolicLinkHandler = (sender, e) => {
-								Msg.PrintMod("Symbolic Links not supported: " + e, ".compress", Msg.LogLevels.Verbose);
+								Msg.PrintMod("Symbolic Links not supported: " + e, ".compress.tar", Msg.LogLevels.Verbose);
 							};
 							string nextFileName = string.Empty;
 							while (tar.MoveToNextEntry()) {
@@ -230,7 +296,7 @@ namespace Kltv.Kombine.Api {
 														if (folder != null)
 															Folders.Create(folder);
 														nextFileName = string.Empty;
-													} 
+													}
 												}
 											}
 											sr.Close();
@@ -246,18 +312,19 @@ namespace Kltv.Kombine.Api {
 											string longTarget = outputFolder + Path.DirectorySeparatorChar + nextFileName;
 											// Safe-extract: refuse an entry whose (long) name escapes the destination folder (path traversal / zip-slip).
 											if (!IsInsideOutputFolder(outputFolder, longTarget)) {
-												Msg.PrintErrorMod("Refusing entry outside destination (path traversal): " + nextFileName, ".compress", Msg.LogLevels.Normal);
+												Msg.PrintWarningMod("Refusing entry outside destination (path traversal): " + nextFileName, ".compress.tar", Msg.LogLevels.Verbose);
+												refused++;
 												nextFileName = string.Empty;
 												continue;
 											}
-											Msg.PrintMod("Unpacking file (long): " + nextFileName, ".compress", Msg.LogLevels.Verbose);
+											Msg.PrintMod("Unpacking file (long): " + nextFileName, ".compress.tar", Msg.LogLevels.Verbose);
 											string? folder = Path.GetDirectoryName(longTarget);
 											if (folder != null)
 												Folders.Create(folder);
 											tar.WriteEntryToFile(longTarget, exOp);
 											nextFileName = string.Empty;
 										} else {
-											Msg.PrintMod("Unpacking file: " + tar.Entry.Key, ".compress", Msg.LogLevels.Verbose);
+											Msg.PrintMod("Unpacking file: " + tar.Entry.Key, ".compress.tar", Msg.LogLevels.Verbose);
 											tar.WriteEntryToDirectory(outputFolder, exOp);
 										}
 									} else {
@@ -265,7 +332,8 @@ namespace Kltv.Kombine.Api {
 										string dirTarget = outputFolder + Path.DirectorySeparatorChar + tar.Entry.Key;
 										// Safe-extract: refuse a directory entry that escapes the destination folder.
 										if (!IsInsideOutputFolder(outputFolder, dirTarget)) {
-											Msg.PrintErrorMod("Refusing directory entry outside destination (path traversal): " + tar.Entry.Key, ".compress", Msg.LogLevels.Normal);
+											Msg.PrintWarningMod("Refusing directory entry outside destination (path traversal): " + tar.Entry.Key, ".compress.tar", Msg.LogLevels.Verbose);
+											refused++;
 											continue;
 										}
 										string? folder = Path.GetDirectoryName(dirTarget);
@@ -273,16 +341,23 @@ namespace Kltv.Kombine.Api {
 											Folders.Create(folder);
 									}
 								} catch (System.Exception ex) {
-									Msg.PrintErrorMod("Error tar decompressing file: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
+									// The library refuses traversal entries on its own path as well
+									Msg.PrintWarningMod("Entry not extracted: " + tar.Entry.Key + " " + ex.Message, ".compress.tar", Msg.LogLevels.Verbose);
+									failed++;
 								}
 							}
 						}
 					}
-					return true;
 				} catch (System.Exception ex) {
-					Msg.PrintErrorMod("Error tar decompressing archive: " + ex.Message, ".compress", Msg.LogLevels.Verbose);
-					return false;
-				}				
+					return Fail(ex, tarPath);
+				}
+				if (refused > 0 || failed > 0) {
+					string reason = refused > 0 ? refused + " entries refused (path traversal)" : string.Empty;
+					if (failed > 0)
+						reason += (reason.Length > 0 ? ", " : string.Empty) + failed + " entries not extracted";
+					return Fail(ErrorCode.Failed, reason, tarPath);
+				}
+				return true;
 			}
 		}
 	}

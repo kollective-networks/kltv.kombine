@@ -11,20 +11,25 @@ written in C#. One single self-contained executable, no dependencies, no new lan
 to learn.
 
 - [Overview](#overview)
-- [Features](#features)
+- [Features](#features), and the [state of each feature](doc/features.md)
 - [Download and Installation](#download-and-installation)
 - [Usage](#usage)
 - [Script structure and execution](#script-structure-and-execution)
   - [Enable intellisense in your editor](#enable-intellisense-in-your-editor)
-  - [Debugging your scripts](#debugging-your-scripts)
+  - [Debugging your scripts](#debugging-your-scripts), and the [debugging guide](doc/debug.md)
 - [Executing child scripts and sharing values](#executing-child-scripts-and-sharing-values)
   - [Using Import/Export](#using-importexport)
   - [Using the Shared API](#using-the-shared-api)
   - [Using the Registry API](#using-the-registry-api)
 - [The simplest example: execute a tool and fetch the results](#the-simplest-example-execute-a-tool-and-fetch-the-results)
-- [Extending Kombine](#extending-kombine)
+- [Extending Kombine](#extending-kombine), and the [extensions documentation](doc/extensions.md)
 - [Examples](#examples)
 - [Documentation](#documentation)
+  - [API reference](doc/api.md): the types, functions and classes available in scripts
+  - [Extensions](doc/extensions.md): [clang](doc/extensions/clang.md), [clang docs](doc/extensions/clang.doc.md), [git](doc/extensions/git.md), [github](doc/extensions/github.md), [bin2cpp](doc/extensions/bin2cpp.md), [bin2obj](doc/extensions/bin2obj.md), [modder](doc/extensions/modder.md), [dotnet docs](doc/extensions/dotnet.doc.md)
+  - [Debugging guide](doc/debug.md)
+  - [Building the tool](doc/building.md), with the build, test and publish actions
+  - [Feature state](doc/features.md), [reasons](doc/reasons.md), [changelog](changelog.md), [TODO list](doc/todo.md), [third-party licenses](doc/licenses.md)
 - [License](#license)
 
 ## Overview
@@ -117,54 +122,70 @@ mkb [parameters] [action] [action parameters]
 The tool is case sensitive. This is the output if you just execute `mkb`:
 
 ```text
-[parameters] They are optional and can be any of the following:
+Kombine Build Engine <version>
+Copyright (C) Kollective Networks 2026. All rights reserved.
 
--ksdbg
-   Script will include debug information so script debugging will be possible.
--ksdbgw
-   As -ksdbg but the tool waits for a debugger to attach before executing the action.
--ksrb or -ksrebuild
-   Script will be rebuilt and cache will be skipped.
--ko:silent or -ko:s
-   Script output will be silent.
--ko:normal or -ko:n
-   Script output will be normal.
--ko:verbose or -ko:v
-   Script output will be verbose.
--ko:debug or -ko:d
-   Script output will be debug.
--kfile:filename
-   Indicates which script file we should execute (default kombine.csx)
+mkb [parameters] [action] [action parameters]
 
-[action] Action to be executed. If not specified the default action is "khelp"
-         The action is used to specify which function in the script should be called after evaluation but
-         there are some reserved actions for the tool itself which cannot be used for the scripts:
+    [parameters] They are optional and can be any of the following:
 
- kversion: Shows tool version and exit.
- khelp: Show this help and exit.
- kconfig: Manages the tool configuration.
- kcache: Manages the tool cache.
+    -ksdbg
+       Script will include debug information so script debugging will be possible.
+    -ksdbgw
+       As -ksdbg but the tool waits for a debugger to attach before executing the action.
+    -ksrb or -ksrebuild
+       Script will be rebuilt even if it is cached.
+    -ko:silent or -ko:s
+       Script output will be silent.
+    -ko:normal or -ko:n
+       Script output will be normal.
+    -ko:verbose or -ko:v
+       Script output will be verbose.
+    -ko:debug or -ko:d
+       Script output will be debug.
+    -kfile:filename
+       Indicates which script file we should execute (default kombine.csx)
+    -kforward
+       Allows the forward search of the subfolders to resolve #load / child script references (disabled by default).
 
-[action parameters]
-         They are optional and belong to the specified action. In case of scripts, they are passed to the
-         executed function as parameters. For example: mkb kcache help
+    [action] Action to be executed. If not specified the default action is "khelp"
+             The action is used to specify which function in the script should be called after evaluation but
+             there are some reserved actions for the tool itself which cannot be used for the scripts:
+
+     kversion: Shows tool version and exit.
+     khelp: Show this help and exit. Also available as "-h" or "--help" when used alone.
+     kconfig: Manages the tool configuration.
+     kcache: Manages the tool cache.
+
+    [action parameters]
+             They are optional and belong to the specified action. In case of scripts, they are passed to the
+             executed function as parameters. For example: mkb kcache help
 ```
 
 The parameters are intended for the tool itself: whether the script includes debug
-information (required to debug it), the output level, and which script file to execute
-(the default is `kombine.csx` in your current folder).
+information (required to debug it), the output level, which script file to execute
+(the default is `kombine.csx` in your current folder), and whether the forward search
+of the subfolders is allowed when resolving `#load` and child scripts (disabled by
+default, see [Extending Kombine](#extending-kombine)).
 
-The output level is useful to debug a script without attaching a debugger. In verbose
-or debug mode, the console shows information about what is being processed (inner
-messages from the tool itself). For example, if you use a `Glob` and want to check what
-it matched, set the output to verbose and you will see the log lines.
+> [!IMPORTANT]
+> **The output level is for Kombine, not for your script.** Normal shows the messages
+> your script prints and nothing else. Verbose and Debug add the internal messages of
+> Kombine: what the engine and its API are doing, such as the files a `Glob` matched, why
+> a script was rebuilt or where a download was redirected. They exist to diagnose Kombine
+> itself.
+>
+> Your script owns its output. The API reports a failure to your script through its
+> return value (`false`, an exit code, `Http.LastReturnCode`) together with the reason
+> in the `LastError` of the facility (see [Error reporting](doc/api.md#error-reporting)),
+> and prints nothing at normal level, so your script decides what to show and prints it
+> with `Msg`. To debug
+> your script, attach a debugger (see [Debugging your scripts](#debugging-your-scripts))
+> or print your own messages; do not rely on the verbose level for that.
 
 - **Normal** outputs only the messages from your script.
-- **Verbose** adds information from the functions you call.
-- **Debug** adds debug information from the tool itself.
-
-The debug output is not intended to debug your script, but Kombine itself. You are free
-to pass any argument to your script and set your output level accordingly.
+- **Verbose** adds the messages of the Kombine API functions you call.
+- **Debug** adds the messages of the Kombine engine itself.
 
 The action is the function that will be executed in your script — see
 [Script structure](#script-structure-and-execution). The reserved actions are prefixed
@@ -173,6 +194,22 @@ name `config` is free for you to use.
 
 Everything after the action is considered an action parameter and is passed to the
 executed function.
+
+### Exit codes
+
+The exit code of `mkb` follows a fixed contract, so scripts can be driven from other
+tools and from CI:
+
+| Exit code | When |
+| --- | --- |
+| `0` | The action completed and returned 0. Running without an action shows the help and returns 0 as well. |
+| `n` | The action returned `n`: the return value of the action is the exit code of the process, so an action returning 7 exits with 7. |
+| `1` | The tool detected a failure: the script does not compile, the action threw an exception or aborted with `Msg.PrintAndAbort`, the action was not found or does not return an `int`, the script file is missing, or a reserved action failed (`kconfig` is not implemented, `kcache` without a subcommand or with an unknown one). |
+| `130` | The execution was cancelled with Ctrl+C. The running tools are killed first. |
+
+Child scripts follow the same contract: `Kombine()` returns the exit code of the child
+and aborts the calling script when it is not zero, unless `exitonerror` is false. The
+[exit code example](examples/00.base/mkb.exitcodes.csx) verifies every case.
 
 ## Script structure and execution
 
@@ -367,13 +404,17 @@ returns an error (anything non-zero).
 The `search` parameter enables automatic search for the script, in the same order used
 when including another script (see [Extending Kombine](#extending-kombine)):
 
-1. The current working directory
-2. The current script directory
-3. Forward paths (subfolders of the script directory)
-4. Backward paths (parent directories up to the root)
-5. The Kombine tool directory
+1. The current script directory
+2. The current working directory
+3. Backward paths (parent directories up to the root)
+4. The Kombine tool directory
+5. Forward paths (subfolders), only when enabled with `-kforward` or `Engine.ForwardSearch`
 
 The function returns the exit code of the child script execution. Quite simple, right?
+
+If the child could not run at all (script not found, unresolved references, compile error,
+missing action) the exit code is 1 and `Engine.LastError` holds the reason. Kombine prints
+nothing in that case: the message is yours (see [Engine settings](doc/api.md#engine-settings-engine)).
 
 But maybe you need to share information between your parent and child scripts (some
 global definitions, paths, whatever). There are multiple methods:
@@ -417,7 +458,7 @@ different parts of your build, each one adding its own entries to that same file
 
 For that purpose you have `Share.Set` and `Share.Get` to store and retrieve objects.
 `Share.Set` takes a name and the object; `Share.Get` takes the name to retrieve. This
-approach is used by the provided [clang.csx](doc/extensions.md#clangcsx) extension to
+approach is used by the provided [clang.csx](doc/extensions/clang.md) extension to
 share the compile commands database with all the descendant scripts:
 
 ```csharp
@@ -549,11 +590,14 @@ your file system. In Kombine, `#load` works a bit differently:
 - If the path is an URI, the file is fetched from that URL, stored in the cache and
   used.
 - If the path is relative, Kombine looks in several folders, in this order:
-  1. The current working directory
-  2. The script directory (where the current script is located)
-  3. Forward-trace directories (subfolders of the script directory)
+  1. The folder of the script that contains the `#load`
+  2. The script directory (where the running script is located)
+  3. The current working directory
   4. Back-trace directories (parent directories up to the drive root)
   5. The tool directory (where the tool is located)
+  6. The subfolders (forward search), only when enabled with `-kforward` or
+     `Engine.ForwardSearch`. It is disabled by default since it could bind a foreign
+     copy of a helper when repositories are nested.
 
 This way you can keep a folder in your project structure with your scripts and load
 them from any point — `#load "myscriptfolder/myscript.csx"` finds the folder by
@@ -567,12 +611,14 @@ A set of ready-made extensions (clang, git, github and more) is provided in the
 
 In the [examples](examples/) folder you can find several examples to check out how this
 thing works. There is a [kombine.csx](examples/kombine.csx) in that folder which can
-execute all the examples at once: from the `examples` folder, run `mkb test`,
-`mkb extensions` or `mkb extras`.
+execute all the examples at once: from the `examples` folder, run `mkb all`, or one group
+with `mkb test` (the engine examples), `mkb extensions` (the extension examples) or
+`mkb extras` (the real world builds). Every example prints a report with one aligned line
+per check and a summary, and fails the run when a check fails.
 
 | Example | Demonstrates |
 | --- | --- |
-| [00.base](examples/00.base/) | Initial functions: version checks and admin rights. |
+| [00.base](examples/00.base/) | Version checks, admin rights, the exit code contract and progress reporting. |
 | [01.simple](examples/01.simple/) | Minimal script with two actions. |
 | [02.types](examples/02.types/) | Operations with `KValue` and `KList`. |
 | [03.child](examples/03.child/) | Child scripts, Import/Export and the other sharing methods. |

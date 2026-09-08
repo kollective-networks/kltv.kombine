@@ -274,7 +274,7 @@ namespace Kltv.Kombine {
 						ProcessHandle = null;
 					}
 				} catch (Exception ex) {
-					Msg.PrintWarningMod("Error when killing a requested tool: " + this.Name + " Message:"+ex.Message, ".exec");
+					Msg.PrintWarningMod("Error when killing a requested tool: " + this.Name + " Message:"+ex.Message, ".exec", Msg.LogLevels.Verbose);
 				}
 			}
 			return true;
@@ -390,7 +390,7 @@ namespace Kltv.Kombine {
 						lock(CurrentRunningProcessesLock) {
 							// Try to start the process
 							if (ProcessHandle.Start() == false) {
-								Msg.PrintWarningMod("Error when executing a requested tool: " + this.Name, ".exec");
+								Msg.PrintWarningMod("Error when executing a requested tool: " + this.Name, ".exec", Msg.LogLevels.Verbose);
 								ProcessHandle.Dispose();
 								ProcessHandle = null;
 								return false;
@@ -414,8 +414,8 @@ namespace Kltv.Kombine {
 							ProcessStartTime = ProcessHandle.StartTime;
 						}
 					} catch (Exception ex) {
-						Msg.PrintWarningMod("Error when executing a requested tool: " + this.Name,".exec");
-						Msg.PrintWarningMod("Error Message: " + ex.Message,".exec");
+						Msg.PrintWarningMod("Error when executing a requested tool: " + this.Name,".exec", Msg.LogLevels.Verbose);
+						Msg.PrintWarningMod("Error Message: " + ex.Message,".exec", Msg.LogLevels.Verbose);
 						if (ProcessHandle != null){
 							ProcessHandle.Dispose();
 							ProcessHandle = null;
@@ -466,7 +466,7 @@ namespace Kltv.Kombine {
 					Msg.PrintMod("Process running time: "+ ProcessTime+"ms", ".exec", Msg.LogLevels.Debug);
 				} else {
 					// If the process was null, we signalize a normal error return code.
-					Msg.PrintWarningMod("Process was null when exiting: " + this.Name, ".exec");
+					Msg.PrintWarningMod("Process was null when exiting: " + this.Name, ".exec", Msg.LogLevels.Verbose);
 					ExitCode = -1;
 					ProcessTime = -1;
 				}

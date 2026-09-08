@@ -160,6 +160,39 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 		}
 
 		/// <summary>
+		/// Reasons of the references that could not be resolved while compiling, collected by the source resolver.
+		/// </summary>
+		internal List<string> ResolveErrors { get; } = new List<string>();
+
+		/// <summary>
+		/// Reports a failure of this script execution. The entry script prints it, since nobody else can;
+		/// a child script hands it to the calling script through Engine.LastError and its return code,
+		/// logging it at verbose level only. A multi line message is printed one line per row.
+		/// </summary>
+		/// <param name="code">Kind of failure.</param>
+		/// <param name="message">Reason, possibly several lines.</param>
+		private void ReportFailure(ErrorCode code, string message) {
+			Engine.LastError = new ApiError(code, message, Scriptfile ?? string.Empty);
+			Msg.LogLevels level = ParentScript == null ? Msg.LogLevels.Normal : Msg.LogLevels.Verbose;
+			string[] lines = message.Split('\n');
+			Msg.PrintErrorMod(lines[0], ".exec.script", level);
+			if (lines.Length > 1) {
+				Msg.BeginIndent();
+				for (int i = 1; i < lines.Length; i++)
+					Msg.PrintError(lines[i], level);
+				Msg.EndIndent();
+			}
+		}
+
+		/// <summary>
+		/// Reports a warning of this script execution with the same visibility rule as the failures.
+		/// </summary>
+		/// <param name="message">Warning text.</param>
+		private void ReportWarning(string message) {
+			Msg.PrintWarningMod(message, ".exec.script", ParentScript == null ? Msg.LogLevels.Normal : Msg.LogLevels.Verbose);
+		}
+
+		/// <summary>
 		///  Executes the script given by filename. It will try first to load it from the saved state (precompiled one)
 		///  If not, it will be compiled.
 		/// </summary>
@@ -169,7 +202,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 		internal int Execute(string Action, string[]? ActionParameters) {
 			// Its not supposed to happen but just in case.
 			if (string.IsNullOrEmpty(Scriptfile)) {
-				Msg.PrintErrorMod("Invalid script filename. Aborting.", ".exec.script");
+				ReportFailure(ErrorCode.InvalidArgument, "Invalid script filename");
 				return Constants.ExitCodeFailure;
 			}
 			// Save the action parameters
@@ -192,7 +225,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 					WasRebuilt = true;
 				}
 				if (Compile(Scriptfile,DebugBuild) == false) {
-					Msg.PrintErrorMod("There was errors building the script. Aborting.", ".exec.script");
+					// The failure was reported by the compilation with its reason
 					return Constants.ExitCodeFailure;
 				}
 				Msg.PrintMod("Script '"+Scriptfile+"' compiled successfully.", ".exec.script", Msg.LogLevels.Debug);
@@ -202,7 +235,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			Msg.PrintMod("Loading the compiled script.", ".exec.script", Msg.LogLevels.Debug);
 			Assembly assembly;
 			if (State.Data.CompiledScript == null) {
-				Msg.PrintErrorMod("Could not load script. Bytes are null. Aborting.", ".exec.script");
+				ReportFailure(ErrorCode.Failed, "The compiled script could not be loaded: the state holds no binary");
 				return Constants.ExitCodeFailure;
 			}
 			if (State.Data.CompiledScriptPDB != null) {
@@ -211,7 +244,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				assembly = Assembly.Load(State.Data.CompiledScript);
 			}
 			if (assembly == null) {
-				Msg.PrintErrorMod("Something wrong happened loading the compiled script into memory. Aborting.", ".exec.script");
+				ReportFailure(ErrorCode.Failed, "The compiled script could not be loaded into memory");
 				return Constants.ExitCodeFailure;
 			}
 			// Fetch the entry point
@@ -220,7 +253,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			Msg.PrintMod("Fetching the entrypoint.", ".exec.script", Msg.LogLevels.Debug);
 			Type? ScriptClass = assembly.ExportedTypes.FirstOrDefault(x => x.Name == ClassName); 
 			if (ScriptClass == null) {
-				Msg.PrintErrorMod("Something wrong happened retrieving the script underlying class. Aborting.", ".exec.script");
+				ReportFailure(ErrorCode.Failed, "The script class was not found in the compiled script");
 				return Constants.ExitCodeFailure;
 			}
 			MethodInfo? entrypoint;
@@ -228,8 +261,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			// Its the preferred way to code the script but we support a "main" function also
 			entrypoint = ScriptClass.GetMethod("<Factory>", BindingFlags.Static | BindingFlags.Public);
 			if (entrypoint == null) {
-				Msg.PrintErrorMod("No top level statements as entrypoint found.", ".exec.script", Msg.LogLevels.Debug);
-				Msg.PrintErrorMod("Something wrong happened retrieving the script entry point. Aborting.", ".exec.script");
+				ReportFailure(ErrorCode.Failed, "The script entry point (the top level statements) was not found");
 				return Constants.ExitCodeFailure;
 			}
 			// And just execute the script
@@ -257,14 +289,14 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				// Check the return code. If its a task, we will wait for it to finish.
 				//
 				if (!EvaluateResult(ReturnCode)){
-					Msg.PrintErrorMod("Failed evaluating the global script execution. Aborting.", ".exec.script");
+					ReportFailure(ErrorCode.Failed, "The global code of the script failed");
 					return Constants.ExitCodeFailure;
 				}
 				// After the execution of the top level statements, the runtime environment contains
 				// the instance created to run the top level statements, so, we can use it as an instance to call our methods.
 				entrypoint = ScriptClass.GetMethod(Action);
 				if (entrypoint == null) {
-					Msg.PrintErrorMod("Something wrong happened retrieving the script entry point. Aborting.", ".exec.script");
+					ReportFailure(ErrorCode.NotFound, "The action '" + Action + "' was not found in the script");
 					return Constants.ExitCodeFailure;
 				}
 				// Fetch the instance from the runtime environment (is left on the submission array after call the top level statements)
@@ -279,9 +311,11 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				if ( ( ReturnCode != null) && (ReturnCode.GetType() == typeof(int))) {
 					int code = (int) ReturnCode;
 					Msg.PrintMod("Script executed successfully. Return code: "+code, ".exec.script", Msg.LogLevels.Debug);
+					// The action ran: whatever it returns is its own result, not an engine failure
+					Engine.LastError = ApiError.None;
 					return code;
 				}
-				Msg.PrintWarningMod("Script executed but the returned code was wrong. Review your action.", ".exec.script",Msg.LogLevels.Normal);
+				ReportFailure(ErrorCode.InvalidArgument, "The action '" + Action + "' must return an int");
 				return Constants.ExitCodeFailure;
 			} catch (Exception ex) {
 				//
@@ -291,17 +325,19 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				// but do not stop the kombine process.
 				//
 				if (ex is ScriptAbortException){
-					Msg.PrintErrorMod("Script aborted execution.", ".exec.script");
+					ReportFailure(ErrorCode.Failed, "Script aborted execution");
 					return Constants.ExitCodeFailure;
 				}
 				if (ex.InnerException != null) {
 					if (ex.InnerException is ScriptAbortException){
-						// Silence this one since we already anounce it
+						// The abort message was already printed by the script
+						Engine.LastError = new ApiError(ErrorCode.Failed, "Script aborted execution", Scriptfile ?? string.Empty);
 						return Constants.ExitCodeFailure;
 					}
-					Msg.PrintErrorMod("Script exception: " + ex.InnerException.Message, ".exec.script");
+					ReportFailure(ErrorCode.Failed, "Script exception: " + ex.InnerException.Message);
+					return Constants.ExitCodeFailure;
 				}
-				Msg.PrintErrorMod("Failed executing script: " + ex.Message, ".exec.script");
+				ReportFailure(ErrorCode.Failed, "Failed executing script: " + ex.Message);
 				return Constants.ExitCodeFailure;
 			}
 		}
@@ -318,14 +354,14 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				if (result is Task) {
 					Task? t = result as Task;
 					if (t == null) {
-						Msg.PrintErrorMod("Script globals execution could not be evaluated. Invalid Object cast.", ".exec.script");
+						Msg.PrintErrorMod("Script globals execution could not be evaluated. Invalid Object cast.", ".exec.script", Msg.LogLevels.Verbose);
 						return false;
 					}
 					if (!t.IsCompletedSuccessfully) {
-						Msg.PrintWarningMod("Script globals failed execution", ".exec.script");
-						Msg.PrintWarningMod("State: " + t.Status.ToString(), ".exec.script");
+						Msg.PrintWarningMod("Script globals failed execution", ".exec.script", Msg.LogLevels.Verbose);
+						Msg.PrintWarningMod("State: " + t.Status.ToString(), ".exec.script", Msg.LogLevels.Verbose);
 						if (t.Exception != null) {
-							Msg.PrintWarningMod("Exception: " + t.Exception.Message, ".exec.script");
+							Msg.PrintWarningMod("Exception: " + t.Exception.Message, ".exec.script", Msg.LogLevels.Verbose);
 						}
 						return false;
 					} else {
@@ -333,11 +369,11 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 						return true;
 					}
 				} else {
-					Msg.PrintErrorMod("Script globals execution could not be evaluated. Invalid Object type.", ".exec.script");
+					Msg.PrintErrorMod("Script globals execution could not be evaluated. Invalid Object type.", ".exec.script", Msg.LogLevels.Verbose);
 					return false;
 				}
 			} else {
-				Msg.PrintErrorMod("Script globals execution could not be evaluated. No returned information.", ".exec.script");
+				Msg.PrintErrorMod("Script globals execution could not be evaluated. No returned information.", ".exec.script", Msg.LogLevels.Verbose);
 				return false;
 			}
 		}
@@ -351,10 +387,11 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 		/// <param name="Debug"></param>
 		/// <returns>True if compilation was okey. False otherwise</returns>
 		private bool Compile(string filename, bool Debug = false) {
+			ResolveErrors.Clear();
 			// Load the script text
 			string? scriptText = FetchScriptText(filename,Debug);
 			if (scriptText == null){
-				Msg.PrintErrorMod("Could not load script text. Aborting",".exec.script");
+				Msg.PrintErrorMod("Could not load script text. Aborting",".exec.script", Msg.LogLevels.Verbose);
 				return false;
 			}
 			//
@@ -493,7 +530,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				try {
 					BuildResults = compilation.GetDiagnostics();
 				} catch (Exception diagEx) {
-					Msg.PrintWarningMod($"GetDiagnostics() threw exception (Roslyn bug): {diagEx.GetType().Name}. Proceeding without diagnostics.", ".exec.script");
+					Msg.PrintWarningMod($"GetDiagnostics() threw exception (Roslyn bug): {diagEx.GetType().Name}. Proceeding without diagnostics.", ".exec.script", Msg.LogLevels.Verbose);
 				}
 
 				// We may want to check BuildResults even if building exceptions are trapped.
@@ -501,22 +538,22 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				//
 				bool HasErrors = BuildResults.Any(res => res.Severity == DiagnosticSeverity.Error || res.IsWarningAsError);
 				if (HasErrors) {
-					Msg.PrintErrorMod("Errors found compiling the script: "+filename, ".exec.script");
-					Msg.BeginIndent();
-					foreach (Diagnostic res in BuildResults) {
-						if (res.Severity == DiagnosticSeverity.Error || res.IsWarningAsError){
-							Msg.PrintError(res.ToString());
-						} else{
-							Msg.PrintWarning(res.ToString());
-						}
+					if (ResolveErrors.Count > 0) {
+						// The references could not be resolved: that is the reason, the compile errors are its consequence
+						ReportFailure(ErrorCode.NotFound, "The references of the script could not be resolved: " + filename + "\n" + string.Join("\n", ResolveErrors));
+						return false;
 					}
-					Msg.EndIndent();
-					Msg.PrintErrorMod("Aborting.", ".exec.script");
+					string errors = "Errors found compiling the script: " + filename;
+					foreach (Diagnostic res in BuildResults) {
+						if (res.Severity == DiagnosticSeverity.Error || res.IsWarningAsError)
+							errors += "\n" + res.ToString();
+					}
+					ReportFailure(ErrorCode.Failed, errors);
 					return false;
 				}
 				foreach (Diagnostic res in BuildResults) {
 					if (res.Severity == DiagnosticSeverity.Warning) {
-						Msg.PrintWarning(res.ToString());
+						ReportWarning(res.ToString());
 					}
 				}
 				Msg.PrintMod("Compilation done.", ".exec.script", Msg.LogLevels.Debug);
@@ -544,42 +581,29 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 							return State.SetCompiledScript(ms);
 						}
 					}
-					Msg.PrintWarningMod("Failed when retrieving binary.", ".exec.script");
-					foreach (Diagnostic res in CompiledResult.Diagnostics) {
-						Msg.Print(res.ToString()); 
-					}
-					// TODO: If we hit this point we had errors so we can check also for CompiledResult here
-					// since in the exception handler we will trap build errors but no things like unresolved references or other scripts.
+					string emitErrors = "The script binary could not be emitted: " + filename;
+					foreach (Diagnostic res in CompiledResult.Diagnostics)
+						emitErrors += "\n" + res.ToString();
+					ReportFailure(ErrorCode.Failed, emitErrors);
 					return false;
 				}
 			} catch (Exception ex) {
-				if (ex is CompilationErrorException) {
-					CompilationErrorException? e = ex as CompilationErrorException;
-					if (e != null) {
-						Msg.PrintErrorMod("Compilation errors: "+filename, ".exec.script");
-						foreach(Diagnostic d in e.Diagnostics) {
-							Msg.PrintErrorMod(d.ToString(), ".exec.script");
-						}
-					} else {
-						Msg.PrintErrorMod("Compilation errors: ", ".exec.script");
-						Msg.PrintErrorMod(ex.Message, ".exec.script");
-					}
+				string reason = "Exception during compilation: " + filename + "\n" + ex.Message;
+				if (ex is CompilationErrorException compileError) {
+					foreach (Diagnostic d in compileError.Diagnostics)
+						reason += "\n" + d.ToString();
 				}
-				if (ex.InnerException != null) {
-					Msg.PrintErrorMod("Inner exception: "+ex.InnerException.Message,".exec.script");
-				}
-				Msg.PrintWarningMod("Exception during compilation: " + ex.Message+" Type:"+ex.GetType().ToString(), ".exec.script");
-				Msg.PrintErrorMod("With following imports and references:", ".exec.script");
-				foreach(string i in options.Usings) {
-					Msg.PrintErrorMod("Import: " + i, ".exec.script]");
-				}
-				foreach (MetadataReference mr in references) {
-					Msg.PrintErrorMod("Reference: " + mr.Display, ".exec.script]");
-				}
+				if (ex.InnerException != null)
+					reason += "\nInner exception: " + ex.InnerException.Message;
+				ReportFailure(ErrorCode.Failed, reason);
+				// The imports and references only matter to debug the engine itself
+				Msg.PrintMod("Imports and references of the failed compilation:", ".exec.script", Msg.LogLevels.Debug);
+				foreach (string i in options.Usings)
+					Msg.PrintMod("Import: " + i, ".exec.script", Msg.LogLevels.Debug);
+				foreach (MetadataReference mr in references)
+					Msg.PrintMod("Reference: " + mr.Display, ".exec.script", Msg.LogLevels.Debug);
+				return false;
 			}
-			// We should not hit this point.
-			Msg.PrintErrorMod("Compile script failed uncontrolled.", ".exec.script");
-			return false;
 		}
 
 		/// <summary>
@@ -592,16 +616,16 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			string? scriptText = null;
 			try {
 				if (string.IsNullOrEmpty(filename)) {
-					Msg.PrintErrorMod("No script file to execute specified.", ".exec.script");
+					ReportFailure(ErrorCode.InvalidArgument, "No script file to execute specified");
 					return null;
 				}
 				scriptText = File.ReadAllText(filename);
 			} catch (Exception ex) {
-				Msg.PrintErrorMod("File to execute '"+filename+"' is not found or innacessible. Exception:"+ex.Message, ".exec.script");
+				ReportFailure(ApiError.CodeOf(ex), "The script file '" + filename + "' was not found or is not accessible: " + ex.Message);
 				return null;
 			}
 			if (scriptText == null || scriptText.Length == 0) {
-				Msg.PrintErrorMod("File to execute '"+filename+"' is wrong or empty.", ".exec.script");
+				ReportFailure(ErrorCode.InvalidArgument, "The script file '" + filename + "' is empty");
 				return null;
 			}
 			Msg.PrintMod("Compiling script.", ".exec.script", Msg.LogLevels.Debug);

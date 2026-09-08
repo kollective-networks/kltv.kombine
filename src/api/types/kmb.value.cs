@@ -24,15 +24,26 @@ namespace Kltv.Kombine.Types {
 		}
 
 		/// <summary>
+		/// Last failure of an Export call. Reset at the start of every call, set when it fails.
+		/// </summary>
+		public static ApiError LastError { get; private set; } = ApiError.None;
+
+		/// <summary>
 		/// Export a value to the environment
 		/// </summary>
 		/// <param name="name">Name to be set on the environment</param>
-		public void Export(string name) {
-			if (KombineMain.CurrentRunningScript != null) {
-				Msg.PrintMod("Exporting variable: " + name + " to environment.", ".value", Msg.LogLevels.Verbose);
-				// TODO: Warning if already exists / collisions
-				KombineMain.CurrentRunningScript.State.Environment[name] = m_value;
+		/// <returns>True if the value was exported, false when no script is running (see LastError).</returns>
+		public bool Export(string name) {
+			LastError = ApiError.None;
+			if (KombineMain.CurrentRunningScript == null) {
+				LastError = new ApiError(ErrorCode.InvalidArgument, "No script running, the value cannot be exported", name);
+				Msg.PrintWarningMod(LastError.ToString(), ".value", Msg.LogLevels.Verbose);
+				return false;
 			}
+			Msg.PrintMod("Exporting variable: " + name + " to environment.", ".value", Msg.LogLevels.Verbose);
+			// TODO: Warning if already exists / collisions
+			KombineMain.CurrentRunningScript.State.Environment[name] = m_value;
+			return true;
 		}
 
 		/// <summary>
@@ -214,7 +225,7 @@ namespace Kltv.Kombine.Types {
 				Msg.PrintMod("Adding the prefix to the filename: " + prefix, ".value", Msg.LogLevels.Debug);
 				return new KValue() { m_value = Path.Combine(path, prefix + file) };
 			}
-			Msg.PrintWarningMod("Could not add the prefix to the filename."+prefix, ".value");
+			Msg.PrintWarningMod("Could not add the prefix to the filename: "+prefix, ".value", Msg.LogLevels.Verbose);
 			KValue n = new KValue();
 			n.m_value = m_value;
 			return n;

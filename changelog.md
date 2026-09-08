@@ -1,3 +1,17 @@
+## [Unreleased]
+
+- [Feature] Progress reporting: `ITaskProgress` contract with bar, dots and plain renderers, selectable per facility (`Http.Progress`, `Progress.Default`). See doc/api.md, Progress
+- [Feature] `Folders.Copy` honors `CopyOptions.ShowProgress` through `Folders.Progress`
+- [Feature] Error reporting: every facility exposes `LastError` (`ErrorCode` and message) so scripts explain failures themselves. See doc/api.md, Error reporting
+- [Feature] `Engine.ForwardSearch`, `Engine.RebuildScripts` and `Engine.LastError`: the script side of `-kforward` and `-ksrb`, and the reason of a failed child script. See doc/api.md, Engine settings
+- [Bugfix] `Compress.Tar.Decompress` creates the destination folder and returns false when entries are refused or not extracted
+- [Bugfix] Failed compressions leave no partial archive; xz compression returns false instead of aborting
+- [Misc] `Folders.SetCurrentFolder`, `Folders.CurrentFolderPop` and `KValue.Export` return bool
+- [Misc] Engine messages a script can handle through its return value or `LastError` are logged at verbose level only
+- [Misc] Child script failures (not found, unresolved references, compile errors, missing action) print nothing: `Kombine()` returns 1 and `Engine.LastError` carries the reason
+- [Misc] Forward search hits (`-kforward`) are logged at verbose level instead of printing a warning
+- [Misc] Documentation: extensions split into one page each (doc/extensions/), building guide with the root script actions, progress and error reporting guides, readme index with direct links, usage output and exit code contract
+- [Misc] Examples: progress example, `LastError` checks in the folders, types and network examples, `#load` resolution example running both forward search modes
 
 ## [1.5.24359387]
 
@@ -29,7 +43,7 @@
 - [Misc] Publish no longer regenerates doc/api.md from the XML documentation (it is hand-curated now)
 - [Misc] Removed outdated example leftovers (clang, msys2, sdl2) and fixed intellisense references in the relocated examples
 - [Feature] `#load` and child script resolution is now deterministic: including file directory, script directory, current directory, backward trace and tool directory, in that order. The recursive forward search (walk of every subfolder, first match wins) no longer runs by default. With repos that embed other repos sharing the same relative layout it could silently bind a foreign copy of a helper, and the state cache then persisted the wrong bind
-- [Feature] New `-kforward` switch re-enables the forward search as a deprecated bridge; every forward hit prints a warning naming the source and the resolved file. Without the switch, a reference that only the forward search could satisfy fails the compile naming the file it would have picked and how to fix it
+- [Feature] New `-kforward` switch enables the forward search of the subfolders when resolving `#load` and child scripts, disabled by default since it can bind a foreign copy of a helper when repositories are nested. Without it, a reference that only the forward search could satisfy fails naming the file it would have picked and how to fix it
 - [Feature] Every `#load` reports its resolved absolute path at verbose level, so a wrong binding is visible instead of silent
 - [Feature] `mkb -h` and `mkb --help` now act as aliases for the `khelp` action
 - [Feature] Help output shows the engine banner and version; local and debug builds report the version as "development"

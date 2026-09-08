@@ -101,11 +101,15 @@ namespace Kltv.Kombine.Api {
 				if (found != null)
 					script = found;
 			}
+			// An engine failure of the child (not found, unresolved references, compile error, missing
+			// action, exception) is reported through Engine.LastError together with the return code
+			Engine.LastError = ApiError.None;
 			int retCode = KombineMain.RunScript(script, action, args, changedir);
 			if (exitonerror) {
 				if (retCode != 0) {
 					// The abort reason must be visible at any log level
-					Msg.PrintAndAbortMod("Script execution returned error: " + script + " exitcode:" + retCode, ".statics.kombine");
+					string reason = Engine.LastError.IsError ? " (" + Engine.LastError.Message.Split('\n')[0] + ")" : string.Empty;
+					Msg.PrintAndAbortMod("Script execution returned error: " + script + " exitcode:" + retCode + reason, ".statics.kombine");
 					return retCode;
 				}
 			}

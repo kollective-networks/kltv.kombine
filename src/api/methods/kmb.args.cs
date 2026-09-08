@@ -17,7 +17,7 @@ namespace Kltv.Kombine.Api {
 	public static class Args{
 
 		/// <summary>
-		/// Returns if the script or parent was rebuilded
+		/// Returns if the script or parent was rebuilt
 		/// </summary>
 		public static bool WasRebuilded {
 			get {

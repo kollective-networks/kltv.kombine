@@ -28,15 +28,43 @@ namespace Kltv.Kombine.Api {
 
 
 		/// <summary>
+		/// Reporter used by the downloads to show their progress line. When not set, Progress.Default is used.
+		/// Assign an instance (ProgressBar, ProgressDots, ProgressPlain or a custom one) to select the renderer.
+		/// </summary>
+		public static ITaskProgress? Progress { get; set; } = null;
+
+		/// <summary>
+		/// If the downloads should show their progress line. When false the downloads print nothing.
+		/// It is the default for the showprogress parameter of the download methods.
+		/// </summary>
+		public static bool ShowProgress { get; set; } = true;
+
+		/// <summary>
+		/// Last failure of an Http call: NetworkError for a transport failure, Failed for an HTTP error
+		/// status (the status itself is in LastReturnCode). Reset at the start of every call.
+		/// </summary>
+		public static ApiError LastError { get; private set; } = ApiError.None;
+
+		/// <summary>
+		/// Records the failure of a call from its exception: an HTTP error status is a Failed, anything else a NetworkError.
+		/// </summary>
+		private static void FailWith(Exception cause, string source) {
+			if (cause is HttpRequestException request && request.StatusCode.HasValue)
+				LastError = new ApiError(ErrorCode.Failed, cause.Message, source);
+			else
+				LastError = new ApiError(ErrorCode.NetworkError, cause.Message, source);
+		}
+
+		/// <summary>
 		/// Downloads a file from the given uri to the given path
 		/// </summary>
 		/// <param name="uri">The uri for the file to be downloaded</param>
 		/// <param name="path">The resulting path for the file.</param>
 		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
-		/// <param name="showprogress">If true, a progress bar will be shown</param>
+		/// <param name="showprogress">If the progress line should be shown. Null takes Http.ShowProgress.</param>
 		/// <returns>True if file was downloaded, false otherwise.</returns>
-		public static bool DownloadFile(string uri, string path, Dictionary<string, string>? headers = null, bool showprogress = true) {
-			Msg.Print("Download started: "+uri);
+		public static bool DownloadFile(string uri, string path, Dictionary<string, string>? headers = null, bool? showprogress = null) {
+			LastError = ApiError.None;
 			HttpClient client = new HttpClient();
 			if (headers != null) {
 				foreach (var header in headers) {
@@ -50,46 +78,43 @@ namespace Kltv.Kombine.Api {
 					Msg.PrintWarningMod("Error creating folder to store the download (maybe exist): "+path,".http",Msg.LogLevels.Verbose);
 				}
 			}
+			// Progress line: the configured reporter or the engine default, unless silenced
+			bool show = showprogress ?? ShowProgress;
+			ITaskProgress? reporter = show ? (Progress ?? Api.Progress.Default) : null;
+			DownloadProgress tracker = new DownloadProgress(reporter, 1);
+			reporter?.Start("Downloading " + Path.GetFileName(path));
 			// And download the file.
-			if (showprogress){
-				bar = new ProgressBar();
-				progress = new Dictionary<object, float>();
-			}
 			bool ok = true;
-			using (var file = new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.Read)) {
-				try{
-					if (showprogress){
-						client.DownloadDataAsync(uri, file, Progress_ProgressChanged).Wait();
-					} else {
-						client.DownloadDataAsync(uri, file).Wait();
-					}
-					LastReturnCode = 200;
-					LastResponse = "";
-				} catch(Exception e){
-					// Unwrap the aggregate exception to reach the real cause and, if it carries
-					// an HTTP status code, store it so the script can inspect LastReturnCode.
-					Exception cause = e;
-					if (e is AggregateException ae && ae.InnerException != null)
-						cause = ae.InnerException;
-					Msg.PrintErrorMod("Error downloading file: "+cause.Message,".http",Msg.LogLevels.Verbose);
-					if (cause is HttpRequestException hre && hre.StatusCode.HasValue)
-						LastReturnCode = (int)hre.StatusCode.Value;
-					else
-						LastReturnCode = -1;
-					LastResponse = "";
-					ok = false;
+			try {
+				using (var file = new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.Read)) {
+					client.DownloadDataAsync(uri, file, tracker.Changed).Wait();
 				}
+				LastReturnCode = 200;
+				LastResponse = "";
+			} catch(Exception e){
+				// Unwrap the aggregate exception to reach the real cause and, if it carries
+				// an HTTP status code, store it so the script can inspect LastReturnCode.
+				Exception cause = e;
+				if (e is AggregateException ae && ae.InnerException != null)
+					cause = ae.InnerException;
+				Msg.PrintErrorMod("Error downloading file: "+cause.Message,".http",Msg.LogLevels.Verbose);
+				if (cause is HttpRequestException hre && hre.StatusCode.HasValue)
+					LastReturnCode = (int)hre.StatusCode.Value;
+				else
+					LastReturnCode = -1;
+				LastResponse = "";
+				FailWith(cause, uri);
+				ok = false;
 			}
-			bar?.Dispose();
-			progress?.Clear();
-			bar = null;
 			if (!ok) {
+				reporter?.Finish("failed", ProgressOutcome.Error);
 				// Do not leave a partial/empty file behind on a failed download
 				if (Files.Exists(path))
 					Files.Delete(path);
 				return false;
 			}
-			Msg.Print("Download finished");
+			reporter?.Report(1.0);
+			reporter?.Finish("done");
 			return true;
 		}
 
@@ -99,16 +124,17 @@ namespace Kltv.Kombine.Api {
 		/// <param name="uris">Arrays of uris to be used</param>
 		/// <param name="paths">Array of paths+filenames to be used</param>
 		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
-		/// <param name="showprogress">If the progress should be show, default true.</param>
+		/// <param name="showprogress">If the progress line should be shown. Null takes Http.ShowProgress.</param>
 		/// <returns>True if all files download fine, false otherwise.</returns>
-		public static bool DownloadFiles(string[] uris,string[] paths, Dictionary<string, string>? headers = null, bool showprogress = true){
+		public static bool DownloadFiles(string[] uris,string[] paths, Dictionary<string, string>? headers = null, bool? showprogress = null){
+			LastError = ApiError.None;
 			if (uris.Length != paths.Length){
 				Msg.PrintErrorMod("The number of uris and paths must be the same.",".http",Msg.LogLevels.Verbose);
 				LastReturnCode = -1;
 				LastResponse = "";
+				LastError = new ApiError(ErrorCode.InvalidArgument, "The number of uris and paths must be the same", uris.Length + " uris, " + paths.Length + " paths");
 				return false;
 			}
-			Msg.Print("Downloads started ");
 			HttpClient client = new HttpClient();
 			if (headers != null) {
 				foreach (var header in headers) {
@@ -124,11 +150,13 @@ namespace Kltv.Kombine.Api {
 					}
 				}
 			}
-			// And download the file.
-			if (showprogress){
-				bar = new ProgressBar();
-				progress = new Dictionary<object, float>();
-			}
+			// Progress line: the configured reporter or the engine default, unless silenced.
+			// One line for the whole batch, reporting the average of the streams.
+			bool show = showprogress ?? ShowProgress;
+			ITaskProgress? reporter = show ? (Progress ?? Api.Progress.Default) : null;
+			DownloadProgress tracker = new DownloadProgress(reporter, uris.Length);
+			reporter?.Start("Downloading " + uris.Length + " files");
+			// And download the files.
 			bool bres;
 			List<Stream> StreamList = new List<Stream>();
 			try{
@@ -136,10 +164,7 @@ namespace Kltv.Kombine.Api {
 				for (int i = 0; i < uris.Length;i++){
 					Stream file = new FileStream(paths[i], FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
 					StreamList.Add(file);
-					if (showprogress)
-						DownloadList.Add(client.DownloadDataAsync(uris[i], file, Progress_ProgressChanged));
-					else
-						DownloadList.Add(client.DownloadDataAsync(uris[i], file));
+					DownloadList.Add(client.DownloadDataAsync(uris[i], file, tracker.Changed));
 				}
 				bres = Task.WaitAll(DownloadList.ToArray(),-1);
 				if (bres) {
@@ -161,21 +186,23 @@ namespace Kltv.Kombine.Api {
 				else
 					LastReturnCode = -1;
 				LastResponse = "";
+				FailWith(cause, string.Join(", ", uris));
+				reporter?.Finish("failed", ProgressOutcome.Error);
 				return false;
 			} finally {
 				// Dispose all streams, also on failure, to not leave the files locked
 				for(int i = 0; i < StreamList.Count;i++){
 					StreamList[i].Dispose();
 				}
-				progress?.Clear();
-				bar?.Dispose();
-				bar = null;
 			}
 			if (bres == false){
 				Msg.PrintErrorMod("Error downloading files.",".http",Msg.LogLevels.Verbose);
+				LastError = new ApiError(ErrorCode.Failed, "The downloads did not complete", string.Join(", ", uris));
+				reporter?.Finish("failed", ProgressOutcome.Error);
 				return false;
 			}
-			Msg.Print("Download finished");
+			reporter?.Report(1.0);
+			reporter?.Finish("done");
 			return true;
 		}
 
@@ -186,6 +213,7 @@ namespace Kltv.Kombine.Api {
 		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
 		/// <returns>The string with the document or empty</returns>
 		public static string GetDocument(string uri, Dictionary<string, string>? headers = null){
+			LastError = ApiError.None;
 			HttpClient client = new HttpClient();
 			if (headers != null) {
 				foreach (var header in headers) {
@@ -204,11 +232,13 @@ namespace Kltv.Kombine.Api {
 					return content.Result;
 				}
 				LastResponse = "";
+				LastError = new ApiError(ErrorCode.Failed, "HTTP status " + LastReturnCode + " (" + result.Result.StatusCode + ")", uri);
 				Msg.PrintErrorMod("Error getting document: "+result.Result.StatusCode,".http",Msg.LogLevels.Verbose);
 			} catch(Exception e) {
 				Msg.PrintErrorMod("Error getting document: "+e.Message,".http",Msg.LogLevels.Verbose);
 				LastReturnCode = -1;
 				LastResponse = "";
+				FailWith(e is AggregateException ae && ae.InnerException != null ? ae.InnerException : e, uri);
 				return string.Empty;
 			}
 			return string.Empty;
@@ -223,6 +253,7 @@ namespace Kltv.Kombine.Api {
 		/// <param name="usePatch">If true, use PATCH method; otherwise, use POST</param>
 		/// <returns>True if the document was sent successfully, false otherwise.</returns>
 		public static bool PostDocument(string uri, string content, Dictionary<string, string>? headers = null, bool usePatch = false) {
+			LastError = ApiError.None;
 			HttpClient client = new HttpClient();
 			string contentType = "application/json"; // Default for JSON
 			if (headers != null) {
@@ -253,11 +284,13 @@ namespace Kltv.Kombine.Api {
 				if (result.Result.IsSuccessStatusCode) {
 					return true;
 				}
+				LastError = new ApiError(ErrorCode.Failed, "HTTP status " + LastReturnCode + " (" + result.Result.StatusCode + ")", uri);
 				Msg.PrintErrorMod("Error sending document: " + result.Result.StatusCode, ".http", Msg.LogLevels.Verbose);
 			} catch (Exception e) {
 				Msg.PrintErrorMod("Error sending document: " + e.Message, ".http", Msg.LogLevels.Verbose);
 				LastReturnCode = -1;
 				LastResponse = "";
+				FailWith(e is AggregateException ae && ae.InnerException != null ? ae.InnerException : e, uri);
 				return false;
 			}
 			return false;
@@ -272,6 +305,7 @@ namespace Kltv.Kombine.Api {
 		/// <param name="usePatch">If true, use PATCH method; otherwise, use POST</param>
 		/// <returns>True if the file was sent successfully, false otherwise.</returns>
 		public static bool PostFile(string uri, string filePath, Dictionary<string, string>? headers = null, bool usePatch = false) {
+			LastError = ApiError.None;
 			HttpClient client = new HttpClient();
 			if (headers != null) {
 				foreach (var header in headers) {
@@ -297,12 +331,18 @@ namespace Kltv.Kombine.Api {
 					if (result.Result.IsSuccessStatusCode) {
 						return true;
 					}
+					LastError = new ApiError(ErrorCode.Failed, "HTTP status " + LastReturnCode + " (" + result.Result.StatusCode + ")", uri);
 					Msg.PrintErrorMod("Error sending file: " + result.Result.StatusCode, ".http", Msg.LogLevels.Verbose);
 				}
 			} catch (Exception e) {
 				Msg.PrintErrorMod("Error sending file: " + e.Message, ".http", Msg.LogLevels.Verbose);
 				LastReturnCode = -1;
 				LastResponse = "";
+				// A missing local file is a file error on the path, anything else a network failure on the url
+				if (e is FileNotFoundException || e is DirectoryNotFoundException)
+					LastError = ApiError.From(e, filePath);
+				else
+					FailWith(e is AggregateException ae && ae.InnerException != null ? ae.InnerException : e, uri);
 				return false;
 			}
 			return false;
@@ -315,6 +355,7 @@ namespace Kltv.Kombine.Api {
 		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
 		/// <returns>True if the document was deleted successfully, false otherwise.</returns>
 		public static bool DeleteDocument(string uri, Dictionary<string, string>? headers = null) {
+			LastError = ApiError.None;
 			HttpClient client = new HttpClient();
 			if (headers != null) {
 				foreach (var header in headers) {
@@ -329,11 +370,13 @@ namespace Kltv.Kombine.Api {
 				if (result.Result.IsSuccessStatusCode) {
 					return true;
 				}
+				LastError = new ApiError(ErrorCode.Failed, "HTTP status " + LastReturnCode + " (" + result.Result.StatusCode + ")", uri);
 				Msg.PrintErrorMod("Error deleting document: " + result.Result.StatusCode, ".http", Msg.LogLevels.Verbose);
 			} catch (Exception e) {
 				Msg.PrintErrorMod("Error deleting document: " + e.Message, ".http", Msg.LogLevels.Verbose);
 				LastReturnCode = -1;
 				LastResponse = "";
+				FailWith(e is AggregateException ae && ae.InnerException != null ? ae.InnerException : e, uri);
 				return false;
 			}
 			return false;
@@ -342,41 +385,49 @@ namespace Kltv.Kombine.Api {
 
 
 		/// <summary>
-		/// A progress bar instance to show download progress
+		/// Delegate used by the download stream copy to report its progress.
 		/// </summary>
-		internal static ProgressBar? bar = null; 
+		/// <param name="sender">Stream sending the progress report.</param>
+		/// <param name="progress">Percentage of that stream, from 0 to 100.</param>
+		internal delegate void DownloadProgressChanged(object? sender, float progress);
 
 		/// <summary>
-		///  A delegate to report progress on downloads
+		/// Progress of one download operation: collects the percentage of every stream and reports
+		/// the average over the expected number of streams to the reporter of the operation, if any.
 		/// </summary>
-		/// <param name="sender"></param>
-		/// <param name="progress"></param>
-		internal delegate void ProgressBarChanged(object? sender, float progress);
+		private sealed class DownloadProgress {
 
-		/// <summary>
-		/// Stores the dictionary of progress for each download to make an average.
-		/// </summary>
-		internal static Dictionary<object,float>? progress = null;
+			private readonly ITaskProgress? reporter;
+			private readonly int expected;
+			private readonly Dictionary<object, float> streams = new Dictionary<object, float>();
 
-		/// <summary>
-		/// It receives all the progress events from the download and reports them to the progress bar
-		/// </summary>
-		/// <param name="sender">stream sending the progress report.</param>
-		/// <param name="progress">amount of progress in that stream</param>
-		internal static void Progress_ProgressChanged(object? sender, float progress) {
-			if (sender is null) return;
-			if (Http.progress is null) return;
-			if (Http.progress.ContainsKey(sender)){
-				Http.progress[sender] = progress;
-			} else {
-				Http.progress.Add(sender,progress);
+			/// <summary>
+			/// Creates the tracker of an operation.
+			/// </summary>
+			/// <param name="reporter">Reporter to feed, or null when no progress is shown.</param>
+			/// <param name="expected">Number of streams the operation downloads.</param>
+			public DownloadProgress(ITaskProgress? reporter, int expected) {
+				this.reporter = reporter;
+				this.expected = Math.Max(1, expected);
 			}
-			float total = 0;
-			foreach(var i in Http.progress){
-				total += i.Value;
+
+			/// <summary>
+			/// Receives the progress of one stream and reports the average of the operation.
+			/// </summary>
+			/// <param name="sender">Stream sending the progress report.</param>
+			/// <param name="percent">Percentage of that stream, from 0 to 100.</param>
+			public void Changed(object? sender, float percent) {
+				if (sender == null || reporter == null)
+					return;
+				float total = 0;
+				lock (streams) {
+					streams[sender] = percent;
+					foreach (float value in streams.Values)
+						total += value;
+					total /= Math.Max(expected, streams.Count);
+				}
+				reporter.Report(total / 100.0);
 			}
-			total /= Http.progress.Count;
-			bar?.Report((double)total / 100);
 		}
 	}
 
@@ -394,7 +445,7 @@ namespace Kltv.Kombine.Api {
 		/// <param name="progress">progress reporting delegate.</param>
 		/// <param name="cancellationToken">cancelation token to cancel the operation.</param>
 		/// <returns>A task that can be awaited.</returns>
-		internal static async Task DownloadDataAsync(this HttpClient client, string requestUrl, Stream destination, Http.ProgressBarChanged? progress = null, CancellationToken cancellationToken = default(CancellationToken)) {
+		internal static async Task DownloadDataAsync(this HttpClient client, string requestUrl, Stream destination, Http.DownloadProgressChanged? progress = null, CancellationToken cancellationToken = default(CancellationToken)) {
 			using (var response = await client.GetAsync(requestUrl, HttpCompletionOption.ResponseHeadersRead)) {
 				if ( (response.StatusCode == HttpStatusCode.Found) || 
 					 (response.StatusCode == HttpStatusCode.Moved) || 
@@ -446,7 +497,7 @@ namespace Kltv.Kombine.Api {
 		/// <exception cref="ArgumentNullException"></exception>
 		/// <exception cref="InvalidOperationException"></exception>
 		internal static async Task CopyToAsync(	this Stream source, Stream destination, long totalbytes,
-										int bufferSize, Http.ProgressBarChanged? progress = null, 
+										int bufferSize, Http.DownloadProgressChanged? progress = null, 
 										CancellationToken cancellationToken = default(CancellationToken)) {
 			if (bufferSize < 0)
 				throw new ArgumentOutOfRangeException(nameof(bufferSize));

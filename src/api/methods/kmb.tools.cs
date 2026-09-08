@@ -256,7 +256,7 @@ namespace Kltv.Kombine.Api {
 				if (c.res == null) {
 					// A queued command without result was never executed (failed to launch or was
 					// cancelled). The global status must be downgraded so the script can report it.
-					Msg.PrintWarningMod("Queued command was not executed (launch failed or cancelled): " + c.cmd, ".tool." + ToolTag);
+					Msg.PrintWarningMod("Queued command was not executed (launch failed or cancelled): " + c.cmd, ".tool." + ToolTag, Msg.LogLevels.Verbose);
 					status = ToolStatus.Failed;
 					offendingExitCode = -1;
 					continue;
@@ -329,7 +329,7 @@ namespace Kltv.Kombine.Api {
 			if (CommandAsyncResult != null)
 				p.UserData = CommandAsyncResult;
 			if (p.Launch() == false) {
-				Msg.PrintWarningMod("Error launching async. Could not launch: " + cmd, ".tool." + ToolTag);
+				Msg.PrintWarningMod("Error launching async. Could not launch: " + cmd, ".tool." + ToolTag, Msg.LogLevels.Verbose);
 				Interlocked.Decrement(ref PendingAsyncTasks);
 				return res;
 			}

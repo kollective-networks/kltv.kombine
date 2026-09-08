@@ -140,7 +140,7 @@ namespace Kltv.Kombine {
 		internal static string SetIncludeCached(string includename, string content){
 			string filename = ConvertFilename(includename,true);
 			if (Files.WriteTextFile(filename,content) == false){
-				Msg.PrintErrorMod("Failed to save include to cache: "+includename,".cache");
+				Msg.PrintErrorMod("Failed to save include to cache: "+includename,".cache",Msg.LogLevels.Verbose);
 				return string.Empty;
 			}
 			return filename;
@@ -158,7 +158,7 @@ namespace Kltv.Kombine {
 				byte[] result = File.ReadAllBytes(filename);
 				return result;
 			} catch (Exception ex) {
-				Msg.PrintErrorMod("Failed to load cached script: "+ex.Message,".cache");
+				Msg.PrintErrorMod("Failed to load cached script: "+ex.Message,".cache",Msg.LogLevels.Verbose);
 				return null;
 			}
 		}
@@ -175,7 +175,7 @@ namespace Kltv.Kombine {
 				File.WriteAllBytes(filename, content);
 				return true;
 			} catch (Exception ex) {
-				Msg.PrintErrorMod("Failed to save cached script: " + ex.Message, ".cache");
+				Msg.PrintErrorMod("Failed to save cached script: " + ex.Message, ".cache",Msg.LogLevels.Verbose);
 				return false;
 			}
 		}

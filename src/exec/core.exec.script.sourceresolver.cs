@@ -72,7 +72,7 @@ namespace Kltv.Kombine {
 						return SourceText.From(stream, null, SourceHashAlgorithm.Sha1, true, true);
 					}
 				} catch (Exception ex) {
-					Msg.PrintWarningMod("Source cannot be read. Exception:"+ex.Message,".exec.script.sourceresolver");
+					Msg.PrintWarningMod("Source cannot be read. Exception:"+ex.Message,".exec.script.sourceresolver", Msg.LogLevels.Verbose);
 					return SourceText.From("");
 				}
 			}
@@ -86,7 +86,7 @@ namespace Kltv.Kombine {
 			/// CurrentDirectory
 			/// Backtrace directories
 			/// Tool directory
-			/// Forward trace directories (opt-in only, -kforward)
+			/// Forward trace directories (disabled by default, -kforward)
 			///
 			/// In case the given path is absolute, we will just return it if it exists
 			/// In case the given path is a URL, we will just return it.
@@ -105,8 +105,7 @@ namespace Kltv.Kombine {
 					baseDir = Path.GetDirectoryName(baseFilePath);
 				string? resolvedPath = Folders.ResolveFilename(path, baseDir, ScriptPath);
 				if (resolvedPath != null) {
-					// One line per include on real compiles, behind verbose so normal builds stay quiet.
-					// Anomalies keep printing at normal level: unresolved references and forward search hits.
+					// One line per include on real compiles, behind verbose so normal builds stay quiet
 					Msg.PrintMod("#load \"" + path + "\" -> " + resolvedPath, ".exec.script.sourceresolver", Msg.LogLevels.Verbose);
 					// Save the dependency in the state
 					//
@@ -117,7 +116,13 @@ namespace Kltv.Kombine {
 						current.State.FileDependencies[resolvedPath] = modTime;
 					return resolvedPath;
 				}
-				Msg.PrintWarningMod("#load \"" + path + "\" could not be resolved.", ".exec.script.sourceresolver");
+				// The reason is collected for the failure report of the script; the compile errors that
+				// follow are its consequence and are not shown
+				string reason = Folders.LastResolveReason.Length > 0 ? Folders.LastResolveReason : "'" + path + "' could not be resolved";
+				KombineScript? failing = KombineMain.CurrentRunningScript;
+				if (failing != null)
+					failing.ResolveErrors.Add("#load " + reason);
+				Msg.PrintWarningMod("#load \"" + path + "\" could not be resolved.", ".exec.script.sourceresolver", Msg.LogLevels.Verbose);
 				return null;
 			}
 

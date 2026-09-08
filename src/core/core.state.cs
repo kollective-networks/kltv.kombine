@@ -120,13 +120,13 @@ namespace Kltv.Kombine {
 			}
 			byte[]? result = Cache.LoadScriptCached(scriptfilename);
 			if (result == null) {
-				Msg.PrintWarningMod("State file could not be loaded. Deleting state.",".exec.state",Msg.LogLevels.Normal);
+				Msg.PrintWarningMod("State file could not be loaded. Deleting state.",".exec.state",Msg.LogLevels.Verbose);
 				return false;
 			}
 			try {
 				stateFile = BinaryPack.BinaryConverter.Deserialize<StateFile>(result);
 			} catch (Exception ex) {
-				Msg.PrintWarningMod("State file is corrupted or outdated. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+				Msg.PrintWarningMod("State file is corrupted or outdated. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
 				Msg.PrintWarningMod("Exception: " + ex.Message, ".exec.state", Msg.LogLevels.Debug);
 				return false;
 			}
@@ -134,11 +134,11 @@ namespace Kltv.Kombine {
 			// Check the version because maybe the script was cached but for a previous Kombine version
 			// and that could trigger errors.
 			if (stateFile.Signature != 0x000020001) {
-				Msg.PrintWarningMod("State file signature is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+				Msg.PrintWarningMod("State file signature is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
 				return false;
 			}
 			if (stateFile.Version != KombineMain.Version.Major + "." + KombineMain.Version.Minor + "." + KombineMain.Version.Build) {
-				Msg.PrintWarningMod("State file version is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+				Msg.PrintWarningMod("State file version is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
 				return false;
 			}
 			//
@@ -146,17 +146,17 @@ namespace Kltv.Kombine {
 			//
 			foreach (string f in stateFile.SourceDependencies) {
 				if (!File.Exists(f)) {
-					Msg.PrintWarningMod("State file dependency " + f + " does not exist anymore. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+					Msg.PrintWarningMod("State file dependency " + f + " does not exist anymore. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
 					return false;
 				}
 				long t = File.GetLastWriteTimeUtc(f).ToBinary();
 				int idx = Array.IndexOf(stateFile.SourceDependencies, f);
 				if (idx < 0 || idx >= stateFile.SourceDependenciesTime.Length) {
-					Msg.PrintWarningMod("State file dependency " + f + " is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+					Msg.PrintWarningMod("State file dependency " + f + " is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
 					return false;
 				}
 				if (t != stateFile.SourceDependenciesTime[idx]) {
-					Msg.PrintWarningMod("State file dependency " + f + " has changed. Deleting state.", ".exec.state", Msg.LogLevels.Normal);
+					Msg.PrintWarningMod("State file dependency " + f + " has changed. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
 					return false;
 				}
 			}

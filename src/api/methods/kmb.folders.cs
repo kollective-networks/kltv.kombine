@@ -16,6 +16,30 @@ namespace Kltv.Kombine.Api {
 	/// </summary>
 	public static class Folders {
 
+		/// <summary>
+		/// Last failure of a Folders call. Reset at the start of every call, set when it fails.
+		/// Exists and the searches never set it: their result is the answer.
+		/// </summary>
+		public static ApiError LastError { get; private set; } = ApiError.None;
+
+		/// <summary>
+		/// Records a failure and logs it at verbose level.
+		/// </summary>
+		private static bool Fail(ErrorCode code, string message, string source) {
+			LastError = new ApiError(code, message, source);
+			Msg.PrintWarningMod(LastError.ToString(), ".folders", Msg.LogLevels.Verbose);
+			return false;
+		}
+
+		/// <summary>
+		/// Records a failure from an exception and logs it at verbose level.
+		/// </summary>
+		private static bool Fail(Exception ex, string source) {
+			LastError = ApiError.From(ex, source);
+			Msg.PrintWarningMod(LastError.ToString(), ".folders", Msg.LogLevels.Verbose);
+			return false;
+		}
+
 		#region Folder Creation Operations
 
 		/// <summary>
@@ -34,13 +58,17 @@ namespace Kltv.Kombine.Api {
 		/// <param name="dst">destination path for the folder</param>
 		/// <returns></returns>
 		public static bool Move(KValue src,KValue dst) {
+			LastError = ApiError.None;
+			if (!Directory.Exists(src))
+				return Fail(ErrorCode.NotFound, "The folder to move does not exist", src);
+			if (Directory.Exists(dst))
+				return Fail(ErrorCode.AlreadyExists, "The destination folder already exists", dst);
 			try {
 				Msg.PrintMod("Moving folder: " + src + " to: " + dst, ".folders", Msg.LogLevels.Verbose);
 				Directory.Move(src, dst);
 				return true;
 			} catch(Exception ex) {
-				Msg.PrintWarningMod("Failed moving folder: " + src + " to: " + dst + " error: " + ex.Message, ".folders",Msg.LogLevels.Verbose);
-				return false;
+				return Fail(ex, src);
 			}
 		}
 
@@ -50,14 +78,7 @@ namespace Kltv.Kombine.Api {
 		/// <param name="folder">Folder to be created.</param>
 		/// <returns>True if okey. False otherwise.</returns>
 		public static bool Create(KValue folder) {
-			try {
-				Msg.PrintMod("Creating folder: " + folder, ".folders", Msg.LogLevels.Verbose);
-				Directory.CreateDirectory(folder);
-				return true;
-			} catch (Exception ex) {
-				Msg.PrintWarningMod("Failed creating folder: " + folder + " error: " + ex.Message, ".folders",Msg.LogLevels.Verbose);
-				return false;
-			}
+			return Create(folder.ToString());
 		}
 
 		/// <summary>
@@ -66,13 +87,15 @@ namespace Kltv.Kombine.Api {
 		/// <param name="folder">Folder to be created.</param>
 		/// <returns>True if okey. False otherwise.</returns>
 		public static bool Create(string folder) {
+			LastError = ApiError.None;
+			if (string.IsNullOrEmpty(folder))
+				return Fail(ErrorCode.InvalidArgument, "The folder to create is empty", folder);
 			try {
 				Msg.PrintMod("Creating folder: " + folder, ".folders", Msg.LogLevels.Verbose);
 				Directory.CreateDirectory(folder);
 				return true;
 			} catch (Exception ex) {
-				Msg.PrintWarningMod("Failed creating folder: " + folder + " error: " + ex.Message, ".folders",Msg.LogLevels.Verbose);
-				return false;
+				return Fail(ex, folder);
 			}
 		}
 
@@ -141,6 +164,7 @@ namespace Kltv.Kombine.Api {
 		/// <param name="DeleteSubFolders">If subfolders should be deleted as well. Default false.</param>
 		/// <returns></returns>
 		public static bool Delete(string folder, bool DeleteSubFolders = false) {
+			LastError = ApiError.None;
 			if (Directory.Exists(folder)) {
 				Msg.PrintMod("Deleting folder:"+folder, ".folders", Msg.LogLevels.Verbose);
 				DirectoryInfo directory = new DirectoryInfo(folder);
@@ -150,8 +174,7 @@ namespace Kltv.Kombine.Api {
 						File.SetAttributes(file.FullName, FileAttributes.Normal);
 						file.Delete();
 					} catch (Exception ex) {
-						Msg.PrintWarningMod("Failed deleting / set attributes: " + file.Name + " error: " + ex.Message,".folders",Msg.LogLevels.Verbose);
-						return false;
+						return Fail(ex, file.FullName);
 					}
 				}
 				// Remove subfolders if requested
@@ -163,19 +186,16 @@ namespace Kltv.Kombine.Api {
 								return false;
 							subDirectory.Delete();
 						} catch (Exception ex) {
-							if (ex is not DirectoryNotFoundException) {
-								Msg.PrintWarningMod("Failed deleting / set attributes: " + subDirectory.Name + " error: " + ex.Message, ".folders",Msg.LogLevels.Verbose);
-								return false;
-							}
+							if (ex is not DirectoryNotFoundException)
+								return Fail(ex, subDirectory.FullName);
 						}
 					}
 				}
-				// Finally remove the folder itself
+				// Finally remove the folder itself. Without recursion a folder with subfolders is not empty.
 				try {
 					Directory.Delete(folder);
 				} catch (Exception ex) {
-					Msg.PrintWarningMod("Failed deleting / set attributes: " + folder + " error: " + ex.Message, ".folders",Msg.LogLevels.Verbose);
-					return false;
+					return Fail(ex, folder);
 				}
 			} else {
 				Msg.PrintMod("Folder to delete does not exists: "+folder, ".folders", Msg.LogLevels.Verbose);
@@ -209,16 +229,17 @@ namespace Kltv.Kombine.Api {
 		}
 
 		/// <summary>
-		/// Pop a folder from the stack
+		/// Pop a folder from the stack and make it the working folder
 		/// </summary>
-		public static void CurrentFolderPop() {
+		/// <returns>True if a folder was popped and set, false if the stack is empty or the folder is gone (see LastError).</returns>
+		public static bool CurrentFolderPop() {
+			LastError = ApiError.None;
 			if (folderStack.Count > 0) {
 				string p = folderStack.Pop();
-				SetCurrentFolder(p, false);
 				Msg.PrintMod("Current folder pop to: " + p, ".folders", Msg.LogLevels.Debug);
-				return;
+				return SetCurrentFolder(p, false);
 			}
-			Msg.PrintWarningMod("Current folder pop but stack is empty.", ".folders",Msg.LogLevels.Verbose);
+			return Fail(ErrorCode.InvalidArgument, "The folder stack is empty, nothing to pop", string.Empty);
 		}
 
 		/// <summary>
@@ -226,15 +247,21 @@ namespace Kltv.Kombine.Api {
 		/// </summary>
 		/// <param name="CWD">New working folder</param>
 		/// <param name="PushCurrent">If the current one should be saved</param>
-		public static void SetCurrentFolder(string CWD,bool PushCurrent = true) {
-			if (!string.IsNullOrEmpty(CWD)) {
-				if (PushCurrent == true)
-					CurrentFolderPush();
-				FSAPI.SetCurrentFolder(CWD);
-				Msg.PrintMod("Current folder set to: " + CWD, ".folders", Msg.LogLevels.Verbose);
-				return;
+		/// <returns>True if the working folder was changed, false otherwise (see LastError).</returns>
+		public static bool SetCurrentFolder(string CWD,bool PushCurrent = true) {
+			LastError = ApiError.None;
+			if (string.IsNullOrEmpty(CWD))
+				return Fail(ErrorCode.InvalidArgument, "The folder to set as working folder is empty", CWD);
+			if (!Directory.Exists(CWD))
+				return Fail(ErrorCode.NotFound, "The folder to set as working folder does not exist", CWD);
+			if (PushCurrent == true)
+				CurrentFolderPush();
+			if (!FSAPI.SetCurrentFolder(CWD)) {
+				LastError = FSAPI.LastError;
+				return false;
 			}
-			Msg.PrintWarningMod("Folder to set for current working directory is empty.", ".folders",Msg.LogLevels.Verbose);
+			Msg.PrintMod("Current folder set to: " + CWD, ".folders", Msg.LogLevels.Verbose);
+			return true;
 		}
 
 		/// <summary>
@@ -264,7 +291,7 @@ namespace Kltv.Kombine.Api {
 		public static string CurrentScriptFolder { get { 
 				if (KombineMain.CurrentRunningScript != null)
 					return KombineMain.CurrentRunningScript.ScriptPath;
-				Msg.PrintWarningMod("Script folder requested but no script folder can be fetched like no script is running.", ".folders", Msg.LogLevels.Normal);
+				Msg.PrintWarningMod("Script folder requested but no script is running.", ".folders", Msg.LogLevels.Verbose);
 				return string.Empty;
 			}
 		}
@@ -278,7 +305,7 @@ namespace Kltv.Kombine.Api {
 						return KombineMain.CurrentRunningScript.ParentScript.ScriptPath;
 					}
 				}
-				Msg.PrintWarningMod("Script folder requested but no script folder can be fetched like no script is running.", ".folders", Msg.LogLevels.Normal);
+				Msg.PrintWarningMod("Script folder requested but no script is running.", ".folders", Msg.LogLevels.Verbose);
 				return string.Empty;
 			}
 		}
@@ -342,16 +369,39 @@ namespace Kltv.Kombine.Api {
 		}
 
 		/// <summary>
-		/// Copies a folder from source to target with several options
+		/// Reporter used by Copy to show its progress line when the ShowProgress option is given.
+		/// When not set, Progress.Default is used. Assign an instance to select the renderer.
+		/// </summary>
+		public static ITaskProgress? Progress { get; set; } = null;
+
+		/// <summary>
+		/// Copies a folder from source to target with several options.
+		/// With the ShowProgress option a progress line "Copying folder: progress n/total done" is
+		/// shown through the Progress reporter: the items (files, or folders when only folders are
+		/// copied) are counted first, and every processed item advances the progress, also the ones
+		/// skipped as unchanged.
 		/// </summary>
 		/// <param name="Source">Source folder (required)</param>
 		/// <param name="Target">Destination folder (required)</param>
 		/// <param name="Options">Options to copy (optional)</param>
 		/// <param name="FileMask">File mask to be used in the copy operation (optional)</param>
-		/// <returns></returns>
+		/// <returns>True if the copy completed, false otherwise.</returns>
 		public static bool Copy(string Source, string Target,CopyOptions Options = CopyOptions.Default,string FileMask = "*.*") {
-
+			LastError = ApiError.None;
+			if (!Directory.Exists(Source))
+				return Fail(ErrorCode.NotFound, "The folder to copy does not exist", Source);
+			// Progress line only when requested, through the configured reporter or the engine default
+			ITaskProgress? reporter = Options.HasFlag(CopyOptions.ShowProgress) ? (Progress ?? Api.Progress.Default) : null;
+			bool onlyFolders = Options.HasFlag(CopyOptions.OnlyFolders);
+			int total = 0;
+			int done = 0;
 			try {
+				// The line is opened before counting, so a big tree shows activity while it is scanned
+				if (reporter != null) {
+					reporter.Start("Copying " + CopyDisplayName(Source));
+					total = CountCopyItems(Source, Options, FileMask);
+					reporter.Report(0, "0/" + total);
+				}
 				// We use a stack to push directories we may found
 				// At beggining just the initial one is added.
 				var stack = new Stack<FolderPair>();
@@ -363,7 +413,7 @@ namespace Kltv.Kombine.Api {
 					Directory.CreateDirectory(folders.Target);
 					// Copy Files if OnlyFolders is absent
 					//
-					if (Options.HasFlag(CopyOptions.OnlyFolders) == false) {
+					if (onlyFolders == false) {
 
 						// If we need to check destination files to delete absent files from source (mirror copy)
 						// we extract first the files in the target folder and compare them with source
@@ -391,24 +441,23 @@ namespace Kltv.Kombine.Api {
 						foreach (var file in source_files) {
 							// Obtain the target filename
 							string target_file = Path.Combine(folders.Target, Path.GetFileName(file));
-							// Show copy info
-							if (Options.HasFlag(CopyOptions.ShowProgress)) {
-								// Show task info
-							}
+							bool copy = true;
 							if (Options.HasFlag(CopyOptions.OnlyModifiedFiles)) {
-								// Compare files if destination exists
-								if (File.Exists(target_file)) {
-									// Check if file is different source vs target
-									if (Files.Compare(file, target_file, Files.CompareOptions.CompareTime)) {
-										// Skip, files are equal
-										continue;
-									}
-								}
+								// Compare files if destination exists: equal files are skipped
+								if (File.Exists(target_file) && Files.Compare(file, target_file, Files.CompareOptions.CompareTime))
+									copy = false;
 							}
 							// File was different or absent
-							File.Copy(file, target_file,true);
-							// Updated or added
+							if (copy)
+								File.Copy(file, target_file,true);
+							// Processed, copied or skipped
+							done++;
+							reporter?.Report(total > 0 ? done / (double)total : 1, done + "/" + total);
 						}
+					} else {
+						// Only folders are copied: the folders are the items
+						done++;
+						reporter?.Report(total > 0 ? done / (double)total : 1, done + "/" + total);
 					}
 					// Copy SubFolders if IncludeSubFolders is pressent
 					//
@@ -418,12 +467,49 @@ namespace Kltv.Kombine.Api {
 						}
 					}
 				}
+				reporter?.Finish("done");
 				return true;
 			}
 			catch (Exception ex) {
-				Msg.PrintWarningMod("Failed copying folder: " + Source + " error: " + ex.Message, ".folders",Msg.LogLevels.Verbose);
-				return false;
+				reporter?.Finish("failed", ProgressOutcome.Error);
+				return Fail(ex, Source);
 			}
+		}
+
+		/// <summary>
+		/// Counts the items Copy will process with the given options: the files matching the mask,
+		/// or the folders when only folders are copied, walking the subfolders when requested.
+		/// </summary>
+		/// <param name="source">Source folder.</param>
+		/// <param name="options">Copy options.</param>
+		/// <param name="fileMask">File mask.</param>
+		/// <returns>The number of items.</returns>
+		private static int CountCopyItems(string source, CopyOptions options, string fileMask) {
+			int count = 0;
+			var pending = new Stack<string>();
+			pending.Push(source);
+			while (pending.Count > 0) {
+				string folder = pending.Pop();
+				if (options.HasFlag(CopyOptions.OnlyFolders))
+					count++;
+				else
+					count += Directory.GetFiles(folder, fileMask).Length;
+				if (options.HasFlag(CopyOptions.IncludeSubFolders)) {
+					foreach (string sub in Directory.GetDirectories(folder))
+						pending.Push(sub);
+				}
+			}
+			return count;
+		}
+
+		/// <summary>
+		/// Name shown in the progress line of a copy: the last segment of the source folder.
+		/// </summary>
+		/// <param name="source">Source folder.</param>
+		/// <returns>The folder name, or the whole path when it has no name.</returns>
+		private static string CopyDisplayName(string source) {
+			string name = Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+			return string.IsNullOrEmpty(name) ? source : name;
 		}
 
 		#endregion
@@ -529,7 +615,7 @@ namespace Kltv.Kombine.Api {
 		/// Relative path from current working directory
 		/// Relative path from backward trace
 		/// Relative path from the tool directory
-		/// Relative path from forward trace (opt-in only, -kforward)
+		/// Relative path from forward trace (disabled by default, -kforward)
 		/// The forward trace (recursive walk of every subfolder, first match wins) is out of the
 		/// default chain: with repos that embed other repos sharing the same relative layout it can
 		/// silently bind a foreign copy of the file, and the state cache then persists the wrong bind.
@@ -539,6 +625,7 @@ namespace Kltv.Kombine.Api {
 		/// <param name="scriptDir">Directory of the script being compiled/executed. Ambient current script folder when null.</param>
 		/// <returns>Place where is found or null if any.</returns>
 		internal static string? ResolveFilename(string path, string? baseDir = null, string? scriptDir = null){
+			LastResolveReason = string.Empty;
 			string? look = null;
 
 			// Check if its an URL
@@ -600,22 +687,27 @@ namespace Kltv.Kombine.Api {
 				Msg.PrintMod("ResolveReference (ToolDirectory):" + look, ".exec.folders", Msg.LogLevels.Debug);
 				return Path.GetFullPath(look);
 			}
-			// Forward trace directories, only when explicitly requested (-kforward)
-			// When not requested we still probe on this failure path so the diagnostic can name
-			// the file that the retired behavior would have picked.
+			// Forward search of the subfolders: a feature disabled by default (-kforward / Engine.ForwardSearch).
+			// When disabled it is still probed on this failure path, so the reason can name the file it would find.
 			look = Folders.SearchForwardPath(path, scriptDir);
 			if (string.IsNullOrEmpty(look) == false){
 				if (Config.ResolveForward) {
-					Msg.PrintWarningMod("ResolveReference (ForwardDirectory, -kforward): " + path + " -> " + look, ".folders");
-					Msg.PrintWarningMod("Forward resolution is deprecated: make the reference relative to the including script.", ".folders");
+					Msg.PrintMod("ResolveReference (ForwardDirectory): " + path + " -> " + look, ".folders", Msg.LogLevels.Verbose);
 					return Path.GetFullPath(look);
 				}
-				Msg.PrintErrorMod("'" + path + "' only resolves through the retired recursive forward search (-> " + look + ").", ".folders");
-				Msg.PrintErrorMod("Fix the reference to be relative to the including script, or run with -kforward as a temporary bridge.", ".folders");
+				LastResolveReason = "'" + path + "' could not be resolved: it exists at " + look + ", reachable only through the forward search of the subfolders, which is disabled by default (enable it with -kforward or Engine.ForwardSearch, or make the reference relative to the including script)";
+				Msg.PrintMod(LastResolveReason, ".folders", Msg.LogLevels.Verbose);
 				return null;
 			}
+			LastResolveReason = "'" + path + "' could not be resolved in the including file folder, the script folder, the working folder, the parent folders or the tool folder";
+			Msg.PrintMod(LastResolveReason, ".folders", Msg.LogLevels.Verbose);
 			return null;
 		}
+
+		/// <summary>
+		/// Reason of the last failed reference resolution, for the script executor to report.
+		/// </summary>
+		internal static string LastResolveReason { get; private set; } = string.Empty;
 		#endregion
 
 	}

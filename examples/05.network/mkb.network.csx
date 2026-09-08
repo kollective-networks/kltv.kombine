@@ -89,6 +89,10 @@ int test(string[] args){
 	Report("result", "status " + status + ", " + content.Length + " chars returned",
 		status == 404 && content.Length == 0,
 		"expected an empty document with http status 404");
+	// The reason is also available as Http.LastError, ready to be shown by the script
+	Report("error", "code " + Http.LastError.Code + ": " + Http.LastError.Message,
+		Http.LastError.Code == ErrorCode.Failed,
+		"code Failed with the status in the message");
 	Msg.EndIndent();
 	Msg.RawPrint(Environment.NewLine);
 
@@ -122,6 +126,9 @@ int test(string[] args){
 	Report("result", "status " + status + ", returned " + (ok ? "true" : "false") + (left ? ", file left behind" : ", no file left"),
 		!ok && status == 404 && !left,
 		"expected a failed download with http status 404 and no file left behind");
+	Report("error", "code " + Http.LastError.Code + " (status " + status + ")",
+		Http.LastError.Code == ErrorCode.Failed,
+		"code Failed for an http error status");
 	Msg.EndIndent();
 	Msg.RawPrint(Environment.NewLine);
 
@@ -138,7 +145,10 @@ int test(string[] args){
 		paths[i] = outFolder + "/" + MultiFiles[i];
 		expectedTotal += MultiSizes[i];
 	}
+	// The downloads report through Http.Progress: dots for this batch, the default bar afterwards
+	Http.Progress = new ProgressDots();
 	ok = Http.DownloadFiles(uris, paths);
+	Http.Progress = null;
 	status = Http.LastReturnCode;
 	long writtenTotal = 0;
 	string mismatched = "";

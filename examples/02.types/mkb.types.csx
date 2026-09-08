@@ -136,8 +136,8 @@ void TestKValueEnvironment(){
 	Banner("[4/6] KValue environment");
 	// Exported values are visible to executed tools and child scripts, and can be imported back
 	KValue exported = "exported value";
-	exported.Export("KOMBINE_TYPES_TEST");
-	Check("Export / Import", KValue.Import("KOMBINE_TYPES_TEST"), "exported value");
+	Check("Export", Show(exported.Export("KOMBINE_TYPES_TEST")), "true");
+	Check("Import", KValue.Import("KOMBINE_TYPES_TEST"), "exported value");
 	// A missing variable falls back to the default value (without a default, the script aborts)
 	Check("Import default", KValue.Import("KOMBINE_TYPES_MISSING", "fallback"), "fallback");
 	EndBanner();

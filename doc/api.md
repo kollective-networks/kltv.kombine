@@ -12,7 +12,9 @@ internals are not part of the script API.
   - [KValue](#kvalue)
   - [KList](#klist)
 - [Action Arguments (Args / EntryArgs)](#action-arguments-args--entryargs)
+- [Engine settings (Engine)](#engine-settings-engine)
 - [Logging (Msg)](#logging-msg)
+- [Error reporting](#error-reporting)
 - [Files](#files)
 - [Folders](#folders)
 - [Compress](#compress)
@@ -24,7 +26,7 @@ internals are not part of the script API.
 - [Share](#share)
 - [Tool](#tool)
 - [Host](#host)
-- [ProgressBar](#progressbar)
+- [Progress](#progress)
 
 ---
 
@@ -82,9 +84,24 @@ These read-only properties are injected into every script and can be used direct
 | --- | --- |
 | `-ksdbg` | Build the script with debug information (script debugging). |
 | `-ksdbgw` | As `-ksdbg`, but wait for a debugger to attach before executing the action. |
-| `-ksrb` / `-ksrebuild` | Rebuild the script even if a compiled version is cached. |
-| `-ko:s` / `-ko:n` / `-ko:v` / `-ko:d` | Output level: silent, normal, verbose, debug. |
+| `-ksrb` / `-ksrebuild` | Rebuild the script even if a compiled version is cached. A script can force it for its children with `Engine.RebuildScripts`. |
+| `-ko:s` / `-ko:n` / `-ko:v` / `-ko:d` | Output level: silent, normal, verbose, debug. Normal shows the script output; verbose and debug add the messages of Kombine itself (see [Logging](#logging-msg)). |
 | `-kfile:<name>` | Script file to execute (default `kombine.csx`). |
+| `-kforward` | Allows the forward search of the subfolders when resolving `#load` and child script references. Disabled by default, since it can bind a foreign copy of a helper when repositories are nested. A script can toggle it for its children with `Engine.ForwardSearch`. |
+
+`mkb -h` and `mkb --help` print the help, as `mkb khelp` does.
+
+### Exit codes
+
+| Exit code | When |
+| --- | --- |
+| `0` | The action completed and returned 0, or no action was given and the help was shown. |
+| `n` | The action returned `n`: the return value of the action is the exit code of the process. |
+| `1` | The tool detected a failure: the script does not compile, the action threw an exception or aborted (`Msg.PrintAndAbort`, or any `ExitIfError` abort), the action was not found or does not return an `int`, the script file is missing, or a reserved action failed. |
+| `130` | The execution was cancelled with Ctrl+C. The running tools are killed first. |
+
+`Kombine()` returns the exit code of the child script under the same contract and, by
+default, aborts the calling script when it is not zero.
 
 ---
 
@@ -98,7 +115,7 @@ them without any class prefix.
 | `KList Glob(string pattern)` | Resolves a glob pattern to a list of files, using the current working directory as base path. |
 | `KList Glob(string folder, string pattern)` | Resolves a glob pattern using the given folder as base path. |
 | `KValue RealPath(KValue path)` | Returns the absolute path for the given path, converted to the underlying OS conventions. Empty on error. |
-| `int Kombine(string script, string action, string[]? args = null, bool exitonerror = true, bool changedir = true, bool search = true)` | Executes a child Kombine script **in the same process** and returns its exit code. If `search` is true the script is looked up through the resolution paths; if `changedir` is true the working directory is switched to the script folder while it runs; if `exitonerror` is true a non-zero result aborts the calling script. |
+| `int Kombine(string script, string action, string[]? args = null, bool exitonerror = true, bool changedir = true, bool search = true)` | Executes a child Kombine script **in the same process** and returns its exit code. If `search` is true the script is looked up through the resolution paths; if `changedir` is true the working directory is switched to the script folder while it runs; if `exitonerror` is true a non-zero result aborts the calling script. When the child cannot run at all (not found, unresolved references, compile error, missing action) it returns 1 without printing anything and `Engine.LastError` holds the reason (see [Engine settings](#engine-settings-engine)). |
 | `int Exec(string command, string[]? args = null, bool showoutput = false)` | Executes a command line tool and returns its exit code. Arguments containing spaces are quoted automatically. `showoutput` echoes the tool output to the console. |
 | `int Exec(string command, string? args = null, bool showoutput = false)` | Same as above taking the arguments as a single string. |
 | `int Shell(string command, string[]? args = null)` | Executes a command through the system shell and returns its exit code. |
@@ -137,7 +154,8 @@ value as a path or a fragment of a command line.
 | Member | Description |
 | --- | --- |
 | `KValue()` | Creates an empty value. |
-| `void Export(string name)` | Exports the value to the script environment under the given name. The environment is inherited by executed tools and child scripts. |
+| `bool Export(string name)` | Exports the value to the script environment under the given name. The environment is inherited by executed tools and child scripts. Returns false, with `KValue.LastError`, when no script is running. |
+| `static ApiError LastError` | Last failure of an `Export` call (see [Error reporting](#error-reporting)). |
 | `static KValue Import(string name, string? defvalue = null)` | Imports a value from the script environment (initialized from the system environment). If the variable is missing and no default value is given, **the script is aborted**. |
 | `KList ToArray()` | Splits the value by spaces into a list. |
 | `KList ToArray(KValue separator)` | Splits the value by the given separator. |
@@ -224,11 +242,52 @@ int build(string[] args) {
 
 ---
 
+## Engine settings (Engine)
+
+`Kltv.Kombine.Api.Engine` — engine switches a script can read and change. They mirror the
+tool parameters and apply to the scripts compiled from then on, that is, the child scripts
+run with [`Kombine()`](#global-functions-statics); the running script is already compiled.
+
+| Member | Description |
+| --- | --- |
+| `ApiError LastError` | Last failure of a child script run with `Kombine()`: script not found, unresolved references, compile error, action not found or not returning an int, exception or abort. Reset when a child runs. The engine prints nothing for a child failure: the calling script reads the return code and this reason (see [Error reporting](#error-reporting)). |
+| `bool ForwardSearch` | Allows the forward search of the subfolders when resolving `#load` and child script references. Mirrors `-kforward`. Disabled by default, since it can bind a foreign copy of a helper when repositories are nested. |
+| `bool RebuildScripts` | Forces the rebuild of the scripts compiled from now on, even if a compiled version is cached. Mirrors `-ksrb`. Needed to make a change of `ForwardSearch` effective on a cached child script, since the resolution happens at compile time. |
+
+```csharp
+bool previous = Engine.ForwardSearch;
+Engine.RebuildScripts = true;            // the child must be compiled again for the resolution to run
+Engine.ForwardSearch = true;             // forward search only for this child
+Kombine("legacy/build.csx", "build", args);
+Engine.ForwardSearch = previous;
+```
+
+A child that fails before its action runs (not found, unresolved references, compile error,
+missing action) returns 1 without printing anything: the reason is in `Engine.LastError`, so
+the calling script owns the message.
+
+```csharp
+if (Kombine("tools/pack.csx", "pack", args, false) != 0 && Engine.LastError.IsError)
+    Msg.PrintError("pack.csx failed: " + Engine.LastError.Message);
+```
+
+The [`#load` resolution example](../examples/08.loadresolution/mkb.loadresolution.csx)
+runs its checks in both modes this way.
+
+---
+
 ## Logging (Msg)
 
 `Kltv.Kombine.Api.Msg` — console output for scripts. All print methods accept an
 optional `Msg.LogLevels` argument (default `Normal`); the message is only shown when the
 current output level (see `-ko:` parameters) is equal or higher.
+
+> [!IMPORTANT]
+> The output level is for Kombine, not for the script. `Normal` shows what the script
+> prints and nothing else; `Verbose` and `Debug` add the internal messages of the API and
+> the engine, to diagnose Kombine itself. A failed API call reports the failure to the
+> script through its return value and prints nothing at normal level: the script owns its
+> output and prints its own messages with `Msg`.
 
 **`Msg.LogLevels`:** `Silent`, `Normal`, `Verbose`, `Debug`, `Undefined`.
 
@@ -257,14 +316,79 @@ else
 
 ---
 
+## Error reporting
+
+A failed API call returns `false` (or empty, `-1`, `0`, `null`) and prints nothing at
+normal level. The reason is available in the `LastError` of the facility, so the script
+can explain the failure with its own message:
+
+```csharp
+if (!Files.Copy(src, dst)) {
+	Msg.PrintError("Cannot copy " + src + ": " + Files.LastError.Message);
+	return 1;
+}
+
+if (!Compress.Tar.Decompress(archive, folder)) {
+	if (Compress.Tar.LastError.Code == ErrorCode.NotFound)
+		Msg.PrintError("Archive not found: " + archive);
+	else
+		Msg.PrintError("Extraction failed: " + Compress.Tar.LastError);   // "Failed: 2 entries refused (path traversal) (x.tar)"
+	return 1;
+}
+
+if (!Files.Compare(a, b, Files.CompareOptions.CompareContents)) {
+	if (Files.LastError.Code == ErrorCode.Different)
+		Msg.Print("The files differ: " + Files.LastError.Message);
+	else
+		Msg.PrintError("Cannot compare: " + Files.LastError.Message);   // a file is missing
+}
+```
+
+**`Kltv.Kombine.Api.ApiError`:**
+
+| Member | Description |
+| --- | --- |
+| `ErrorCode Code` | Kind of failure (see below). `None` when the last call succeeded. |
+| `string Message` | Reason of the failure, ready to be shown. |
+| `string Source` | Item involved: a path, an url, a key or a name. Empty when it does not apply. |
+| `bool IsError` | True when `Code` is not `None`. |
+| `string ToString()` | `Code: Message (Source)`. |
+
+**`ErrorCode`:**
+
+| Code | Meaning |
+| --- | --- |
+| `None` | No error, the last call succeeded. |
+| `NotFound` | File, folder, archive, key or object not found. |
+| `AlreadyExists` | The target already exists, or the key or object is already registered. |
+| `AccessDenied` | Permissions or a locked file. |
+| `InvalidArgument` | Empty name, mismatched lists, unsupported combination, no script running. |
+| `NotSupported` | The operation is not available, for example xz compression. |
+| `IoError` | Any other file system or archive failure (a folder that is not empty, a corrupt archive). |
+| `NetworkError` | Transport failure without an HTTP status. |
+| `Different` | The compared files differ (`Files.Compare`). |
+| `Failed` | The operation ran and reported a failure: a refused entry, an HTTP error status, a tool exit code. |
+
+The facilities with a `LastError` are `Files`, `Folders`, `Compress.Zip`, `Compress.Tar`,
+`Share`, `Http` (next to `LastReturnCode`) and `KValue` (for `Export`). It is reset at
+the start of every call of that facility and set when the call fails, so read it right
+after the failed call. Queries that answer a question never set it: `Files.Exists`,
+`Folders.Exists` and the folder searches return their answer. The `ExitIfError`
+parameters keep aborting the script, with the reason visible at any log level.
+
+The engine logs the same reason at verbose level, for its own diagnosis.
+
+---
+
 ## Files
 
 `Kltv.Kombine.Api.Files` — file operations. Methods take `KValue` filenames, so plain
-strings work as well. Failures are reported in the return value (and logged in verbose
-mode) instead of throwing.
+strings work as well. Failures are reported in the return value and in `LastError` (see
+[Error reporting](#error-reporting)) instead of throwing, and logged in verbose mode.
 
 | Method | Description |
 | --- | --- |
+| `ApiError LastError` | Last failure of a `Files` call. `Exists` never sets it. |
 | `bool Exists(KValue Filename)` | Returns true if the file exists. |
 | `KValue ReadTextFile(KValue Filename, bool ExitIfError = false)` | Reads a text file into a `KValue`. With `ExitIfError` the script aborts if the file is missing or unreadable. |
 | `bool WriteTextFile(KValue Filename, KValue Contents, bool ExitIfError = false)` | Writes a text file with the given contents. |
@@ -274,7 +398,7 @@ mode) instead of throwing.
 | `bool Delete(KValue Filename)` | Deletes a file. Returns false if it does not exist. |
 | `long GetFileSize(KValue Filename)` | Size of the file in bytes, or `-1` if invalid. |
 | `bool Copy(KValue source, KValue destination, bool newerOnly = true)` | Copies a file, overwriting the destination if it exists. With `newerOnly` (default) the copy is skipped — and `true` returned — when the destination is newer than the source. |
-| `bool Compare(KValue first, KValue second, CompareOptions Options = CompareSize)` | Compares two files. Size is always compared; add `CompareTime` and/or `CompareContents` for stricter checks. Returns true if the files are equal. |
+| `bool Compare(KValue first, KValue second, CompareOptions Options = CompareSize)` | Compares two files. Size is always compared; add `CompareTime` and/or `CompareContents` for stricter checks. Returns true if the files are equal. On false, `LastError` is `Different` with what differed in the message, or `NotFound` naming the missing file. |
 
 **`Files.CompareOptions`:** `CompareSize` (default), `CompareTime`, `CompareContents`.
 
@@ -293,6 +417,8 @@ well-known folders of a script run.
 | `string CurrentScriptFolder` | Folder of the currently running script. |
 | `string ParentScriptFolder` | Folder of the parent script, or empty if none. |
 | `string CurrentToolFolder` | Folder where the `mkb` binary lives. |
+| `ITaskProgress? Progress` | Reporter used by `Copy` when the `ShowProgress` option is given (see [Progress](#progress)). Not set by default: `Progress.Default` is used. Assign a renderer to select it. |
+| `ApiError LastError` | Last failure of a `Folders` call (see [Error reporting](#error-reporting)). `Exists` and the searches never set it. |
 
 ### Methods
 
@@ -304,16 +430,17 @@ well-known folders of a script run.
 | `bool Delete(KValue folder, bool recurse = false)` / `Delete(string folder, bool recurse = false)` | Deletes a folder, optionally including its subfolders. |
 | `bool Delete(KList folders, bool recurse = false)` | Deletes a list of folders. |
 | `bool Move(KValue src, KValue dst)` | Moves a folder. |
-| `bool Copy(string Source, string Target, CopyOptions Options = Default, string FileMask = "*.*")` | Copies a folder with options (see below), optionally filtering files with a mask. |
-| `void SetCurrentFolder(string CWD, bool PushCurrent = true)` | Sets the working folder; by default the previous one is pushed onto the folder stack. |
+| `bool Copy(string Source, string Target, CopyOptions Options = Default, string FileMask = "*.*")` | Copies a folder with options (see below), optionally filtering files with a mask. With `ShowProgress` it prints `Copying <folder>: <progress> n/total done` (or `failed`) through `Folders.Progress`: the items are counted first, and every processed file advances the progress, also the ones skipped as unchanged. |
+| `bool SetCurrentFolder(string CWD, bool PushCurrent = true)` | Sets the working folder; by default the previous one is pushed onto the folder stack. Returns false, with `LastError`, when the folder is empty or does not exist. |
 | `string GetCurrentFolder()` | Returns the current working folder. |
 | `void CurrentFolderPush()` | Pushes the current working folder onto the stack. |
-| `void CurrentFolderPop()` | Pops a folder from the stack and makes it current. |
+| `bool CurrentFolderPop()` | Pops a folder from the stack and makes it current. Returns false when the stack is empty or the folder is gone. |
 | `KValue SearchBackPath(string filename)` | Searches for a filename walking **up** from the script folder (or working folder). Returns the full path or empty. |
 | `string SearchForwardPath(string filename)` | Searches for a filename in the script folder (or working folder) and its subfolders. Returns the full path or empty. |
 
 **`Folders.CopyOptions`** (combinable flags): `Default`, `IncludeSubFolders`,
-`OnlyModifiedFiles`, `ShowProgress`, `OnlyFolders`, `DeleteMissingFiles` (mirror copy).
+`OnlyModifiedFiles`, `ShowProgress` (progress line through `Folders.Progress`), `OnlyFolders`,
+`DeleteMissingFiles` (mirror copy).
 
 ```csharp
 Folders.SetCurrentFolder(CurrentScriptFolder + "/src/", true);
@@ -321,14 +448,20 @@ Exec("dotnet", "build -c debug", true);
 Folders.CurrentFolderPop();
 
 Folders.Copy("assets", "out/assets",
-	Folders.CopyOptions.IncludeSubFolders | Folders.CopyOptions.OnlyModifiedFiles);
+	Folders.CopyOptions.IncludeSubFolders | Folders.CopyOptions.OnlyModifiedFiles | Folders.CopyOptions.ShowProgress);
+// Copying assets: [####################] 100% 48/48 done
 ```
 
 ---
 
 ## Compress
 
-`Kltv.Kombine.Api.Compress` — compression helpers, split into `Zip` and `Tar`.
+`Kltv.Kombine.Api.Compress` — compression helpers, split into `Zip` and `Tar`. Every
+method returns false on failure with the reason in `Compress.Zip.LastError` or
+`Compress.Tar.LastError` (see [Error reporting](#error-reporting)): `NotFound` for a
+missing source or archive, `AlreadyExists` for an existing output with overwrite
+disabled, `NotSupported`, `IoError` or `Failed`. A failed compression leaves no partial
+archive behind.
 
 ### Compress.Zip
 
@@ -343,15 +476,15 @@ Folders.Copy("assets", "out/assets",
 
 **`Tar.TarCompressionType`** (for compression): `None` (plain `.tar`), `Gzip`
 (`.tar.gz`, default), `Bzip2` (`.tar.bz2`), `Lzma` (`.tar.lz`). `Lzma2` (`.tar.xz`) is
-**extraction only**: requesting it for compression aborts the script, but `Decompress`
-auto-detects the archive format and extracts `.tar.xz` files fine.
+**extraction only**: requesting it for compression returns false with `NotSupported`, but
+`Decompress` auto-detects the archive format and extracts `.tar.xz` files fine.
 
 | Method | Description |
 | --- | --- |
 | `bool CompressFolder(string folderPath, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = Gzip)` | Compresses a folder into a tar file. |
 | `bool CompressFolders(string[] folderPaths, string outputFile, bool overwrite = true, bool includeFolder = true, TarCompressionType compressionType = Gzip)` | Compresses a list of folders into a tar file. |
 | `bool CompressFile(string filePath, string outputFile, bool overwrite = true, TarCompressionType compressionType = Gzip)` | Compresses a single file into a tar file. |
-| `bool Decompress(string tarPath, string outputFolder, bool overwrite = true)` | Decompresses a tar file into a folder. The format is auto-detected (`.tar`, `.tar.gz`, `.tar.bz2`, `.tar.lz`, `.tar.xz`); symbolic links are skipped. |
+| `bool Decompress(string tarPath, string outputFolder, bool overwrite = true)` | Decompresses a tar file into a folder, created if needed. The format is auto-detected (`.tar`, `.tar.gz`, `.tar.bz2`, `.tar.lz`, `.tar.xz`); symbolic links are skipped. Entries that would escape the destination folder are refused: the rest are still extracted, but the call returns false with `Failed` saying how many entries were refused or not extracted. |
 
 ```csharp
 Compress.Zip.CompressFolder("out/bin/win-x64/release/", "out/pkg/app.win.zip", true, false);
@@ -371,8 +504,11 @@ headers to inject in the request.
 | --- | --- |
 | `int LastReturnCode` | HTTP status code of the last transaction, including failed downloads (`-1` on transport error). |
 | `string LastResponse` | Response body of the last `GetDocument` / `PostDocument` transaction. |
-| `bool DownloadFile(string uri, string path, Dictionary<string,string>? headers = null, bool showprogress = true)` | Downloads a file. The destination folder is created if needed; redirects are followed. `showprogress` displays a progress bar. Returns `false` on any network or HTTP error (the status is stored in `LastReturnCode`) without aborting the script, and no partial file is left behind — so the script can retry another URL or report its own message. |
-| `bool DownloadFiles(string[] uris, string[] paths, Dictionary<string,string>? headers = null, bool showprogress = true)` | Downloads multiple files in parallel. Both arrays must have the same length. Returns `false` if any download failed. |
+| `ApiError LastError` | Last failure (see [Error reporting](#error-reporting)): `Failed` with the status in the message for an HTTP error status, `NetworkError` for a transport failure. |
+| `ITaskProgress? Progress` | Reporter used by the downloads to show their progress line (see [Progress](#progress)). Not set by default: `Progress.Default` is used. Assign a `ProgressBar`, `ProgressDots`, `ProgressPlain` or a custom reporter to select the renderer. |
+| `bool ShowProgress` | If the downloads show their progress line, `true` by default. When `false` the downloads print nothing. Default of the `showprogress` parameter below. |
+| `bool DownloadFile(string uri, string path, Dictionary<string,string>? headers = null, bool? showprogress = null)` | Downloads a file. The destination folder is created if needed; redirects are followed. The progress line reads `Downloading <file>: <progress> done`, or `failed`; `showprogress` overrides `ShowProgress` for this call. Returns `false` on any network or HTTP error (the status is stored in `LastReturnCode`) without aborting the script, and no partial file is left behind — so the script can retry another URL or report its own message. |
+| `bool DownloadFiles(string[] uris, string[] paths, Dictionary<string,string>? headers = null, bool? showprogress = null)` | Downloads multiple files in parallel with one progress line for the batch (`Downloading N files: ...`). Both arrays must have the same length. Returns `false` if any download failed. |
 | `string GetDocument(string uri, Dictionary<string,string>? headers = null)` | GETs a document and returns its body, or empty on error. |
 | `bool PostDocument(string uri, string content, Dictionary<string,string>? headers = null, bool usePatch = false)` | POSTs (or PATCHes with `usePatch`) a document. Content type defaults to `application/json`; override it with a `Content-Type` header. The response body is available in `LastResponse`. |
 | `bool PostFile(string uri, string filePath, Dictionary<string,string>? headers = null, bool usePatch = false)` | POSTs (or PATCHes) a file as `application/octet-stream`. |
@@ -456,6 +592,9 @@ if (doc != null) {
 
 `Kltv.Kombine.Api.Share` — exchanges data between scripts (for example between a parent
 script and the child scripts executed with [`Kombine()`](#global-functions-statics)).
+Failures are reported in the return value and in `Share.LastError` (see
+[Error reporting](#error-reporting)): `AlreadyExists` for a duplicate key or object,
+`NotFound` for a missing one, `InvalidArgument` when no script is running.
 
 The **registry** stores string values grouped by name and key, and is shared across all
 scripts in the run regardless of their relationship. The **shared object pool** stores
@@ -562,22 +701,142 @@ if (result.Status == Tool.ToolStatus.Failed)
 
 ---
 
-## ProgressBar
+## Progress
 
-`Kltv.Kombine.Api.ProgressBar` — an ASCII console progress bar (the one used by the
-Http downloads). Dispose it to restore the console.
+`Kltv.Kombine.Api.ITaskProgress` — console progress reporting for long operations. A
+reporter owns one console line that reads, at the current indentation of the message
+system:
+
+```
+Downloading kombine.win.zip: [##########----------]  50% /        while running
+Downloading kombine.win.zip: [####################] 100% done     finished; the line stays on screen
+```
+
+The engine uses it for the Http downloads and the folder copies. Scripts and extensions
+use it for their own operations in the same way.
+
+### Using a reporter
+
+1. Create the renderer you want: `new ProgressBar()`, `new ProgressDots()` or `new ProgressPlain()`.
+2. `Start("message")` opens the line and prints `message: `.
+3. `Report(value, status)` as the work advances: `value` goes from 0.0 to 1.0, and the
+   optional `status` (for example `"12/48"`) is shown after the progress.
+4. `Finish("message", outcome)` prints the end message in the colour of the outcome and
+   closes the line.
+
+```csharp
+ITaskProgress progress = new ProgressBar();
+progress.Start("Packing assets");
+for (int i = 0; i < files.Count(); i++) {
+	Pack(files[i]);
+	progress.Report((i + 1) / (double)files.Count(), $"{i + 1}/{files.Count()}");
+}
+progress.Finish("done");          // Packing assets: [####################] 100% 48/48 done
+```
 
 | Member | Description |
 | --- | --- |
-| `ProgressBar()` | Creates and shows the progress bar. |
-| `void Report(double value)` | Updates the progress. `value` goes from 0.0 to 1.0. |
-| `void Dispose()` | Removes the progress bar from the console. |
+| `void Start(string message)` | Opens the line printing `message: ` at the current indentation. |
+| `void Report(double value, string? status = null)` | Reports the progress (0.0 to 1.0) with an optional status text shown after it. |
+| `void Finish(string message = "", ProgressOutcome outcome = Success)` | Renders the final state, prints the end message coloured by the outcome and closes the line. An empty message closes the line without message. |
+| `void Dispose()` | Closes the line if the operation was not finished, keeping the last rendering. The reporter stays usable. |
+
+**Outcomes** (`ProgressOutcome`): `Success` prints the message in green and snaps the
+progress to 100%; `Warning` (yellow) and `Error` (red) keep the last reported progress.
 
 ```csharp
-using (var bar = new ProgressBar()) {
-	for (int i = 0; i <= 100; i++) {
-		bar.Report(i / 100.0);
-		// ... work ...
+progress.Finish("done with 2 warnings", ProgressOutcome.Warning);
+progress.Finish("failed", ProgressOutcome.Error);
+```
+
+**Unknown size:** do not call `Report`. The bar shows a spinner alone while the operation
+runs and the line ends with the message only.
+
+```csharp
+progress.Start("Waiting for the server");
+WaitForServer();
+progress.Finish("done");          // Waiting for the server: done
+```
+
+**Rules:**
+
+- A reporter is reusable: `Finish` resets it and the next `Start` opens a new line, so one
+  instance serves every operation of a facility, one after another.
+- One operation at a time per instance. Do not print other messages while a line is open;
+  finish it first.
+- Nothing is printed at the `Silent` log level.
+- When the output is redirected (a pipe, a log) the bar prints only the start and end
+  messages, since nobody can see it. The dots print normally, they never move the cursor.
+
+### Renderers
+
+| Class | Looks like | Use it when |
+| --- | --- | --- |
+| `ProgressBar` | `[##########----------]  50% 12/48 /` | The output is a console. Spinner alone while nothing was reported. |
+| `ProgressDots` | `.......... 48/48` (one dot per 10%, the status only at the end) | The output goes to a log and a trace of the progress is still wanted. |
+| `ProgressPlain` | nothing between the messages: `Packing assets: done` | Only the messages are wanted. It is the default when the output is redirected. |
+
+### Selecting the reporter of a facility
+
+Every facility that reports progress exposes a `Progress` member of type `ITaskProgress`.
+The facility uses that member and nothing else: assign it with the renderer you want.
+Until it is assigned, the facility uses `Progress.Default`, which is a `ProgressBar`, or a
+`ProgressPlain` when the output is redirected. Assign `Progress.Default` to change every
+facility left unconfigured at once.
+
+| Facility | Member | Silence switch |
+| --- | --- | --- |
+| Http downloads | `Http.Progress` | `Http.ShowProgress = false` (or the `showprogress` parameter of the call) prints nothing. |
+| Folder copies | `Folders.Progress` | The `CopyOptions.ShowProgress` flag of `Folders.Copy` enables the line. |
+| Extensions | their own `Progress` member | as documented by each extension |
+
+```csharp
+Http.Progress = new ProgressDots();        // downloads report with dots from now on
+Folders.Progress = new ProgressBar();      // folder copies keep the bar
+Progress.Default = new ProgressPlain();    // anything else prints only the messages
+Http.ShowProgress = false;                 // downloads print nothing at all
+```
+
+### Styling
+
+Every renderer has a `ConsoleColor? Color` property for the colour of the progress
+rendering; null keeps the console colour, and the end message always takes the colour of
+its outcome. `ProgressBar` adds `Width` (20 blocks by default), `FilledChar` (`#`) and
+`EmptyChar` (`-`):
+
+```csharp
+Http.Progress = new ProgressBar { FilledChar = '█', EmptyChar = '·', Color = ConsoleColor.Green };
+Folders.Progress = new ProgressBar { Width = 10, FilledChar = '=', EmptyChar = ' ' };
+Progress.Default = new ProgressDots { Color = ConsoleColor.Green };
+```
+
+Block glyphs need a console font that has them. The bar is never drawn on redirected
+output, so logs are not affected.
+
+### Writing a renderer
+
+Derive from `ProgressBase`, which implements the contract, the animation timer, the
+visibility rules and the redraw. Provide the text drawn after the prefix and two
+properties:
+
+| Member | Description |
+| --- | --- |
+| `string Render(double value, string? status, bool reported, bool final, int frame)` | The text shown after `message: `. It replaces the previous text; only the difference is written to the console. `reported` is false while nothing was reported, `final` is true for the last frame before the end message, `frame` counts the redraws for animations. |
+| `bool Animated` | True to be redrawn by a timer at 8 frames per second, false to be drawn on every report. |
+| `bool RedirectSafe` | True when the rendering only appends text (no cursor movement) and can be shown on redirected output. |
+| `void OnStart()` | Optional. Called when an operation starts, to reset the renderer state. |
+
+```csharp
+// Shows the percentage only: Packing assets: 50% ... Packing assets: 100% done
+public sealed class ProgressPercent : ProgressBase {
+	protected override bool Animated { get { return false; } }
+	protected override bool RedirectSafe { get { return false; } }
+	protected override string Render(double value, string? status, bool reported, bool final, int frame) {
+		return reported ? ((int)(value * 100)).ToString() + "%" : string.Empty;
 	}
 }
 ```
+
+The renderer is usable everywhere a reporter is expected: `Http.Progress = new ProgressPercent();`.
+The example [examples/00.base/mkb.progress.csx](../examples/00.base/mkb.progress.csx)
+shows every renderer, the outcomes, the styles and the facility configuration.

@@ -100,11 +100,14 @@ namespace Kltv.Kombine {
 							return references.ToImmutable();
 						}
 					} catch (Exception ex) {
-						Msg.PrintWarningMod("Failed loading the assembly: " + ex.Message, ".exec.script.assemblyresolver");
+						Msg.PrintWarningMod("Failed loading the assembly: " + ex.Message, ".exec.script.assemblyresolver", Msg.LogLevels.Verbose);
 					}
-					Msg.PrintWarningMod("A referenced assembly '" + reference + "' could not be found.", ".exec.script.assemblyresolver");
+					// The reason is collected for the failure report of the script; the compile error that follows is its consequence
+					KombineMain.CurrentRunningScript?.ResolveErrors.Add("#r '" + reference + "' could not be found");
+					Msg.PrintWarningMod("A referenced assembly '" + reference + "' could not be found.", ".exec.script.assemblyresolver", Msg.LogLevels.Verbose);
 					return ImmutableArray<PortableExecutableReference>.Empty;
 				}
+				KombineMain.CurrentRunningScript?.ResolveErrors.Add("#r '" + reference + "' is not among the loaded assemblies and loading assemblies is disabled");
 				Msg.PrintWarningMod("A referenced assembly '" + reference + "' will not be loaded. Load is disabled.", ".exec.script.assemblyresolver", Msg.LogLevels.Verbose);
 				return ImmutableArray<PortableExecutableReference>.Empty;
 			}

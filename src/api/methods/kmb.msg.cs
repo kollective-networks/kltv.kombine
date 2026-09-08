@@ -119,7 +119,7 @@ namespace Kltv.Kombine.Api
 		/// <summary>
 		/// 
 		/// </summary>
-		internal static LogLevels LogLevel { get; set; } = LogLevels.Normal;
+		public static LogLevels LogLevel { get; internal set; } = LogLevels.Normal;
 
 
 		#region Private Elements

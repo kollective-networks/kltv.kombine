@@ -71,9 +71,9 @@ int extensions(string[] args){
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: clang");
+	Kombine("06.extensions/00.clang/mkb.ext.clang.csx", "test", args);
 	Kombine("06.extensions/00.clang/mkb.ext.clang.csx", "build", args);
-	Kombine("06.extensions/00.clang/mkb.ext.clang.csx", "clean", args);
-	Kombine("06.extensions/00.clang/mkb.ext.clang.csx", "help", args);
+	Kombine("06.extensions/00.clang/mkb.ext.clang.csx", "cleanall", args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: clang doc");
@@ -87,12 +87,14 @@ int extensions(string[] args){
 
 	Msg.Print("");
 	Msg.Print("Testing: Bin2cpp");	
+	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "test", args);
 	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "build", args);
 	Kombine("06.extensions/04.bin2cpp/mkb.ext.bin2cpp.csx", "clean", args);
 
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: Bin2obj");
+	Kombine("06.extensions/05.bin2obj/mkb.ext.bin2obj.csx", "test", args);
 	Kombine("06.extensions/05.bin2obj/mkb.ext.bin2obj.csx", "build", args);
 	Kombine("06.extensions/05.bin2obj/mkb.ext.bin2obj.csx", "clean", args);
 	Msg.Print("----------------------------------------------------------");

@@ -204,6 +204,18 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 		/// a child script hands it to the calling script through Engine.LastError and its return code,
 		/// logging it at verbose level only. A multi line message is printed one line per row.
 		/// </summary>
+		/// <summary>
+		/// The reason of an aborted script for Engine.LastError: the message given to Msg.PrintAndAbort,
+		/// when there was one, after the generic text.
+		/// </summary>
+		private static string AbortReason(Exception ex) {
+			string message = ex.Message.Trim();
+			// An exception without message reports the type name: nothing worth adding
+			if (message.Length == 0 || message == typeof(ScriptAbortException).FullName || message.StartsWith("Exception of type"))
+				return "Script aborted execution";
+			return "Script aborted execution: " + message.Split('\n')[0].TrimEnd('\r');
+		}
+
 		/// <param name="code">Kind of failure.</param>
 		/// <param name="message">Reason, possibly several lines.</param>
 		private void ReportFailure(ErrorCode code, string message) {
@@ -360,13 +372,13 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				// but do not stop the kombine process.
 				//
 				if (ex is ScriptAbortException){
-					ReportFailure(ErrorCode.Failed, "Script aborted execution");
+					ReportFailure(ErrorCode.Failed, AbortReason(ex));
 					return Constants.ExitCodeFailure;
 				}
 				if (ex.InnerException != null) {
 					if (ex.InnerException is ScriptAbortException){
-						// The abort message was already printed by the script
-						Engine.LastError = new ApiError(ErrorCode.Failed, "Script aborted execution", Scriptfile ?? string.Empty);
+						// The abort message was already printed by the script; it is kept as the reason
+						Engine.LastError = new ApiError(ErrorCode.Failed, AbortReason(ex.InnerException), Scriptfile ?? string.Empty);
 						return Constants.ExitCodeFailure;
 					}
 					ReportFailure(ErrorCode.Failed, "Script exception: " + ex.InnerException.Message);

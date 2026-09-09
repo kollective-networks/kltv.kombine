@@ -1,239 +1,526 @@
+#pragma kombine requires 1.6
 /*---------------------------------------------------------------------------------------------------------
 
 	Kombine Bin2cpp Extension
 
-	It generates one or more .cpp files with the content of the input file as a byte array, so it 
-	can be included in a C++ project.
-
 	(C) Kollective Networks 2026
+
+	Generates C++ sources embedding binary files as byte arrays, one source per file or one source
+	for all of them, so assets can be compiled into a C++ project. Every public member is documented
+	in place; this header is the overview.
+
+	Verbs. Generate(bin, cpp) with two lists makes one source per binary; Generate(bin, cpp) with one
+	output makes a single source holding every binary. Both return true when every output is in
+	place and false otherwise, with the reason in LastError (NotFound for a missing binary,
+	InvalidArgument for mismatched lists or duplicate names, Failed for a file that could not be
+	written) and what was done in LastGenerate: every entry with its source, output, symbol and
+	status (UpToDate, Generated, Failed, Skipped). Symbols holds the friendly name and the symbol of
+	every input of the last call, generated or not, for a script that writes a header declaring them.
+
+	Up to date checks. An output is generated again when it or its record is missing, when what
+	generates it changed (the layout version of this extension, the symbol and friendly names, the
+	list of inputs of a single output) or when the content hash of an input differs. Dates are never
+	compared: a file touched without an edit generates nothing, an edit with the date kept still
+	generates. The record lives next to the output (<output>.kdep). An output is written to a
+	temporary file and moved into place once complete, so a failure leaves the previous output as it
+	was.
+
+	Output. Output decides what reaches the console: Silent (nothing), Progress (one progress line
+	per call through Progress, the default) or Detailed (one line per file, as the previous version
+	printed). AbortOnFailure, true by default, makes a failing call print its reason and abort the
+	script instead of returning false.
+
+	The symbol of an input derives from its path exactly as given, so a script should pass its
+	binaries through relative paths and keep them stable; a path given differently is a different
+	symbol and the output is generated again with it.
 
 ---------------------------------------------------------------------------------------------------------*/
 
-// Remember, this is just used for intellisense, nothing else
-#r "../out/bin/win-x64/debug/mkb.dll"
+using System;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text.Json.Nodes;
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;
-using static Kltv.Kombine.Api.Tool;
-using System.Collections.Generic;
+
+if (MkbHexVersion() < 0x0106)
+	Msg.PrintAndAbort("The bin2cpp extension requires Kombine 1.6 or newer (running " + MkbVersion() + ")");
 
 /// <summary>
-/// Provides functionality to generate C++ source files from binary input files.
+/// Generates C++ sources embedding binary files as byte arrays. See the header of the file for the
+/// overview.
 /// </summary>
-/// <remarks>The Bin2cpp class offers methods to automate the conversion of binary files into corresponding C++
-/// source files, typically for embedding binary data into C++ projects. It includes utilities to determine whether
-/// files require processing based on their modification times and existence. This class is intended for use in build
-/// processes or tooling scenarios where binary resources need to be represented as C++ arrays.
-/// </remarks>
 public class Bin2cpp {
 
 	/// <summary>
-	/// Holds all the symbols generated during the process, with the key being the symbol name 
-	/// and the value being the variable name. This can be used for 
-	/// for referencing the generated symbols in other parts of the build process.
-	/// 
-	/// As example, generate an additional header file declaring the symbols
+	/// What reaches the console while the files are generated.
+	/// </summary>
+	public enum OutputMode {
+		/// <summary>Nothing at all: the script reads LastGenerate and LastError.</summary>
+		Silent,
+		/// <summary>One progress line per call through Progress, ended with the result. The default.</summary>
+		Progress,
+		/// <summary>One line per file ("Bin2cpp: Processing x: Generated successfully."), as the previous version printed.</summary>
+		Detailed
+	}
+
+	/// <summary>
+	/// The outcome of one entry of a call.
+	/// </summary>
+	public enum EntryStatus {
+		/// <summary>Nothing to do: the output exists and neither its inputs nor what generates it changed.</summary>
+		UpToDate,
+		/// <summary>Written.</summary>
+		Generated,
+		/// <summary>Not written: the reason is in the message of the entry and in LastError.</summary>
+		Failed,
+		/// <summary>Not attempted because an earlier entry failed with the abort in effect.</summary>
+		Skipped
+	}
+
+	/// <summary>
+	/// One input of a call and what happened to its output.
+	/// </summary>
+	public class Entry {
+		/// <summary>The binary file as given.</summary>
+		public string Source { get; internal set; } = string.Empty;
+		/// <summary>The output written for it (the single output when one source holds every binary).</summary>
+		public string Output { get; internal set; } = string.Empty;
+		/// <summary>The symbol of the byte array; "_size" appended names its length.</summary>
+		public string Symbol { get; internal set; } = string.Empty;
+		/// <summary>The friendly name, the key of Symbols.</summary>
+		public string FriendlyName { get; internal set; } = string.Empty;
+		/// <summary>What happened to the output.</summary>
+		public EntryStatus Status { get; internal set; } = EntryStatus.UpToDate;
+		/// <summary>The reason of a failure, empty otherwise.</summary>
+		public string Message { get; internal set; } = string.Empty;
+	}
+
+	/// <summary>
+	/// What a Generate call did, in LastGenerate.
+	/// </summary>
+	public class Result {
+		/// <summary>Every input of the call, in order.</summary>
+		public List<Entry> Entries { get; internal set; } = new List<Entry>();
+		/// <summary>Outputs written.</summary>
+		public int Generated { get; internal set; } = 0;
+		/// <summary>Outputs that were up to date.</summary>
+		public int UpToDate { get; internal set; } = 0;
+		/// <summary>Outputs that could not be written.</summary>
+		public int Failed { get; internal set; } = 0;
+		/// <summary>True when the call made one source for every binary.</summary>
+		public bool Single { get; internal set; } = false;
+	}
+
+	/// <summary>
+	/// The symbols of the last call: the friendly name of every input (its path with dots, lower
+	/// case) and the symbol of its byte array, generated or not, so a script can write a header
+	/// declaring them.
 	/// </summary>
 	public Dictionary<string, string> Symbols { get; private set; } = new Dictionary<string, string>();
 
+	/// <summary>What reaches the console. Default Progress.</summary>
+	public OutputMode Output { get; set; } = OutputMode.Progress;
+
+	/// <summary>The reporter of the progress line: a ProgressBar, ProgressDots or ProgressPlain. Null, the default, takes Progress.Default of the engine.</summary>
+	public ITaskProgress? Progress { get; set; } = null;
+
+	/// <summary>True, the default, makes a failing call print its reason and abort the script; false returns false with the reason in LastError.</summary>
+	public bool AbortOnFailure { get; set; } = true;
+
+	/// <summary>The start message of the progress line. Empty, the default, uses "Generating N files" or "Generating <output>".</summary>
+	public string TaskLabel { get; set; } = string.Empty;
+
+	/// <summary>The reason of the last failure: NotFound, InvalidArgument or Failed, and the message. Reset by every call.</summary>
+	public ApiError LastError { get; private set; } = ApiError.None;
+
+	/// <summary>What the last call did. Null before the first call.</summary>
+	public Result? LastGenerate { get; private set; } = null;
 
 	/// <summary>
-	/// Generates all the cpp files to the output files.
+	/// The version of the generated layout, part of what generates every output: bumped when the
+	/// generated text changes, so outputs of an older version are generated again once.
 	/// </summary>
-	/// <param name="bin">List of input binary files</param>
-	/// <param name="cpp">List of output cpp files</param>
-	/// <returns>true if everything fine. False otherwise.</returns>
-	public bool Generate(KList bin,KList cpp) {
-		// Clear the symbol table before processing
-		Symbols.Clear();
-		// First compare if the number of input files matches the number of output files
-		if (bin.Count() != cpp.Count()) {
-			Msg.PrintError("Bin2cpp: The number of input binary files must match the number of output cpp files.");
+	private const int FormatVersion = 2;
+
+	// --------------------------------------------------------------------------------------------
+	// Verbs
+	// --------------------------------------------------------------------------------------------
+
+	/// <summary>
+	/// Generates one C++ source per binary file, for the outputs that are missing or out of date.
+	/// </summary>
+	/// <param name="bin">The binary files. Every one must exist (NotFound otherwise).</param>
+	/// <param name="cpp">The sources to write, in the same order and number (InvalidArgument otherwise).</param>
+	/// <returns>True when every output is in place; false with the reason in LastError. The detail is in LastGenerate.</returns>
+	public bool Generate(KList bin, KList cpp) {
+		Begin();
+		Result result = new Result();
+		LastGenerate = result;
+		if (bin.Count() != cpp.Count())
+			return Fail(ErrorCode.InvalidArgument, "the number of binary files must match the number of output files (" + bin.Count() + " and " + cpp.Count() + ")", "Generate");
+		if (!Prepare(bin, cpp, result))
 			return false;
-		}
-		// Create the output folder(s)
-		KList folders = cpp.AsFolders();
-		Folders.Create(folders);
-		// Now we can generate the cpp files only for the ones that are missing or outdated
-		for (int i = 0; i < bin.Count(); i++) {
-			string binFile = bin[i];
-			string cppFile = cpp[i];
-			Msg.PrintTask($"Bin2cpp: Processing {binFile}:");
-			// We generate a variable name and a friendly name for the file,
-			// and we store it in the symbol table for later use
-			// because we want to have the symbols available for all files, even the ones that are not processed
-			string varName = GetVarName(binFile);
-			string friendlyName = GetFriendlyName(binFile);
-			Symbols.Add(friendlyName, varName);
-			// Check if the file should be processed
-			if (ShouldProcess(binFile, cppFile) == false) {
-				Msg.PrintTaskSuccess(" No changes. Skipping.");
+		Folders.Create(cpp.AsFolders());
+		ITaskProgress? progress = StartProgress(TaskLabel.Length > 0 ? TaskLabel : "Generating " + result.Entries.Count + " file" + (result.Entries.Count == 1 ? "" : "s"));
+		int done = 0;
+		foreach (Entry e in result.Entries) {
+			if (result.Failed > 0 && AbortOnFailure) {
+				e.Status = EntryStatus.Skipped;
 				continue;
 			}
-			// Generate the cpp file
-			try {
-				byte[] data = File.ReadAllBytes(binFile);
-				using (StreamWriter writer = new StreamWriter(cppFile)) {
-					writer.WriteLine("// This file is generated by Kombine Bin2cpp extension. Do not edit manually.");
-					writer.WriteLine($"// Source binary file: {binFile}");
-					writer.WriteLine($"// Friendly name: {friendlyName}");
-					writer.WriteLine();
-					writer.WriteLine();
-					writer.WriteLine($"extern \"C\" const unsigned char {varName}[];");
-					writer.WriteLine($"extern \"C\" const unsigned long {varName}_size;");
-					writer.WriteLine($"const unsigned char {varName}[] = {{");
-					for (int j = 0; j < data.Length; j++) {
-						writer.Write($"0x{data[j]:X2}");
-						if (j < data.Length - 1) writer.Write(", ");
-						if ((j + 1) % 16 == 0) writer.WriteLine();
-					}
-					writer.WriteLine();
-					writer.WriteLine("};");
-					writer.WriteLine();
-					writer.WriteLine($"const unsigned long {varName}_size = {data.Length};");
+			string generator = Hash("bin2cpp|" + FormatVersion + "|" + e.Symbol + "|" + e.FriendlyName);
+			List<string> inputs = new List<string> { e.Source };
+			if (UpToDate(e.Output, generator, inputs)) {
+				e.Status = EntryStatus.UpToDate;
+				result.UpToDate++;
+				Line(e.Source, " No changes. Skipping.", null);
+			} else {
+				try {
+					Write(e.Output, (StreamWriter w) => WriteOne(w, e));
+					Record(e.Output, generator, inputs);
+					e.Status = EntryStatus.Generated;
+					result.Generated++;
+					Line(e.Source, " Generated successfully.", null);
+				} catch (Exception ex) {
+					DeleteRecord(e.Output);
+					e.Status = EntryStatus.Failed;
+					e.Message = ex.Message;
+					result.Failed++;
+					Line(e.Source, null, " Failed to generate: " + ex.Message);
 				}
-				Msg.PrintTaskSuccess(" Generated successfully.");
-			} catch (Exception ex) {
-				Msg.PrintTaskError(" Failed to generate: "+ex.Message);
-				return false;
 			}
+			done++;
+			progress?.Report((double)done / result.Entries.Count, done + "/" + result.Entries.Count);
 		}
-		return true;
+		return Finish(progress, result, "Generate");
 	}
 
 	/// <summary>
-	/// Generates all the binary data into a single cpp file.
+	/// Generates one C++ source holding every binary file, when it is missing or out of date.
 	/// </summary>
-	/// <param name="bin">List of input binary files</param>
-	/// <param name="cpp">Single output cpp file</param>
-	/// <returns>true if everything fine. False otherwise.</returns>
+	/// <param name="bin">The binary files. Every one must exist (NotFound otherwise).</param>
+	/// <param name="cpp">The source to write.</param>
+	/// <returns>True when the output is in place; false with the reason in LastError. The detail is in LastGenerate.</returns>
 	public bool Generate(KList bin, KValue cpp) {
-		// Clear the symbol table before processing
-		Symbols.Clear();
-		// Check if the output file should be processed (based on the newest input file)
-		bool shouldProcess = false;
-		// If destination file does not exist, we should process
-		//
-		if (Files.Exists(cpp) == false) {
-			Msg.Print($"Bin2cpp: Output file {cpp} does not exist. It will be processed.", Msg.LogLevels.Verbose);
-			shouldProcess = true;
-		} else {
-			Msg.Print($"Bin2cpp: Output file {cpp} exists. Checking for changes...", Msg.LogLevels.Verbose);
-			long dsttime = Files.GetModifiedTime(cpp);
-			foreach (KValue binFile in bin) {
-				if (Files.Exists(binFile) == false) {
-					Msg.PrintAndAbort("Bin2cpp: Source file " + binFile + " sent to be processed is not found.");
-					return false;
-				}
-				long modTime = Files.GetModifiedTime(binFile);
-				if (modTime > dsttime) {
-					Msg.Print($"Bin2cpp: Source {binFile} is newer than destination. It will be processed.", Msg.LogLevels.Verbose);
-					shouldProcess = true;
-					break;
-				}
-			}
-		}
-		// Create the symbol table even if we do not need to process,
-		// because we want to have the symbols available for all files, even the ones that are not processed
-		foreach (KValue binFile in bin) {
-			string varName = GetVarName(binFile);
-			string friendlyName = GetFriendlyName(binFile);
-			Symbols.Add(friendlyName, varName);
-		}
-		Msg.PrintTask($"Bin2cpp: Processing {cpp}:");
-		if (!shouldProcess) {
-			Msg.PrintTaskSuccess($"Bin2cpp: No changes for {cpp}. Skipping.");
-			return true;
-		}
-		// Create the output folder(s)
-		KValue folders = cpp.AsFolder();
-		Folders.Create(folders);
-		// Generate the single cpp file
-		try {
-			using (StreamWriter writer = new StreamWriter(cpp)) {
-				writer.WriteLine("// This file is generated by Bin2cpp extension. Do not edit manually.");
-				writer.WriteLine("// Source binary files:");
-				foreach (KValue binFile in bin) {
-					writer.WriteLine($"//   {binFile}");
-				}
-				writer.WriteLine();
-				writer.WriteLine();
-				foreach (KValue binFile in bin) {
-					byte[] data = File.ReadAllBytes(binFile);
-					string arrayName = GetVarName(binFile);
-					writer.WriteLine($"extern \"C\" const unsigned char {arrayName}[];");
-					writer.WriteLine($"const unsigned char {arrayName}[] = {{");
-					for (int j = 0; j < data.Length; j++) {
-						writer.Write($"0x{data[j]:X2}");
-						if (j < data.Length - 1) writer.Write(", ");
-						if ((j + 1) % 16 == 0) writer.WriteLine();
-					}
-					writer.WriteLine();
-					writer.WriteLine("};");
-					writer.WriteLine();
-					writer.WriteLine($"extern \"C\" const unsigned long {arrayName}_size;");
-					writer.WriteLine($"const unsigned long {arrayName}_size = {data.Length};");
-					writer.WriteLine();
-				}
-			}
-			Msg.PrintTaskSuccess($" Generated successfully.");
-		} catch (Exception ex) {
-			Msg.PrintTaskError(" Failed to generate: " + ex.Message);
+		Begin();
+		Result result = new Result { Single = true };
+		LastGenerate = result;
+		KList outputs = new KList();
+		foreach (KValue b in bin)
+			outputs.Add(cpp);
+		if (!Prepare(bin, outputs, result))
 			return false;
+		Folders.Create(cpp.AsFolder());
+		ITaskProgress? progress = StartProgress(TaskLabel.Length > 0 ? TaskLabel : "Generating " + Path.GetFileName(cpp));
+		// The list of inputs, by name and order, is part of what generates the output
+		string generator = Hash("bin2cpp|" + FormatVersion + "|single|" + string.Join("|", result.Entries.Select(e => e.Symbol + ":" + e.FriendlyName)));
+		List<string> inputs = result.Entries.Select(e => e.Source).ToList();
+		if (UpToDate(cpp, generator, inputs)) {
+			foreach (Entry e in result.Entries)
+				e.Status = EntryStatus.UpToDate;
+			result.UpToDate = 1;
+			Line(cpp, " No changes. Skipping.", null);
+		} else {
+			try {
+				Write(cpp, (StreamWriter w) => WriteAll(w, result.Entries));
+				Record(cpp, generator, inputs);
+				foreach (Entry e in result.Entries)
+					e.Status = EntryStatus.Generated;
+				result.Generated = 1;
+				Line(cpp, " Generated successfully.", null);
+			} catch (Exception ex) {
+				DeleteRecord(cpp);
+				foreach (Entry e in result.Entries) {
+					e.Status = EntryStatus.Failed;
+					e.Message = ex.Message;
+				}
+				result.Failed = 1;
+				Line(cpp, null, " Failed to generate: " + ex.Message);
+			}
 		}
-		return true;
+		progress?.Report(1, null);
+		return Finish(progress, result, "Generate");
+	}
+
+	// --------------------------------------------------------------------------------------------
+	// The generated text
+	// --------------------------------------------------------------------------------------------
+
+	/// <summary>
+	/// Writes the source of one binary: the declarations, the byte array and its size.
+	/// </summary>
+	private static void WriteOne(StreamWriter writer, Entry e) {
+		byte[] data = File.ReadAllBytes(e.Source);
+		writer.WriteLine("// This file is generated by Kombine Bin2cpp extension. Do not edit manually.");
+		writer.WriteLine($"// Source binary file: {e.Source}");
+		writer.WriteLine($"// Friendly name: {e.FriendlyName}");
+		writer.WriteLine();
+		writer.WriteLine();
+		writer.WriteLine($"extern \"C\" const unsigned char {e.Symbol}[];");
+		writer.WriteLine($"extern \"C\" const unsigned long {e.Symbol}_size;");
+		writer.WriteLine($"const unsigned char {e.Symbol}[] = {{");
+		WriteBytes(writer, data);
+		writer.WriteLine("};");
+		writer.WriteLine();
+		writer.WriteLine($"const unsigned long {e.Symbol}_size = {data.Length};");
 	}
 
 	/// <summary>
-	/// Returns a valid C++ variable name for the given file path. It replaces dots and dashes with underscores and 
-	/// appends a hash of the file path to ensure uniqueness.
+	/// Writes the source holding every binary.
 	/// </summary>
-	/// <param name="filePath"></param>
-	/// <returns></returns>
-	private string GetVarName(KValue filePath) {
+	private static void WriteAll(StreamWriter writer, List<Entry> entries) {
+		writer.WriteLine("// This file is generated by Bin2cpp extension. Do not edit manually.");
+		writer.WriteLine("// Source binary files:");
+		foreach (Entry e in entries)
+			writer.WriteLine($"//   {e.Source}");
+		writer.WriteLine();
+		writer.WriteLine();
+		foreach (Entry e in entries) {
+			byte[] data = File.ReadAllBytes(e.Source);
+			writer.WriteLine($"extern \"C\" const unsigned char {e.Symbol}[];");
+			writer.WriteLine($"const unsigned char {e.Symbol}[] = {{");
+			WriteBytes(writer, data);
+			writer.WriteLine("};");
+			writer.WriteLine();
+			writer.WriteLine($"extern \"C\" const unsigned long {e.Symbol}_size;");
+			writer.WriteLine($"const unsigned long {e.Symbol}_size = {data.Length};");
+			writer.WriteLine();
+		}
+	}
+
+	/// <summary>
+	/// The bytes of an array, sixteen per line.
+	/// </summary>
+	private static void WriteBytes(StreamWriter writer, byte[] data) {
+		for (int j = 0; j < data.Length; j++) {
+			writer.Write($"0x{data[j]:X2}");
+			if (j < data.Length - 1)
+				writer.Write(", ");
+			if ((j + 1) % 16 == 0)
+				writer.WriteLine();
+		}
+		writer.WriteLine();
+	}
+
+	/// <summary>
+	/// Writes an output through a temporary file next to it, moved into place once complete, so a
+	/// failure leaves the previous output as it was and never a partial file.
+	/// </summary>
+	private static void Write(string output, Action<StreamWriter> content) {
+		string temp = output + ".tmp";
+		try {
+			using (StreamWriter writer = new StreamWriter(temp, false, new UTF8Encoding(false))) {
+				content(writer);
+			}
+			File.Move(temp, output, true);
+		} finally {
+			if (File.Exists(temp)) {
+				try {
+					File.Delete(temp);
+				} catch {
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// The symbol of a binary: "var", its file name with dots and dashes as underscores, and a hash
+	/// of its path as given, for uniqueness. Unchanged from the previous version.
+	/// </summary>
+	private static string GetVarName(KValue filePath) {
 		string varname = "var" + Path.GetFileName(filePath).Replace('.', '_').Replace('-', '_');
 		string objectname = filePath.GetHashCode64().ToString();
 		return varname + objectname;
-
 	}
 
 	/// <summary>
-	/// Returns a friendly name for the file path, which can be used as a resource name or similar. 
-	/// It replaces slashes with dots and converts to lower case.
+	/// The friendly name of a binary: its path with slashes as dots, lower case.
 	/// </summary>
-	/// <param name="filePath"></param>
-	/// <returns></returns>
-	private string GetFriendlyName(string filePath) {
+	private static string GetFriendlyName(string filePath) {
 		return filePath.Replace('/', '.').Replace('\\', '.').ToLower();
 	}
 
+	// --------------------------------------------------------------------------------------------
+	// The call
+	// --------------------------------------------------------------------------------------------
+
 	/// <summary>
-	/// Checks if the file should be processed
+	/// Builds the entries of a call and runs the checks that come before any write: every binary
+	/// exists, no friendly name or symbol repeats. Fills Symbols.
 	/// </summary>
-	/// <param name="src">Source file</param>
-	/// <param name="dest">Destination file</param>
-	/// <returns>True if should be processed. False otherwise</returns>
-	static private bool ShouldProcess(KValue src, KValue dest) {
-		// Check if the source file exists
-		if (Files.Exists(src) == false) {
-			// This will exit this build process with error
-			Msg.PrintAndAbort("Bin2cpp: Source file " + src + " sent to be processed is not found.");
-			return false;
+	private bool Prepare(KList bin, KList outputs, Result result) {
+		HashSet<string> friendly = new HashSet<string>();
+		HashSet<string> symbols = new HashSet<string>();
+		for (int i = 0; i < bin.Count(); i++) {
+			Entry e = new Entry { Source = bin[i], Output = outputs[i], Symbol = GetVarName(bin[i]), FriendlyName = GetFriendlyName(bin[i]) };
+			result.Entries.Add(e);
+			if (!File.Exists(e.Source))
+				return Fail(ErrorCode.NotFound, "binary file not found: " + e.Source, "Generate");
+			if (!friendly.Add(e.FriendlyName))
+				return Fail(ErrorCode.InvalidArgument, "two inputs give the same name: " + e.FriendlyName, "Generate");
+			if (!symbols.Add(e.Symbol))
+				return Fail(ErrorCode.InvalidArgument, "two inputs give the same symbol: " + e.Symbol, "Generate");
 		}
-		// Check if the destination file exists. If not exists, it should be built
-		if (Files.Exists(dest) == false) {
-			Msg.Print("Bin2cpp: File " + dest + " does not exists. It will be processed.", Msg.LogLevels.Verbose);
-			return true;
+		foreach (Entry e in result.Entries)
+			Symbols[e.FriendlyName] = e.Symbol;
+		return true;
+	}
+
+	/// <summary>
+	/// Opens the progress line in the Progress mode.
+	/// </summary>
+	private ITaskProgress? StartProgress(string label) {
+		if (Output != OutputMode.Progress)
+			return null;
+		ITaskProgress progress = Progress ?? Kltv.Kombine.Api.Progress.Default;
+		progress.Start(label);
+		return progress;
+	}
+
+	/// <summary>
+	/// The line of one file in the Detailed mode, as the previous version printed it.
+	/// </summary>
+	private void Line(string file, string? success, string? error) {
+		if (Output != OutputMode.Detailed)
+			return;
+		Msg.PrintTask("Bin2cpp: Processing " + file + ":");
+		if (error != null)
+			Msg.PrintTaskError(error);
+		else
+			Msg.PrintTaskSuccess(success ?? string.Empty);
+	}
+
+	/// <summary>
+	/// Closes the progress line with the result and records the failure of the call, if any.
+	/// </summary>
+	private bool Finish(ITaskProgress? progress, Result result, string source) {
+		string text = result.Failed > 0 ? "failed (" + result.Failed + ")" : (result.Generated == 0 ? "ok (up to date)" : (result.UpToDate > 0 ? "ok (" + result.UpToDate + " up to date)" : "ok"));
+		progress?.Finish(text, result.Failed > 0 ? ProgressOutcome.Error : ProgressOutcome.Success);
+		if (result.Failed > 0) {
+			Entry first = result.Entries.First(e => e.Status == EntryStatus.Failed);
+			return Fail(ErrorCode.Failed, first.Output + ": " + first.Message + (result.Failed > 1 ? " (" + result.Failed + " failed)" : ""), source);
 		}
-		// Does not exists, so, check for the source file only
-		if (Files.GetModifiedTime(src) > Files.GetModifiedTime(dest)) {
-			// source file is newer than the object file. If its newer, we need to rebuild
-			Msg.Print($"Bin2cpp: Source {src} newer than destination. It will be processed.", Msg.LogLevels.Verbose);
-			return true;
-		}
-		// No dependencies file, source file is older, do not process
-		Msg.Print($"Bin2cpp: Source {src} older than destination. No Process.", Msg.LogLevels.Verbose);
+		return true;
+	}
+
+	/// <summary>
+	/// Starts a call: the last failure and the symbols are reset.
+	/// </summary>
+	private void Begin() {
+		LastError = ApiError.None;
+		Symbols.Clear();
+		hashes.Clear();
+	}
+
+	/// <summary>
+	/// Records a failure: LastError is set, the reason logged at verbose level, and the script
+	/// aborted when AbortOnFailure is set. Always returns false.
+	/// </summary>
+	private bool Fail(ErrorCode code, string message, string source) {
+		LastError = new ApiError(code, message, source);
+		Msg.PrintWarning("bin2cpp: " + LastError.ToString(), Msg.LogLevels.Verbose);
+		if (AbortOnFailure)
+			Msg.PrintAndAbort("bin2cpp " + source + " failed (" + code + "): " + message);
 		return false;
 	}
 
+	// --------------------------------------------------------------------------------------------
+	// Up to date checks
+	// --------------------------------------------------------------------------------------------
+
+	/// <summary>The record of an output: what it was generated from, next to it.</summary>
+	private static string RecordFile(string output) {
+		return output + ".kdep";
+	}
+
+	/// <summary>
+	/// True when the output exists, its record exists, what generates it is the same and every
+	/// recorded input exists with the same content hash. Dates are never compared.
+	/// </summary>
+	private bool UpToDate(string output, string generator, List<string> inputs) {
+		if (!File.Exists(output))
+			return false;
+		string recordFile = RecordFile(output);
+		if (!File.Exists(recordFile))
+			return false;
+		JsonObject? record;
+		try {
+			record = JsonNode.Parse(File.ReadAllText(recordFile)) as JsonObject;
+		} catch {
+			record = null;
+		}
+		if (record == null || record["inputs"] is not JsonArray recorded)
+			return false;
+		if ((record["generator"]?.ToString() ?? string.Empty) != generator)
+			return false;
+		HashSet<string> current = new HashSet<string>(inputs.Select(i => Path.GetFullPath(i)), StringComparer.OrdinalIgnoreCase);
+		int seen = 0;
+		foreach (JsonNode? n in recorded) {
+			if (n is not JsonObject entry)
+				return false;
+			string path = entry["path"]?.ToString() ?? string.Empty;
+			if (path.Length == 0 || !File.Exists(path) || !current.Contains(path))
+				return false;
+			if (HashFile(path) != (entry["hash"]?.ToString() ?? string.Empty))
+				return false;
+			seen++;
+		}
+		return seen == current.Count;
+	}
+
+	/// <summary>
+	/// Writes the record of an output: the hash of what generates it and, for every input, its
+	/// path, content hash, date and size.
+	/// </summary>
+	private void Record(string output, string generator, List<string> inputs) {
+		JsonObject record = new JsonObject();
+		record["generator"] = generator;
+		JsonArray list = new JsonArray();
+		foreach (string i in inputs.Select(i => Path.GetFullPath(i)).Distinct(StringComparer.OrdinalIgnoreCase)) {
+			FileInfo fi = new FileInfo(i);
+			JsonObject entry = new JsonObject();
+			entry["path"] = i;
+			entry["date"] = fi.LastWriteTimeUtc.Ticks;
+			entry["size"] = fi.Length;
+			entry["hash"] = HashFile(i, true);
+			list.Add(entry);
+		}
+		record["inputs"] = list;
+		File.WriteAllText(RecordFile(output), record.ToJsonString());
+	}
+
+	/// <summary>Removes the record of an output that failed, so the next call generates it again.</summary>
+	private static void DeleteRecord(string output) {
+		try {
+			if (File.Exists(RecordFile(output)))
+				File.Delete(RecordFile(output));
+		} catch {
+		}
+	}
+
+	/// <summary>The content hashes read during the current call.</summary>
+	private readonly Dictionary<string, string> hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+	/// <summary>The content hash of a file, from the cache of the current call unless fresh.</summary>
+	private string HashFile(string path, bool fresh = false) {
+		string key = Path.GetFullPath(path);
+		if (!fresh && hashes.TryGetValue(key, out string? known))
+			return known;
+		string hash;
+		using (FileStream s = File.OpenRead(path)) {
+			hash = Convert.ToHexString(SHA256.HashData(s));
+		}
+		hashes[key] = hash;
+		return hash;
+	}
+
+	/// <summary>The hash of a text.</summary>
+	private static string Hash(string text) {
+		return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+	}
 }

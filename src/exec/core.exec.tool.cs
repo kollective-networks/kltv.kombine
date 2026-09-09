@@ -251,22 +251,51 @@ namespace Kltv.Kombine {
 		}
 
 		/// <summary>
-		/// Signals that the process was killed because the wait time of WaitExit expired.
+		/// Signals that the process was killed because its wait time (WaitExit) or its watchdog (StartWatchdog) expired.
 		/// </summary>
 		public bool TimedOut { get; private set; } = false;
+
+		/// <summary>
+		/// The time that expired, in milliseconds, for the result of a timed out process.
+		/// </summary>
+		private int TimeoutMs = 0;
+
+		/// <summary>
+		/// Timer of StartWatchdog, disposed by the exit handler.
+		/// </summary>
+		private System.Threading.Timer? Watchdog = null;
+
+		/// <summary>
+		/// Starts a timer that kills the process the way WaitExit(timeoutMs) does once the time expires, for a
+		/// process nobody waits on synchronously (the asynchronous commands of Tool). The exit handler then reports
+		/// the result of a timeout: exit code -1 and a last standard error line "timeout after N ms", before the
+		/// exit delegate is called. Zero or less starts nothing.
+		/// </summary>
+		/// <param name="timeoutMs">Milliseconds the process may run.</param>
+		public void StartWatchdog(int timeoutMs) {
+			if (timeoutMs <= 0 || ProcessLaunched == false)
+				return;
+			lock (CurrentRunningProcessesLock) {
+				if (ProcessExited)
+					return;
+				Watchdog = new System.Threading.Timer((object? state) => { TimeoutExpired(timeoutMs); }, null, timeoutMs, System.Threading.Timeout.Infinite);
+			}
+		}
 
 		/// <summary>
 		/// Kills the process after the wait time expired. The kill runs outside the process list lock: the exit
 		/// callback of the process holds the process object lock while it calls the exit handler, which takes the
 		/// list lock, so disposing or waiting under the list lock would deadlock. The handle stays alive, so the
-		/// normal exit handler fetches the exit code, disposes the handle and signals the exit.
+		/// normal exit handler fetches the exit code, completes the result of the timeout (TimedOut is already
+		/// set), calls the exit delegate, disposes the handle and signals the exit.
 		/// </summary>
 		private void TimeoutExpired(int timeoutMs) {
 			Process? handle;
 			lock (CurrentRunningProcessesLock) {
-				if (ProcessExited)
+				if (ProcessExited || TimedOut)
 					return;
 				TimedOut = true;
+				TimeoutMs = timeoutMs;
 				handle = ProcessHandle;
 			}
 			Msg.PrintWarningMod("Timeout after " + timeoutMs + " ms, killing: " + this.Name, ".exec", Msg.LogLevels.Verbose);
@@ -278,18 +307,24 @@ namespace Kltv.Kombine {
 			}
 			// The exit handler runs now that the process is gone; if it does not, close the bookkeeping here
 			if (ProcessExitedEvent.Wait(10000) == false) {
+				bool closeHere = false;
 				lock (CurrentRunningProcessesLock) {
 					if (ProcessExited == false) {
 						Msg.PrintWarningMod("No exit notification after killing: " + this.Name, ".exec", Msg.LogLevels.Verbose);
 						ProcessExited = true;
+						ExitCode = -1;
+						ProcessTime = timeoutMs;
+						OutputErr.Add("timeout after " + timeoutMs + " ms");
 						CurrentRunningProcesses.Remove(this);
-						ProcessExitedEvent.Set();
+						closeHere = true;
 					}
 				}
+				if (closeHere) {
+					// The exit delegate never ran: an asynchronous caller still needs its result and its pending count
+					OnProcessExit?.Invoke(this);
+					ProcessExitedEvent.Set();
+				}
 			}
-			ExitCode = -1;
-			ProcessTime = timeoutMs;
-			OutputErr.Add("timeout after " + timeoutMs + " ms");
 		}
 
 		/// <summary>
@@ -520,6 +555,9 @@ namespace Kltv.Kombine {
 				}
 				Msg.PrintMod("Process exited: " + this.Name, ".exec", Msg.LogLevels.Debug);
 				ProcessExited = true;
+				// A watchdog still armed has nothing left to kill
+				Watchdog?.Dispose();
+				Watchdog = null;
 				if (ProcessHandle != null) {
 					// Even if we're on the exit callback we need to wait because stderr / stdout maybe are not flushed
 					// so, if we don't wait we will miss output lines for processes which runs quickly
@@ -537,6 +575,13 @@ namespace Kltv.Kombine {
 					Msg.PrintWarningMod("Process was null when exiting: " + this.Name, ".exec", Msg.LogLevels.Verbose);
 					ExitCode = -1;
 					ProcessTime = -1;
+				}
+				if (TimedOut) {
+					// Killed by the timeout: the result says so whatever exit code the kill produced, before the
+					// delegate reads it
+					ExitCode = -1;
+					ProcessTime = TimeoutMs;
+					OutputErr.Add("timeout after " + TimeoutMs + " ms");
 				}
 				Msg.PrintMod("Process exited with code: " + ExitCode + " and time: " + ProcessTime, ".exec", Msg.LogLevels.Debug);
 				Msg.PrintMod("Calling delegate: " + this.Name, ".exec", Msg.LogLevels.Debug);

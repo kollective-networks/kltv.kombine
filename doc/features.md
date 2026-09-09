@@ -277,12 +277,12 @@ Reusable build scripts shipped in the [extensions](../extensions/) folder — se
 
 | State | Feature |
 | :---: | :--- |
-| :heavy_check_mark: | clang: compile, link, static libraries, clang-format, compile_commands.json |
+| :heavy_check_mark: | clang: compile, static libraries, executables and shared libraries, clang-format, compile_commands.json; output modes, results per verb, run wide counters, up to date checks by content hash and recorded command line |
 | :heavy_check_mark: | clang.doc: Markdown documentation from clang-doc output |
 | :heavy_check_mark: | git: clone, pull, status, hooks (patch not implemented yet) |
 | :heavy_check_mark: | github: create releases, upload assets, publish |
-| :heavy_check_mark: | bin2cpp: embed binary files into C++ sources |
-| :heavy_check_mark: | bin2obj: embed binary files into COFF object files |
+| :heavy_check_mark: | bin2cpp: embed binary files into C++ sources, generated again by content |
+| :heavy_check_mark: | bin2obj: embed binary files into COFF and Mach-O object files, generated again by content, reproducible objects |
 | :heavy_check_mark: | modder: apply and verify modifications over third-party sources |
 | :heavy_check_mark: | dotnet.doc: convert C# XML documentation to Markdown |
 

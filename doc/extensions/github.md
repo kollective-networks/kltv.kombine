@@ -4,7 +4,8 @@
 
 Client for the GitHub releases API: create a release, upload its assets and publish it.
 This repository's own [kombine.csx](../../kombine.csx) uses it in the `release` action to
-publish the tool packages.
+publish the tool packages. Requires Kombine 1.5 (the file declares it with
+`#pragma kombine requires 1.5`).
 
 ```csharp
 #load "extensions/github.csx"

@@ -3,6 +3,7 @@
 # clang.doc.csx
 
 Generates Markdown documentation from the YAML files produced by `clang-doc`.
+Requires Kombine 1.5 (the file declares it with `#pragma kombine requires 1.5`).
 Demonstrated in [examples/06.extensions/01.clang.docs](../../examples/06.extensions/01.clang.docs/).
 
 ```csharp

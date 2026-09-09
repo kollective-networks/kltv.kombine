@@ -115,9 +115,9 @@ namespace Kltv.Kombine.Api {
 		public OutputFragment? OnStderr { get; set; } = null;
 
 		/// <summary>
-		/// Time in milliseconds a synchronous command may run. Zero, the default, means no limit. When it expires
-		/// the process and its children are killed and the result is Failed with exit code -1 and a last standard
-		/// error line "timeout after N ms".
+		/// Time in milliseconds a command may run, synchronous or asynchronous. Zero, the default, means no limit.
+		/// When it expires the process and its children are killed and the result is Failed with exit code -1 and
+		/// a last standard error line "timeout after N ms"; the other commands of a batch go on.
 		/// </summary>
 		public int Timeout { get; set; } = 0;
 
@@ -130,6 +130,42 @@ namespace Kltv.Kombine.Api {
 		/// Flag to indicate if we need to cancel further executions, clear and exit inmediately
 		/// </summary>
 		private bool CancelExecution = false;
+
+		/// <summary>
+		/// The asynchronous commands of this tool still running, so a cancellation kills only them.
+		/// </summary>
+		private List<ChildProcess> Running = new List<ChildProcess>();
+
+		/// <summary>
+		/// Cancels the batch ExecuteCommands is running: the queued commands not started yet are not launched and
+		/// the running ones are killed. It may be called from a completion callback (a failed command that must
+		/// stop the build) or from another thread; the kill happens on the thread of ExecuteCommands, which then
+		/// returns its Failed result as it does when a command could not run. Outside a batch it does nothing.
+		/// </summary>
+		public void CancelCommands() {
+			Msg.PrintMod("Cancellation of the async commands requested.", ".tool", Msg.LogLevels.Debug);
+			CancelExecution = true;
+		}
+
+		/// <summary>
+		/// Kills the running asynchronous commands of this tool. The exit delegates of the killed processes do not
+		/// run (their handles are disposed by the kill), so the pending count is reset for the next batch.
+		/// </summary>
+		private void KillRunning() {
+			List<ChildProcess> copy;
+			lock (Running) {
+				copy = new List<ChildProcess>(Running);
+				Running.Clear();
+			}
+			foreach (ChildProcess p in copy) {
+				try {
+					p.Kill();
+				} catch (Exception ex) {
+					Msg.PrintMod("Error killing a cancelled command: " + p.Name + " Message: " + ex.Message, ".tool", Msg.LogLevels.Debug);
+				}
+			}
+			Interlocked.Exchange(ref PendingAsyncTasks, 0);
+		}
 
 		/// <summary>
 		/// Launch a tool in sync way. 
@@ -262,7 +298,7 @@ namespace Kltv.Kombine.Api {
 			foreach (AsyncCommand c in asyncCommands) {
 				if (CancelExecution == true) {
 					Msg.PrintMod("Canceling execution of async commands.", ".tool", Msg.LogLevels.Debug);
-					ChildProcess.KillAllChilds();
+					KillRunning();
 					break;
 				}
 				// Wrap the user callback so the result is stored in this exact command instance.
@@ -277,6 +313,9 @@ namespace Kltv.Kombine.Api {
 			}
 			// Wait for all the commands to finish
 			CommandAsyncWaitAll(0);
+			// A cancellation that arrived while waiting for the last ones: kill what still runs
+			if (CancelExecution == true)
+				KillRunning();
 			Msg.PrintMod("Finished all the async commands.", ".tool", Msg.LogLevels.Debug);
 			// Fetch the results / elaborate global result
 			ToolStatus status = ToolStatus.Success;
@@ -369,6 +408,12 @@ namespace Kltv.Kombine.Api {
 				Interlocked.Decrement(ref PendingAsyncTasks);
 				return res;
 			}
+			lock (Running) {
+				Running.Add(p);
+			}
+			// The same time limit as the synchronous commands, enforced by a watchdog since nobody waits on it
+			if (Timeout > 0)
+				p.StartWatchdog(Timeout);
 			res = new(Array.Empty<string>(), Array.Empty<string>(), ToolStatus.Pending, 0);
 			return res;
 		}
@@ -378,6 +423,9 @@ namespace Kltv.Kombine.Api {
 		/// </summary>
 		/// <param name="proc"></param>
 		private void CommandAsyncFinished(ChildProcess proc) {
+			lock (Running) {
+				Running.Remove(proc);
+			}
 			// Set the state was success
 			ToolStatus status = ToolStatus.Success;
 			// Check against the desired exit code

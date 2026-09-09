@@ -5,6 +5,7 @@
 Applies a set of modified files over a downloaded third-party project, verifying first
 that the project files still match the originals the mod was created against, so an
 upstream update that invalidates the mod is detected instead of silently clobbered.
+Requires Kombine 1.5 (the file declares it with `#pragma kombine requires 1.5`).
 
 ```csharp
 #load "extensions/modder.csx"

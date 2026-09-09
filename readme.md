@@ -489,8 +489,10 @@ the same as Import/Export.
 A side note: since you may share a complex object defined as a class in your script,
 that definition is only in the scope of your script — you share the object but not the
 definition. You can include the same definition in your child scripts and cast the
-retrieved object with `static T? Cast<T>(object? myobj)`. This is also used in the
-clang.csx extension to share the default clang parameters between script instances:
+retrieved object with `static T? Cast<T>(object? myobj)`, which copies the properties
+present in both types by name. The clang.csx extension shares its default options the
+same way between script instances (it copies the properties by name itself, converting
+the enumerations declared in the extension by their number, which a plain cast would skip):
 
 ```csharp
 object? obj = Share.Get("ClangOptions");
@@ -624,7 +626,7 @@ per check and a summary, and fails the run when a check fails.
 | [03.child](examples/03.child/) | Child scripts, Import/Export and the other sharing methods. |
 | [04.folders](examples/04.folders/) | Files, folders and compression (zip, tar.gz, tar.bz2, tar.xz). |
 | [05.network](examples/05.network/) | Fetching files from HTTP sources; loading extensions by URL. |
-| [06.extensions](examples/06.extensions/) | The provided extensions: clang (lib, dll, exe), clang docs, bin2cpp, bin2obj. |
+| [06.extensions](examples/06.extensions/) | The provided extensions: clang (a grouped test of every verb, the output modes and the up to date checks, plus lib, dll and exe sub projects), clang docs, git, bin2cpp, bin2obj. |
 | [07.extras](examples/07.extras/) | Real-world builds: sdl2 (cloned with git), msys2 package fetching. |
 
 Since the spirit of Kombine is to reuse as much as possible, the reusable build scripts

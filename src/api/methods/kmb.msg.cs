@@ -222,7 +222,8 @@ namespace Kltv.Kombine.Api
 			// We use an exception to abort the script execution
 			// This will be catched up at the script execution.
 			// This method should not be used outside the script execution.
-			throw new ScriptAbortException();
+			// The message travels with it so a parent script reads the reason in Engine.LastError
+			throw new ScriptAbortException(Message);
 		}
 
 		/// <summary>

@@ -9,6 +9,7 @@
 - [Feature] `#pragma kombine requires <major.minor>`: a script or extension declares the minimum Kombine version, reported instead of compiler errors by an older engine. See doc/api.md, Script Basics
 - [Feature] Git extension rewritten: one verb per git command (clone, pull, fetch, checkout, submodule, push, ls-remote, status, info, diff, ls-files, check-ignore, rev-parse, merge-base, patch, add, commit, tag, archive, clean, sparse-checkout, worktree, lfs, bundle, hooks), options per verb with the previous defaults, results in `Git.Last<Verb>`, `Git.LastError`, output modes, abort on failure, authentication inheritance. See doc/extensions/git.md
 - [Misc] Git extension: `Pull` defaults to fast forward only, `Patch` is implemented, the git example tests every verb by groups
+- [Bugfix] Git example: a step run against a failed clone could add and commit into the Kombine repository itself; the sandbox is now walled off with `GIT_CEILING_DIRECTORIES`, the group stops when the clone failed, and the test sandboxes are ignored by git
 - [Feature] Progress reporting: `ITaskProgress` contract with bar, dots and plain renderers, selectable per facility (`Http.Progress`, `Progress.Default`). See doc/api.md, Progress
 - [Feature] `Folders.Copy` honors `CopyOptions.ShowProgress` through `Folders.Progress`
 - [Feature] `Compress.Zip` and `Compress.Tar` show a progress line through `Compress.Progress`; `Compress.ShowProgress` or the `showprogress` argument silence it. See doc/api.md, Compress

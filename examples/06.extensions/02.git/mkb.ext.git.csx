@@ -64,6 +64,10 @@ int test(string[] args){
 	Msg.BeginIndent();
 	Git.Output = GitOutput.Silent;
 	Git.Timeout = 120000;
+	// Git must never walk up from the sandbox into the repository that holds this example: a step
+	// run against a folder that is not a repository (a clone that failed) would otherwise add and
+	// commit into it. With the ceiling, such a step fails with "not a git repository" instead
+	((KValue)Path.GetFullPath(CurrentScriptFolder)).Export("GIT_CEILING_DIRECTORIES");
 	bool ready = TestVersion();
 	if (ready && Fixtures()){
 		TestRepositories();
@@ -187,6 +191,12 @@ void TestRepositories(){
 	Git.Output = GitOutput.Progress;
 	Check("Clone", Show(Git.Clone(Origin, c1)), "true");
 	Git.Output = GitOutput.Silent;
+	if (!Directory.Exists(Path.Combine(c1, ".git"))){
+		// Every step below works on c1: without the clone they would run against no repository
+		EndBanner();
+		Skip("[2/9] rest of the group", "the clone did not produce a repository: " + Git.LastError.Message);
+		return;
+	}
 	Check("LastClone.Commit", Short(Git.LastClone.Commit), Short(HeadOf(Work)));
 	Check("submodule cloned", Show(File.Exists(Path.Combine(c1, "lib", "lib.h"))), "true");
 	// A clone from GitHub with the progress bar of the engine: the local clones above finish at once,

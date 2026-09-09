@@ -12,6 +12,8 @@ examples/06.extensions/04.bin2cpp/gen/
 examples/06.extensions/04.bin2cpp/out/
 # Ignore test generated files (bin2obj)
 examples/06.extensions/05.bin2obj/out/
+# Ignore the sandboxes of the grouped tests (git, clang, bin2cpp, bin2obj, network)
+examples/**/.tmp.*/
 
 # Ignore test generated files (SDL2)
 examples/07.extras/00.sdl2/sdl.github/

@@ -16,4 +16,9 @@ mkb test     runs every group
 mkb clean    removes the sandbox
 ```
 
+The sandbox is walled off from the repository that holds the example: the test exports
+`GIT_CEILING_DIRECTORIES` with the example folder, so a step run against a folder that is not a
+repository (a clone that failed) fails with "not a git repository" instead of adding and
+committing into the Kombine repository. The sandboxes of every grouped test are ignored by git.
+
 The example is run by the `extensions` action of `examples/kombine.csx`.

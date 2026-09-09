@@ -38,7 +38,9 @@ of the same folder; used by the sdl2 extra example
   diagnostics: the script prints its own messages, and the extension writes no report of its own.
 - **The abort.** The `abortwhenfailed` parameter of a verb, null by default, takes
   `ClangOptions.AbortOnFailure` (true): a failure prints its reason and aborts the script,
-  whatever the output mode. With false the verb returns its failed result and the script reads
+  whatever the output mode. When the report already printed the diagnostics (`Progress` and
+  `Detailed`) the abort line gives only the counts ("clang Compile failed: 1 error in 1 unit");
+  in `Silent` it gives the full reason, since nothing else was printed. With false the verb returns its failed result and the script reads
   `LastError` and `Last<Verb>`; a failed unit does not stop the other units of the batch, so every
   error of a build is visible at once.
 
@@ -78,7 +80,7 @@ error. Otherwise they print the diagnostics themselves, grouped per unit, every 
 offending file as the compiler wrote it:
 
 ```
-Compiling 5 files: [██████████] 100% 5/5 files, 1 warning failed (1 error)
+Compiling 5 files: [██████████] 100% 2/2 compiled, 3 up to date failed (1 error)
 src/warn.c:
     src/warn.c:1:19: warning: unused variable 'unused' [-Wunused-variable]
         1 | int w(void) { int unused = 1; return 0; }

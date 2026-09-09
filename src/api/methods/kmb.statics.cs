@@ -107,8 +107,11 @@ namespace Kltv.Kombine.Api {
 			int retCode = KombineMain.RunScript(script, action, args, changedir);
 			if (exitonerror) {
 				if (retCode != 0) {
-					// The abort reason must be visible at any log level
+					// The reason must be visible at any log level; a child that aborted already printed its
+					// own reason, so only the fact is repeated here (Engine.LastError keeps the full text)
 					string reason = Engine.LastError.IsError ? " (" + Engine.LastError.Message.Split('\n')[0] + ")" : string.Empty;
+					if (Engine.LastError.IsError && Engine.LastError.Message.StartsWith("Script aborted execution"))
+						reason = " (aborted)";
 					Msg.PrintAndAbortMod("Script execution returned error: " + script + " exitcode:" + retCode + reason, ".statics.kombine");
 					return retCode;
 				}

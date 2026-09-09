@@ -659,7 +659,7 @@ public class Clang {
 		string label = Options.TaskLabel.Length > 0 ? Options.TaskLabel : "Compiling " + src.Count() + " file" + (src.Count() == 1 ? "" : "s");
 		ToolResult res;
 		try {
-			res = RunBatch("Compile", label, jobs, Options.ConcurrentBuild, abort, result);
+			res = RunBatch("Compile", label, jobs, Options.ConcurrentBuild, abort, result, "compiled", result.UpToDate);
 		} finally {
 			// Whatever happened while the units ran, the compile database is saved
 			compdb?.Save();
@@ -686,7 +686,7 @@ public class Clang {
 		// The report and the result line
 		Report("Compile", jobs, result.Warnings, result.Errors, result.Failed.Count, result.Queued == 0, jobs.Any(j => j.ToolFailure));
 		if (result.Failed.Count > 0 || result.Cancelled)
-			return FailResult(ErrorCode.Failed, FailureMessage(jobs), "Compile", abort, res);
+			return FailResult(ErrorCode.Failed, FailureMessage(jobs), "Compile", abort, res, AbortText("Compile", jobs));
 		if (jobs.Count == 0)
 			return ToolResult.DefaultNoChanges();
 		return res;
@@ -753,7 +753,8 @@ public class Clang {
 				result.Errors = found.Count;
 				result.Diagnostics.AddRange(found);
 				Report("Librarian", new List<Job> { refused }, 0, found.Count, 1, false, false);
-				return FailResult(ErrorCode.InvalidArgument, found[0].Substring("librarian: error: ".Length) + (found.Count > 1 ? " (" + found.Count + " duplicate symbols)" : ""), "Librarian", abort);
+				return FailResult(ErrorCode.InvalidArgument, found[0].Substring("librarian: error: ".Length) + (found.Count > 1 ? " (" + found.Count + " duplicate symbols)" : ""), "Librarian", abort, null,
+					Options.Output == ClangOutput.Silent ? null : "clang Librarian failed: " + found.Count + " duplicate symbol" + (found.Count == 1 ? "" : "s"));
 			}
 		}
 		Folders.Create(output.AsFolder());
@@ -805,7 +806,7 @@ public class Clang {
 		if (failed) {
 			if (File.Exists(outf))
 				File.Delete(outf);
-			return FailResult(ErrorCode.Failed, FailureMessage(jobs), "Librarian", abort, res);
+			return FailResult(ErrorCode.Failed, FailureMessage(jobs), "Librarian", abort, res, AbortText("Librarian", jobs));
 		}
 		Record(LinkRecordFile(outf, inputs), command, inputs);
 		return res;
@@ -907,7 +908,7 @@ public class Clang {
 		Status.Add("errors", result.Errors);
 		Report("Linker", new List<Job> { job }, result.Warnings, result.Errors, job.Failed ? 1 : 0, false, job.ToolFailure);
 		if (job.Failed)
-			return FailResult(ErrorCode.Failed, FailureMessage(new List<Job> { job }), "Linker", abort, res);
+			return FailResult(ErrorCode.Failed, FailureMessage(new List<Job> { job }), "Linker", abort, res, AbortText("Linker", new List<Job> { job }));
 		Record(LinkRecordFile(outf, inputs), command, inputs);
 		return res;
 	}
@@ -939,7 +940,7 @@ public class Clang {
 		}
 		Status.Add("queued", jobs.Count);
 		string label = Options.TaskLabel.Length > 0 ? Options.TaskLabel : "Formatting " + jobs.Count + " file" + (jobs.Count == 1 ? "" : "s");
-		RunBatch("Format", label, jobs, Options.ConcurrentBuild, abort, null);
+		RunBatch("Format", label, jobs, Options.ConcurrentBuild, abort, null, "formatted");
 		int warnings = 0, errors = 0, failed = 0;
 		foreach (Job j in jobs) {
 			if (j.Failed) {
@@ -958,7 +959,7 @@ public class Clang {
 		Status.Add("errors", errors);
 		Report("Format", jobs, warnings, errors, failed, false, jobs.Any(j => j.ToolFailure));
 		if (failed > 0)
-			return Fail(ErrorCode.Failed, FailureMessage(jobs), "Format", abort);
+			return Fail(ErrorCode.Failed, FailureMessage(jobs), "Format", abort, AbortText("Format", jobs));
 		return true;
 	}
 
@@ -1120,7 +1121,7 @@ public class Clang {
 	/// with the abort in effect, cancels the batch at the first failure; the reporting happens after the
 	/// batch, on the script thread.
 	/// </summary>
-	private ToolResult RunBatch(string verb, string label, List<Job> jobs, int concurrency, bool abort, CompileResult? compile) {
+	private ToolResult RunBatch(string verb, string label, List<Job> jobs, int concurrency, bool abort, CompileResult? compile, string? unitWord = null, int upToDate = 0) {
 		ClangOutput mode = Options.Output;
 		if (jobs.Count == 0) {
 			if (mode == ClangOutput.Progress)
@@ -1160,7 +1161,8 @@ public class Clang {
 					if (mode == ClangOutput.Detailed)
 						UnitLine(verb, current);
 					if (mode == ClangOutput.Progress && progress != null)
-						progress.Report((double)done / jobs.Count, done + "/" + jobs.Count + (jobs.Count == 1 ? " file" : " files") + (warnings > 0 ? ", " + warnings + " warning" + (warnings == 1 ? "" : "s") : ""));
+						// The status says what it counts: the units this call had to run, and the ones it did not
+						progress.Report((double)done / jobs.Count, unitWord == null ? null : done + "/" + jobs.Count + " " + unitWord + (upToDate > 0 ? ", " + upToDate + " up to date" : ""));
 					if (current.Failed && abort && !cancelled) {
 						cancelled = true;
 						tool.CancelCommands();
@@ -1385,7 +1387,35 @@ public class Clang {
 			return first.Cmd + " failed without any diagnostic (exit code " + (first.Result?.ExitCode ?? -1) + "): check that '" + first.Cmd + "' (ClangOptions." + first.Property + ") is installed and on the PATH, and the length of the command line. " + hint;
 		}
 		string line = first.Lines.FirstOrDefault(l => Severity(l) == 2) ?? first.Label + ": failed";
-		return line + " (" + errors + " error" + (errors == 1 ? "" : "s") + " in " + failed + " unit" + (failed == 1 ? "" : "s") + ")";
+		return line + " (" + FailureSummary(jobs) + ")";
+	}
+
+	/// <summary>
+	/// The counts of a failed batch ("2 errors in 1 unit", "tool failure", "timeout"), the text of the
+	/// abort line when the diagnostics were already printed by the report.
+	/// </summary>
+	private static string FailureSummary(List<Job> jobs) {
+		int errors = jobs.Sum(j => j.Errors);
+		int failed = jobs.Count(j => j.Failed);
+		Job? first = jobs.FirstOrDefault(j => j.Failed);
+		if (first == null)
+			return "cancelled";
+		if (first.TimedOut)
+			return "timeout" + (failed > 1 ? " (" + failed + " units)" : "");
+		if (first.ToolFailure && errors == 0)
+			return "tool failure";
+		return errors + " error" + (errors == 1 ? "" : "s") + " in " + failed + " unit" + (failed == 1 ? "" : "s");
+	}
+
+	/// <summary>
+	/// The text of the abort line after a failed batch: the counts only when the report already
+	/// printed the diagnostics (Progress and Detailed), the full reason in Silent, where nothing
+	/// was printed.
+	/// </summary>
+	private string? AbortText(string verb, List<Job> jobs) {
+		if (Options.Output == ClangOutput.Silent)
+			return null;
+		return "clang " + verb + " failed: " + FailureSummary(jobs);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -1453,19 +1483,19 @@ public class Clang {
 	/// Records a failure: LastError is set, the reason logged at verbose level, and the script aborted
 	/// when the abort is in effect. Always returns false so a verb can "return Fail(...)".
 	/// </summary>
-	private bool Fail(ErrorCode code, string message, string source, bool abort) {
+	private bool Fail(ErrorCode code, string message, string source, bool abort, string? abortText = null) {
 		LastError = new ApiError(code, message, source);
 		Msg.PrintWarning("clang: " + LastError.ToString(), Msg.LogLevels.Verbose);
 		if (abort)
-			Msg.PrintAndAbort("clang " + source + " failed (" + code + "): " + message);
+			Msg.PrintAndAbort(abortText ?? "clang " + source + " failed (" + code + "): " + message);
 		return false;
 	}
 
 	/// <summary>
 	/// Records a failure and returns the failed ToolResult of the verb (the one given, or a default).
 	/// </summary>
-	private ToolResult FailResult(ErrorCode code, string message, string source, bool abort, ToolResult? result = null) {
-		Fail(code, message, source, abort);
+	private ToolResult FailResult(ErrorCode code, string message, string source, bool abort, ToolResult? result = null, string? abortText = null) {
+		Fail(code, message, source, abort, abortText);
 		if (result != null && result.Status != ToolStatus.Failed)
 			result.Status = ToolStatus.Failed;
 		return result ?? ToolResult.DefaultFailed();

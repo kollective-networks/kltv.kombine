@@ -662,7 +662,7 @@ asynchronously with a concurrency limit. For simple cases prefer the global
 | `ToolStatus Status` | Current tool status. |
 | `string ToolTag` | The tool tag. |
 | `bool UseShell` | If true, commands are launched through the system shell (sync commands only). Default false. |
-| `uint ConcurrentCommands` | Number of queued commands executed concurrently by `ExecuteCommands`. Default 1. Combine with `Host.ProcessorCount()`. |
+| `uint ConcurrentCommands` | Number of queued commands `ExecuteCommands` runs at the same time: 1 (default) runs them one at a time, 2 two at a time and so on; 0 runs every queued command at once. Combine with `Host.ProcessorCount()`. |
 | `bool CaptureOutput` | If true, the tool output (stdout/stderr) is echoed to the console while it runs. Default false. |
 | `OutputFragment? OnStdout` / `OutputFragment? OnStderr` | Called with every fragment the tool writes while it runs, independently of `CaptureOutput`. A fragment ends with the newline or the carriage return that closed it, so a progress indicator redrawn with carriage returns arrives one update at a time. The fragments are still collected in the result. Null by default. |
 | `int Timeout` | Milliseconds a command may run, synchronous or asynchronous. Zero (default) means no limit. When it expires the process and its children are killed and the result is `Failed` with exit code -1 and a last stderr line "timeout after N ms"; the other commands of a batch go on. |

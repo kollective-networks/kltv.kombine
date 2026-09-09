@@ -356,10 +356,13 @@ void Flip(string file){
 	File.WriteAllBytes(file, data);
 }
 
-/// <summary>Changes one byte of a file and restores its date.</summary>
+/// <summary>Appends one byte to a file and restores its date: an edit the date does not show, the size does.</summary>
 void FlipKeepingDate(string file){
 	DateTime date = File.GetLastWriteTimeUtc(file);
-	Flip(file);
+	byte[] data = File.ReadAllBytes(file);
+	Array.Resize(ref data, data.Length + 1);
+	data[data.Length - 1] = 0x5A;
+	File.WriteAllBytes(file, data);
 	File.SetLastWriteTimeUtc(file, date);
 }
 

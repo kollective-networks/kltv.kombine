@@ -108,6 +108,8 @@ extension did.
 | `string LD` | `lld` | The linker the driver must use: a name (`lld`, `gold`, `bfd`, `mold`) passed as `-fuse-ld=name`, a path passed as `--ld-path=path` (clang only), empty adds nothing and the driver picks the linker of its target (how a macOS build or a Linux without lld links). The previous extension forced `lld` on every link. |
 | `string AR` | `llvm-ar` | The archiver; `ar` takes the same command line. |
 | `string RC` | `llvm-rc` | The resource compiler of Windows resources. |
+| `string ReadObj` | `llvm-readobj` | The object reader `Librarian` uses to find the symbols every object defines. |
+| `DuplicateSymbolCheck DuplicateSymbols` | `Ignore` | What `Librarian` does about a symbol defined by more than one object: `Ignore` skips the check, `Warn` writes the archive and reports each duplicate as a warning naming the symbol and both objects, `Fail` refuses the archive with `InvalidArgument`. The check reads the symbols of every object once per archive written, a moment on a large archive. |
 | `string CExtension`, `CppExtension`, `ResExtension` | `.c`, `.cpp`, `.rc` | How a source is classified; several extensions separated by `;` (`.cpp;.cc;.cxx`), the comparison ignoring the case on Windows and macOS. A source with an extension outside them fails the compile with `NotSupported`. |
 | `KList IncludeDirs`, `Defines` | empty | `-I` and `-D` of every unit. |
 | `KList SwitchesCC`, `SwitchesCXX` | empty | Switches of the C and C++ units. |
@@ -156,8 +158,15 @@ wrote them and its `Warnings` and `Errors` counts), `Queued`, `Compiled`, `UpToD
 
 Builds a static library from the objects (the `lib` prefix on Linux and macOS) when the archive
 is missing, when an object or the command line changed, or when an object was removed from the
-list: the archive is deleted and created again with every object, so a removed object leaves
-it. Every object must exist (`NotFound` otherwise). `LastLibrarian`, a `LinkResult`: `Output`,
+list: the archive is deleted and created again with every object in one command, so a removed
+object leaves it. When the command line exceeds what the platform allows, the objects go through
+a response file in the temp folder, removed afterwards whatever happens. Every object must exist
+(`NotFound` otherwise). A symbol defined by two of the objects, the mark of a source list that
+takes a generic and a platform folder of the same sources, is reported here instead of at the
+link when `DuplicateSymbols` asks for it: a warning naming the symbol and both objects with
+`Warn`, a refusal with `InvalidArgument` with `Fail`; off by default. The check reads the
+symbols of the objects through `ReadObj` once per archive written; weak, common and COMDAT
+definitions (the inline functions and templates every C++ unit emits) are not duplicates. `LastLibrarian`, a `LinkResult`: `Output`,
 `UpToDate`, `Objects`, `Warnings`, `Errors`, `Diagnostics`.
 
 ### Linker
@@ -228,7 +237,10 @@ if (!clang.VersionCheck(16, 0, 0))
 
 The results are the material of the summary a build script prints or writes at the end: the
 extension writes no report of its own. `Clang.Status` keeps the numbers only; the diagnostics
-stay in the result of the verb that produced them.
+stay in the result of the verb that produced them. The status is shared the way the options are:
+the registry hands a child script the objects present when it starts, so the main script touches
+the status (`Clang.Status.Reset()`) before running the children, and every child adds to the
+same numbers; a child that finds none keeps its own.
 
 ```csharp
 int build(string[] args) {
@@ -256,19 +268,25 @@ int build(string[] args) {
 
 ## Up to date checks
 
-Every output (an object, an archive, an executable) gets a record next to it (`<output>.kdep`)
-with the hash of its command line and, for every input, its path, its content hash, its date and
-its size. The output is made again when the record is missing, when the command line differs,
-when an input is missing or when the content hash of an input differs; a file is read once per
-verb call whatever the number of units that include it. The inputs of a unit are its source and
-every header of the dependency file the compiler wrote with `-MD` (system headers included, so a
-changed SDK recompiles what uses it); of a resource unit, the files its script names; of an
-archive, its objects; of a link, its objects and the libraries of the options found in the
-library paths. Two guarantees follow: a file touched without an edit (a branch switched and
-switched back, a checkout, a copy) builds nothing, neither the unit nor the archive and the link
-behind it, and an edit with the date kept still builds. An output without record but present
-is checked by dates the way the previous extension did and gets its record when it passes, so an
-upgrade does not rebuild everything once.
+Every output (an object, an archive, an executable) gets a record, a small text file with the
+hash of its command line and, for every input, its content hash, its date, its size and its
+path. The record of an object lives next to it (`<object>.kdep`); the record of an archive or an
+executable lives in the folder of its first object, named after the output, so the output folder
+holds nothing but what is shipped. The output is made again when the record is missing, when the
+command line differs, when an input is missing or when an input changed. An input whose date and
+size are those of the record counts as unchanged without being read; one whose date or size
+moved is read and its content hash compared, and only a different hash builds. Every file is
+looked at once per verb call, whatever the number of units that include it, so a check of
+hundreds of units with the system headers tracked takes a fraction of a second. The inputs of a
+unit are its source and every header of the dependency file the compiler wrote with `-MD`
+(system headers included, so a changed SDK recompiles what uses it); of a resource unit, the
+files its script names; of an archive, its objects; of a link, its objects and the libraries of
+the options found in the library paths. Two guarantees follow: a file touched without an edit (a
+branch switched and switched back, a checkout, a copy) builds nothing, neither the unit nor the
+archive and the link behind it, and an edit dated older than the output still builds. The one
+edit that passes unseen is one that keeps both the date and the size of the file. An output
+without record but present is checked by dates the way the previous extension did and gets its
+record when it passes, so an upgrade does not rebuild everything once.
 
 On Windows, the objects of the MSVC target carry the time of their compile unless the units are
 compiled with `-mno-incremental-linker-compatible`: without that switch, a unit compiled again
@@ -279,6 +297,7 @@ from the same code gives different bytes, and the archive and the link behind it
 | Enumeration | Values |
 | --- | --- |
 | `ClangOutput` | `Silent`, `Progress`, `Detailed` |
+| `DuplicateSymbolCheck` | `Ignore`, `Warn`, `Fail` |
 | `UnitStatus` | `UpToDate`, `Compiled`, `Warnings`, `Failed`, `Skipped` (an unknown extension, or not run because the batch was cancelled) |
 
 [Back to the extensions index](../extensions.md)

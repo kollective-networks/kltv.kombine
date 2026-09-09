@@ -7,15 +7,16 @@
 	Test of the clang extension (extensions/clang.csx), by groups. Every group checks what it needs
 	first and skips itself with a visible line when the environment cannot satisfy it:
 
-		[1/7] Tools                    clang, clang++, llvm-ar (and llvm-rc on Windows, clang-format for the format checks)
-		[2/7] Output modes             the same build run three times, one per mode, shown on screen
-		[3/7] Every verb once          compile, librarian, linker (executable and shared library), format, clean,
+		[1/8] Tools                    clang, clang++, llvm-ar (and llvm-rc on Windows, clang-format for the format checks)
+		[2/8] Output modes             the same build run three times, one per mode, shown on screen
+		[3/8] Every verb once          compile, librarian, linker (executable and shared library), format, clean,
 		                               compile database, status, a second instance with its own options
-		[4/7] Failures                 an error unit, the abort through a child script, missing files, a bad tool,
+		[4/8] Failures                 an error unit, the abort through a child script, missing files, a bad tool,
 		                               a timeout, a linker error
-		[5/7] Nothing left behind      every change that must build something builds exactly that
-		[6/7] Nothing built without need  every change that must build nothing builds nothing
-		[7/7] Child script             the status counters and the default options cross to a child script
+		[5/8] Nothing left behind      every change that must build something builds exactly that
+		[6/8] Nothing built without need  every change that must build nothing builds nothing
+		[7/8] Child script             the status counters and the default options cross to a child script
+		[8/8] Batch concurrency        the engine runs exactly ConcurrentCommands commands at a time
 
 	The sources are written into a sandbox (.tmp.clang) by the example itself and removed at the end.
 	Every check prints one aligned line with an OK or FAILED tag. Groups 5 and 6 verify each claim two
@@ -84,6 +85,7 @@ int test(string[] args){
 		TestNothingLeftBehind();
 		TestNothingWithoutNeed();
 		TestChildScript();
+		TestBatchLimit();
 	}
 	int total = passed + failed;
 	Msg.PrintTask($"Summary : {passed} of {total} checks passed" + (skipped > 0 ? $", {skipped} groups skipped " : " "));
@@ -140,17 +142,17 @@ int cleanall(string[] args){
 }
 
 // ------------------------------------------------------------------------------------------------
-// [1/7] Tools
+// [1/8] Tools
 // ------------------------------------------------------------------------------------------------
 
 bool TestTools(){
-	Banner("[1/7] Tools");
+	Banner("[1/8] Tools");
 	Clang clang = Silent();
 	ToolVersionInfo v = clang.Version();
 	Check("Version", v.Available ? "available" : "not available", "available");
 	if (!v.Available){
 		EndBanner();
-		Skip("[2/7] to [7/7]", "clang is not available: " + clang.LastError.Message);
+		Skip("[2/8] to [7/8]", "clang is not available: " + clang.LastError.Message);
 		return false;
 	}
 	Check("VersionCheck same", Show(clang.VersionCheck(v.Major, v.Minor, v.Patch)), "true");
@@ -282,11 +284,11 @@ bool Build(Clang clang){
 }
 
 // ------------------------------------------------------------------------------------------------
-// [2/7] Output modes, shown on screen
+// [2/8] Output modes, shown on screen
 // ------------------------------------------------------------------------------------------------
 
 void TestOutputModes(){
-	Banner("[2/7] Output modes");
+	Banner("[2/8] Output modes");
 	foreach (ClangOutput mode in new[] { ClangOutput.Silent, ClangOutput.Progress, ClangOutput.Detailed }){
 		Msg.Print("--- " + mode + " mode, from clean: compile, archive, link; then a unit with a warning and a unit with an error ---");
 		Msg.BeginIndent();
@@ -333,11 +335,11 @@ void TestOutputModes(){
 }
 
 // ------------------------------------------------------------------------------------------------
-// [3/7] Every verb once
+// [3/8] Every verb once
 // ------------------------------------------------------------------------------------------------
 
 void TestVerbs(){
-	Banner("[3/7] Every verb once");
+	Banner("[3/8] Every verb once");
 	Nuke(Obj); Nuke(Lib); Nuke(Bin);
 	Clang clang = Configured();
 	string db = Path.Combine(Sandbox, "compile_commands.json");
@@ -423,11 +425,11 @@ void TestVerbs(){
 }
 
 // ------------------------------------------------------------------------------------------------
-// [4/7] Failures
+// [4/8] Failures
 // ------------------------------------------------------------------------------------------------
 
 void TestFailures(){
-	Banner("[4/7] Failures");
+	Banner("[4/8] Failures");
 	Nuke(Obj); Nuke(Lib); Nuke(Bin);
 	Clang clang = Configured();
 	ToolResult r = clang.Compile(Sources("a.c", "bad.c", "c.c"), Objects("a.c", "bad.c", "c.c"), false);
@@ -455,6 +457,29 @@ void TestFailures(){
 	Check("duplicates", clang.LastError.Code.ToString(), "InvalidArgument");
 	r = clang.Librarian(Objects("nope.c"), Archive());
 	Check("missing object", clang.LastError.Code + ", " + r.Status, "NotFound, Failed");
+	// A symbol defined by two objects: reported by the librarian, where the mistake is, as a warning
+	// by default, as a failure with DuplicateSymbols = Fail, never for the inline functions and
+	// templates every C++ unit emits
+	File.WriteAllText(Path.Combine(Src, "dup1.c"), "int twice(void) { return 1; }\nint only1(void) { return 1; }\n");
+	File.WriteAllText(Path.Combine(Src, "dup2.c"), "int twice(void) { return 2; }\nint only2(void) { return 2; }\n");
+	File.WriteAllText(Path.Combine(Src, "cx1.cpp"), "inline int shared_inline(int x) { return x + 1; }\ntemplate<class T> T tpl(T v) { return v; }\nint use1() { return shared_inline(1) + tpl(2); }\n");
+	File.WriteAllText(Path.Combine(Src, "cx2.cpp"), "inline int shared_inline(int x) { return x + 1; }\ntemplate<class T> T tpl(T v) { return v; }\nint use2() { return shared_inline(2) + tpl(3); }\n");
+	clang.Compile(Sources("dup1.c", "dup2.c", "cx1.cpp", "cx2.cpp"), Objects("dup1.c", "dup2.c", "cx1.cpp", "cx2.cpp"), false);
+	string dupLib = Path.Combine(Lib, "dup" + LibExt).Replace('\\', '/');
+	clang.Options.DuplicateSymbols = DuplicateSymbolCheck.Warn;
+	r = clang.Librarian(Objects("dup1.c", "dup2.c"), dupLib);
+	Check("duplicate symbol warned", r.Status + ", " + clang.LastLibrarian!.Warnings + " warnings" + (clang.LastLibrarian.Diagnostics.Any(l => l.Contains("twice") && l.Contains("dup1") && l.Contains("dup2")) ? ", names the symbol and both objects" : ", " + string.Join(" | ", clang.LastLibrarian.Diagnostics)), "Success, 1 warnings, names the symbol and both objects");
+	clang.Options.DuplicateSymbols = DuplicateSymbolCheck.Fail;
+	File.Delete(Host.IsWindows() ? dupLib : Path.Combine(Lib, "libdup" + LibExt));
+	r = clang.Librarian(Objects("dup1.c", "dup2.c"), dupLib);
+	Check("duplicate symbol refused", clang.LastError.Code + ", " + r.Status + ", archive " + (File.Exists(Host.IsWindows() ? dupLib : Path.Combine(Lib, "libdup" + LibExt)) ? "written" : "not written"), "InvalidArgument, Failed, archive not written");
+	clang.Options.DuplicateSymbols = DuplicateSymbolCheck.Warn;
+	string cxLib = Path.Combine(Lib, "cx" + LibExt).Replace('\\', '/');
+	r = clang.Librarian(Objects("cx1.cpp", "cx2.cpp"), cxLib);
+	Check("inline and template not duplicates", r.Status + ", " + clang.LastLibrarian!.Warnings + " warnings", "Success, 0 warnings");
+	clang.Options.DuplicateSymbols = DuplicateSymbolCheck.Ignore;
+	r = clang.Librarian(Objects("dup1.c", "dup2.c"), dupLib);
+	Check("duplicate symbol ignored (default)", r.Status + ", " + clang.LastLibrarian!.Warnings + " warnings", "Success, 0 warnings");
 	// A tool that runs but is not a compiler: a failure of the tool, not of the sources
 	Clang wrong = Configured();
 	wrong.Options.CC = "git";
@@ -470,16 +495,17 @@ void TestFailures(){
 	r = clang.Linker(Objects("undefined.c"), Path.Combine(Bin, "undefined" + BinExt), false);
 	Check("linker error", r.Status + ", " + clang.LastError.Code, "Failed, Failed");
 	Check("linker diagnostics kept", clang.LastLinker!.Errors > 0 && clang.LastLinker.Diagnostics.Any(l => l.Contains("missing_symbol")) ? "kept" : string.Join(" | ", clang.LastLinker.Diagnostics), "kept");
-	Check("record of a failed link absent", Show(!File.Exists(Path.Combine(Bin, "undefined" + BinExt + ".kdep"))), "true");
+	Check("record of a failed link absent", Show(!File.Exists(Path.Combine(Obj, "undefined" + BinExt + ".kdep"))), "true");
+	Check("output folder holds no record", Show(!Directory.EnumerateFiles(Bin, "*.kdep").Any()), "true");
 	EndBanner();
 }
 
 // ------------------------------------------------------------------------------------------------
-// [5/7] Nothing left behind
+// [5/8] Nothing left behind
 // ------------------------------------------------------------------------------------------------
 
 void TestNothingLeftBehind(){
-	Banner("[5/7] Nothing left behind");
+	Banner("[5/8] Nothing left behind");
 	Nuke(Obj); Nuke(Lib); Nuke(Bin);
 	WriteFixtures();
 	Clang clang = Configured();
@@ -495,7 +521,7 @@ void TestNothingLeftBehind(){
 	Case("-isystem header edited", () => Edit(Path.Combine(Sys, "sysheader.h"), "1", "2"), "b.cpp", "core,app1");
 	Case("header in a folder with a space", () => Edit(Path.Combine(IncSpaced, "spaced.h"), "1", "2"), "a.c", "core,app1");
 	Case("source dated older than its object", () => { Edit(Path.Combine(Src, "c.c"), "ONLY_VALUE;", "ONLY_VALUE + 1;"); File.SetLastWriteTimeUtc(Path.Combine(Src, "c.c"), new DateTime(2000, 1, 1)); }, "c.c", "app2");
-	Case("edit keeping date and size", () => EditKeepingDate(Path.Combine(Src, "c.c"), "+ 1;", "+ 2;"), "c.c", "app2");
+	Case("edit keeping the date", () => EditKeepingDate(Path.Combine(Src, "c.c"), "+ 1;", "+ 12;"), "c.c", "app2");
 	Case("dependency file deleted", () => File.Delete(Path.Combine(Obj, "c.d")), "c.c", "");
 	Case("define changed", () => clang.Options.Defines = new KList { "AGAIN=1" }, "a.c,b.cpp,c.c,main1.cpp,main2.c", "");
 	Case("include path changed", () => clang.Options.IncludeDirs = new KList { Inc, IncSpaced, Sys }, "a.c,b.cpp,c.c,main1.cpp,main2.c", "");
@@ -517,6 +543,24 @@ void TestNothingLeftBehind(){
 	Check("object added to the archive", r.Status.ToString(), "Success");
 	r = clang.Librarian(Objects("a.c", "b.cpp"), Archive());
 	Check("object removed from the archive", r.Status + ", " + (ArchiveContains("c" + ObjExt) ? "still inside" : "gone"), "Success, gone");
+	// An archive whose command line exceeds the platform limit: the objects go through a response file
+	// in one command, and every member must be inside
+	string many = Path.Combine(Sandbox, "many");
+	Directory.CreateDirectory(Path.Combine(many, "src"));
+	Directory.CreateDirectory(Path.Combine(many, "obj"));
+	KList manySrc = new KList();
+	KList manyObj = new KList();
+	for (int i = 0; i < 320; i++){
+		string name = "unit_with_a_long_enough_name_to_fill_the_command_line_" + i.ToString("D3");
+		File.WriteAllText(Path.Combine(many, "src", name + ".c"), "int f" + i + "(void) { return " + i + "; }\n");
+		manySrc.Add(Path.Combine(many, "src", name + ".c").Replace('\\', '/'));
+		manyObj.Add(Path.Combine(many, "obj", name + ObjExt).Replace('\\', '/'));
+	}
+	Check("compile of 320 units", clang.Compile(manySrc, manyObj).Status.ToString(), "Success");
+	string manyLib = Path.Combine(many, "many" + LibExt).Replace('\\', '/');
+	Check("archive through a response file", clang.Librarian(manyObj, manyLib).Status + ", " + (((string)manyObj.Flatten()).Length > 32766 ? "line over the limit" : "line under the limit"), "Success, line over the limit");
+	Check("every member inside", ArchiveMembers(Host.IsWindows() ? manyLib : Path.Combine(many, "libmany" + LibExt)).ToString(), "320");
+	Check("no response file left", Show(!Directory.EnumerateFiles(Path.GetTempPath(), "kombine-*.rsp").Any()), "true");
 	// A library given by its path, and one rebuilt in the library paths
 	clang.Options.Libraries = new KList { ArchiveFile() };
 	clang.Options.LibraryDirs = new KList();
@@ -543,11 +587,11 @@ void TestNothingLeftBehind(){
 }
 
 // ------------------------------------------------------------------------------------------------
-// [6/7] Nothing built without need
+// [6/8] Nothing built without need
 // ------------------------------------------------------------------------------------------------
 
 void TestNothingWithoutNeed(){
-	Banner("[6/7] Nothing built without need");
+	Banner("[6/8] Nothing built without need");
 	Nuke(Obj); Nuke(Lib); Nuke(Bin);
 	WriteFixtures();
 	Clang clang = Configured();
@@ -577,11 +621,11 @@ void TestNothingWithoutNeed(){
 }
 
 // ------------------------------------------------------------------------------------------------
-// [7/7] Child script
+// [7/8] Child script
 // ------------------------------------------------------------------------------------------------
 
 void TestChildScript(){
-	Banner("[7/7] Child script");
+	Banner("[7/8] Child script");
 	Nuke(Obj); Nuke(Lib); Nuke(Bin);
 	WriteFixtures();
 	RecordingProgress recorder = new RecordingProgress();
@@ -602,6 +646,75 @@ void TestChildScript(){
 	Check("child added to the status", (Clang.Status.Queued - queuedBefore) + " queued, " + (Clang.Status.Completed - completedBefore) + " completed", "3 queued, 3 completed");
 	Check("child appended to the compile database", Show(File.ReadAllText(Path.Combine(Sandbox, "compile_commands.json")).Contains("main2.c")), "true");
 	EndBanner();
+}
+
+// ------------------------------------------------------------------------------------------------
+// [8/8] Batch concurrency of the engine: ConcurrentCommands runs exactly that many at a time
+// ------------------------------------------------------------------------------------------------
+
+void TestBatchLimit(){
+	Banner("[8/8] Batch concurrency");
+	// A program that holds a lock file while it runs for 400 ms and fails when the lock already
+	// exists: with one command at a time no run ever sees the lock of another
+	string src = Path.Combine(Sandbox, "sleeper.c");
+	File.WriteAllText(src, string.Join("\n", new[] {
+		"#include <stdio.h>",
+		"#ifdef _WIN32",
+		"#include <windows.h>",
+		"#define SLEEP() Sleep(400)",
+		"#else",
+		"#include <unistd.h>",
+		"#define SLEEP() usleep(400000)",
+		"#endif",
+		"int main(int argc, char** argv) {",
+		"	FILE* f = fopen(argv[1], \"r\");",
+		"	if (f) { fclose(f); return 1; }",
+		"	f = fopen(argv[1], \"w\");",
+		"	if (f) fclose(f);",
+		"	SLEEP();",
+		"	remove(argv[1]);",
+		"	return 0;",
+		"}",
+		""
+	}));
+	Clang clang = Configured();
+	KList so = new KList { src.Replace('\\', '/') };
+	KList oo = new KList { Path.Combine(Obj, "sleeper" + ObjExt).Replace('\\', '/') };
+	string exe = Path.Combine(Bin, "sleeper" + BinExt).Replace('\\', '/');
+	bool built = clang.Compile(so, oo).Status != ToolStatus.Failed && clang.Linker(oo, exe).Status != ToolStatus.Failed;
+	Check("sleeper built", Show(built), "true");
+	if (!built){
+		EndBanner();
+		return;
+	}
+	string lockFile = Path.Combine(Sandbox, "sleeper.lock");
+	// One at a time: four runs of 400 ms take at least 1.6 s and never overlap
+	double seconds = RunSleepers(exe, lockFile, 1, out ToolResult one);
+	Check("limit 1: one at a time", one.Status + (seconds >= 1.5 ? ", no overlap" : ", overlapped (" + seconds.ToString("0.0") + " s)"), "Success, no overlap");
+	// Two at a time: two rounds, well under the sequential time
+	seconds = RunSleepers(exe, lockFile, 2, out ToolResult two);
+	Check("limit 2: two at a time", seconds < 1.5 ? "concurrent" : "sequential (" + seconds.ToString("0.0") + " s)", "concurrent");
+	// Zero: every queued command at once
+	seconds = RunSleepers(exe, lockFile, 0, out ToolResult all);
+	Check("limit 0: all at once", seconds < 1.0 ? "all at once" : "limited (" + seconds.ToString("0.0") + " s)", "all at once");
+	EndBanner();
+}
+
+/// <summary>
+/// Runs the sleeper four times through one batch with the given limit and returns the seconds it took.
+/// </summary>
+double RunSleepers(string exe, string lockFile, uint limit, out ToolResult result){
+	if (File.Exists(lockFile))
+		File.Delete(lockFile);
+	Tool tool = new Tool("sleeper");
+	tool.ConcurrentCommands = limit;
+	for (int i = 0; i < 4; i++)
+		tool.QueueCommand(exe, "\"" + lockFile + "\"", i, null);
+	System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
+	result = tool.ExecuteCommands();
+	if (File.Exists(lockFile))
+		File.Delete(lockFile);
+	return watch.Elapsed.TotalSeconds;
 }
 
 /// <summary>
@@ -698,6 +811,15 @@ bool ArchiveContains(string member){
 	Tool t = new Tool("ar");
 	ToolResult r = t.CommandSync(new Clang().Options.AR, "t \"" + ArchiveFile() + "\"");
 	return string.Concat(r.Stdout).Contains(member);
+}
+
+/// <summary>
+/// The number of members of an archive (ar t).
+/// </summary>
+int ArchiveMembers(string archive){
+	Tool t = new Tool("ar");
+	ToolResult r = t.CommandSync(new Clang().Options.AR, "t \"" + archive + "\"");
+	return string.Concat(r.Stdout).Split('\n').Count(l => l.Trim().Length > 0);
 }
 
 /// <summary>

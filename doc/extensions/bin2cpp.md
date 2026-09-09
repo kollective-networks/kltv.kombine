@@ -18,11 +18,13 @@ declares it with `#pragma kombine requires 1.6`). Demonstrated and tested by
   true when every output is in place and false otherwise, with the reason in `LastError`
   (`NotFound` for a missing binary, `InvalidArgument` for mismatched lists or duplicate names,
   `Failed` for a file that could not be written) and what was done in `LastGenerate`.
-- **Up to date by content, never by date.** An output is generated again when it or its record
-  (`<output>.kdep`, next to it) is missing, when what generates it changed (the layout version
-  of the extension, the symbol and friendly names, the list of inputs of a single output) or when
-  the content hash of an input differs. A file touched without an edit generates nothing; an edit
-  with the date kept, or dated older than the output, still generates.
+- **Up to date by content.** An output is generated again when it or its record (`<output>.kdep`,
+  next to it) is missing, when what generates it changed (the layout version of the extension,
+  the symbol and friendly names, the list of inputs of a single output) or when an input changed.
+  An input whose date and size match the record counts as unchanged without being read; one
+  whose date or size moved is read and its content hash compared. A file touched without an edit
+  generates nothing; an edit dated older than the output still generates; the one edit that
+  passes unseen keeps both the date and the size of the file.
 - **A failure leaves the previous output intact.** An output is written to a temporary file and
   moved into place once complete; no partial file is ever left.
 - **The symbol derives from the path as given**, so a script should pass its binaries through

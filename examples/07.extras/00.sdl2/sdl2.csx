@@ -19,6 +19,7 @@ using Kltv.Kombine.Types;
 using static Kltv.Kombine.Api.Statics;
 using static Kltv.Kombine.Api.Tool;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
 
 KValue Name = "sdl2";
 KValue OutputBin = KValue.Import("OutputBin","out/bin/");
@@ -160,8 +161,21 @@ void CreateSourceList(){
 	if (isWindows) src += Glob("sdl.github/src/render/windows/*.c");
 	src += Glob("sdl.github/src/stdlib/*.c");
 	src += Glob("sdl.github/src/thread/*.c");
-	src += Glob("sdl.github/src/thread/generic/*.c");
-	if (isWindows) src += Glob("sdl.github/src/thread/windows/*.c");
+	if (isWindows) {
+		// As upstream does on Windows: the generic folder contributes only the sources the Windows folder
+		// does not provide (the condition variable); the rest of it defines the same functions as the
+		// Windows folder, and the librarian reports every such pair as a duplicate symbol
+		KList windowsThread = Glob("sdl.github/src/thread/windows/*.c");
+		HashSet<string> provided = new HashSet<string>();
+		foreach (KValue w in windowsThread)
+			provided.Add(Path.GetFileName(w));
+		foreach (KValue g in Glob("sdl.github/src/thread/generic/*.c"))
+			if (!provided.Contains(Path.GetFileName(g)))
+				src += g;
+		src += windowsThread;
+	} else {
+		src += Glob("sdl.github/src/thread/generic/*.c");
+	}
 	src += Glob("sdl.github/src/timer/*.c");
 	if (isWindows) src += Glob("sdl.github/src/timer/windows/*.c");
 	src += Glob("sdl.github/src/video/dummy/*.c");

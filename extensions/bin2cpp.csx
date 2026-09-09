@@ -19,11 +19,13 @@
 
 	Up to date checks. An output is generated again when it or its record is missing, when what
 	generates it changed (the layout version of this extension, the symbol and friendly names, the
-	list of inputs of a single output) or when the content hash of an input differs. Dates are never
-	compared: a file touched without an edit generates nothing, an edit with the date kept still
-	generates. The record lives next to the output (<output>.kdep). An output is written to a
-	temporary file and moved into place once complete, so a failure leaves the previous output as it
-	was.
+	list of inputs of a single output) or when an input changed. An input whose date and size are
+	those of the record counts as unchanged without being read; one whose date or size moved is read
+	and its content hash compared, so a file touched without an edit generates nothing and an edit
+	dated older than the output still generates. The one edit that passes unseen keeps both the date
+	and the size of the file. The record lives next to the output (<output>.kdep). An output is
+	written to a temporary file and moved into place once complete, so a failure leaves the previous
+	output as it was.
 
 	Output. Output decides what reaches the console: Silent (nothing), Progress (one progress line
 	per call through Progress, the default) or Detailed (one line per file, as the previous version
@@ -293,17 +295,26 @@ public class Bin2cpp {
 		}
 	}
 
+	/// <summary>The text of every byte value, "0x00" to "0xFF", so the writer formats nothing per byte.</summary>
+	private static readonly string[] HexBytes = Enumerable.Range(0, 256).Select(b => "0x" + b.ToString("X2")).ToArray();
+
 	/// <summary>
-	/// The bytes of an array, sixteen per line.
+	/// The bytes of an array, sixteen per line, written line by line: the same text as before, at
+	/// the speed a large asset needs.
 	/// </summary>
 	private static void WriteBytes(StreamWriter writer, byte[] data) {
+		StringBuilder line = new StringBuilder(16 * 6);
 		for (int j = 0; j < data.Length; j++) {
-			writer.Write($"0x{data[j]:X2}");
+			line.Append(HexBytes[data[j]]);
 			if (j < data.Length - 1)
-				writer.Write(", ");
-			if ((j + 1) % 16 == 0)
-				writer.WriteLine();
+				line.Append(", ");
+			if ((j + 1) % 16 == 0) {
+				writer.WriteLine(line);
+				line.Clear();
+			}
 		}
+		if (line.Length > 0)
+			writer.Write(line);
 		writer.WriteLine();
 	}
 
@@ -460,17 +471,36 @@ public class Bin2cpp {
 			return false;
 		HashSet<string> current = new HashSet<string>(inputs.Select(i => Path.GetFullPath(i)), StringComparer.OrdinalIgnoreCase);
 		int seen = 0;
+		bool refresh = false;
 		foreach (JsonNode? n in recorded) {
 			if (n is not JsonObject entry)
 				return false;
 			string path = entry["path"]?.ToString() ?? string.Empty;
-			if (path.Length == 0 || !File.Exists(path) || !current.Contains(path))
+			if (path.Length == 0 || !current.Contains(path))
 				return false;
-			if (HashFile(path) != (entry["hash"]?.ToString() ?? string.Empty))
+			FileInfo fi = new FileInfo(path);
+			if (!fi.Exists)
 				return false;
 			seen++;
+			// Same date and size: unchanged without reading it; otherwise the content decides
+			if ((long?)entry["date"] == fi.LastWriteTimeUtc.Ticks && (long?)entry["size"] == fi.Length)
+				continue;
+			if (HashFile(path) != (entry["hash"]?.ToString() ?? string.Empty))
+				return false;
+			entry["date"] = fi.LastWriteTimeUtc.Ticks;
+			entry["size"] = fi.Length;
+			refresh = true;
 		}
-		return seen == current.Count;
+		if (seen != current.Count)
+			return false;
+		if (refresh) {
+			// The moved date is recorded so the next check does not read the file again
+			try {
+				File.WriteAllText(recordFile, record.ToJsonString());
+			} catch {
+			}
+		}
+		return true;
 	}
 
 	/// <summary>

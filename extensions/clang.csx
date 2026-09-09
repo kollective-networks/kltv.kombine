@@ -23,8 +23,10 @@
 	in a Last<Verb> property of the instance: LastCompile (the units with their status, diagnostics and
 	counts), LastLibrarian and LastLinker (the output, whether it was up to date, the objects, the
 	diagnostics and their counts), LastFormat (the files formatted and rejected). Clang.Status
-	accumulates the counters of the whole run, child scripts included; the script prints or writes
-	its own summary from those results, the extension writes no report of its own.
+	accumulates the counters of the whole run, child scripts included once the main script touched
+	it (Clang.Status.Reset()) before running them, as SetAsDefault() does for the options; the
+	script prints or writes its own summary from those results, the extension writes no report of
+	its own.
 
 	Output. ClangOptions.Output decides what reaches the console while the tools run: Silent (nothing
 	at all), Progress (one progress line per verb through ClangOptions.Progress, the default) or
@@ -41,11 +43,14 @@
 	Up to date checks. A unit is compiled when its object is missing, when its command line changed,
 	when any input recorded from its previous compile (the source and every header of the dependency
 	file the compiler wrote, system headers included) is missing or changed, or with rebuild. An input
-	counts as changed when its content hash differs, never by its date: a file is read once per verb
-	call whatever the number of units that include it. The record lives in a small file next to the
-	output (<output>.kdep). The archive and the link follow the same rule with their objects, the
-	libraries found in the library paths and their command line. A file touched without an edit
-	builds nothing; an edit with the date kept still builds.
+	whose date and size are those of the record counts as unchanged without being read; one whose
+	date or size moved is read and its content hash compared, so a file touched without an edit (a
+	branch switched and switched back, a checkout, a copy) builds nothing. Every file is looked at
+	once per verb call whatever the number of units that include it. The one edit that passes unseen
+	is one that keeps both the date and the size of the file. The record of an object is a small file
+	next to it (<object>.kdep). The archive and the link follow the same rule with their objects, the
+	libraries found in the library paths and their command line; their record lives in the folder of
+	their first object, named after the output, so the output folder holds nothing but what is shipped.
 
 	Minimum version. The file declares "#pragma kombine requires 1.6": it needs the output fragments,
 	the timeout and the cancellation of the Tool batches, and the progress reporters of that version.
@@ -84,6 +89,20 @@ public enum ClangOutput {
 	Progress,
 	/// <summary>One task line per unit ("Compiling x: Ok"), the diagnostics after the batch grouped per unit, the verb closed with its result line; with Verbose the listings, with ClangVerbose the extra lines of the tools.</summary>
 	Detailed
+}
+
+/// <summary>
+/// What Librarian does about a symbol defined by more than one object of the archive, the value of
+/// ClangOptions.DuplicateSymbols. Weak, common and COMDAT definitions (inline functions and templates,
+/// which every unit emits) are not duplicates.
+/// </summary>
+public enum DuplicateSymbolCheck {
+	/// <summary>No check: the archive takes every object as the archiver does. The default.</summary>
+	Ignore,
+	/// <summary>The archive is written and each duplicate is reported as a warning naming the symbol and both objects.</summary>
+	Warn,
+	/// <summary>The archive is not written: InvalidArgument, each duplicate reported as an error.</summary>
+	Fail
 }
 
 /// <summary>
@@ -210,9 +229,11 @@ public class ToolVersionInfo {
 /// <summary>
 /// The counters accumulated over the run: every Compile, Librarian, Linker and Format of this
 /// script and of its child scripts adds to them. The numbers live in a container of the Share
-/// registry, so every script that includes the extension reads and writes the same ones; the
-/// diagnostics are not accumulated, each verb prints its own and keeps them in its result. Reset()
-/// starts over, Print() prints the summary on demand.
+/// registry, created by the first script that touches the status and handed to the child scripts
+/// it runs from then on, the way SetAsDefault() hands the options: touch it in the main script
+/// (Clang.Status.Reset()) before running the children, so every script adds to the same numbers;
+/// a child that finds none keeps its own. The diagnostics are not accumulated, each verb prints its
+/// own and keeps them in its result. Reset() starts over, Print() prints the summary on demand.
 /// </summary>
 public class ClangStatus {
 	private const string Key = "ClangStatus";
@@ -342,6 +363,18 @@ public class Clang {
 
 		/// <summary>The resource compiler of Windows resources. Default "llvm-rc" (the command line of rc.exe).</summary>
 		public string RC { get; set; } = "llvm-rc";
+
+		/// <summary>The object reader Librarian uses to find the symbols every object defines (readobj --symbols). Default "llvm-readobj".</summary>
+		public string ReadObj { get; set; } = "llvm-readobj";
+
+		/// <summary>
+		/// What Librarian does about a symbol defined by more than one object of the archive: Ignore, the
+		/// default, skips the check; Warn writes the archive and reports each duplicate as a warning naming the
+		/// symbol and both objects; Fail refuses the archive with InvalidArgument. The check reads the symbols
+		/// of the objects through ReadObj once per archive written, which costs a moment on a large archive;
+		/// weak, common and COMDAT definitions are not duplicates.
+		/// </summary>
+		public DuplicateSymbolCheck DuplicateSymbols { get; set; } = DuplicateSymbolCheck.Ignore;
 
 		/// <summary>The extensions of the C sources, several separated by ";" (".c"). The comparison ignores the case on Windows and macOS.</summary>
 		public string CExtension { get; set; } = ".c";
@@ -572,6 +605,7 @@ public class Clang {
 		// The units: classified, checked, and queued when out of date
 		List<Job> jobs = new List<Job>();
 		Dictionary<string, string> tools = new Dictionary<string, string>();
+		System.Diagnostics.Stopwatch checks = System.Diagnostics.Stopwatch.StartNew();
 		for (int a = 0; a != src.Count(); a++) {
 			CompileUnit unit = new CompileUnit { Source = src[a], Object = obj[a] };
 			result.Units.Add(unit);
@@ -619,6 +653,7 @@ public class Clang {
 			}
 		}
 		result.Queued = jobs.Count;
+		Msg.Print("clang: " + src.Count() + " units checked in " + checks.ElapsedMilliseconds + " ms, " + jobs.Count + " to compile", Msg.LogLevels.Verbose);
 		Status.Add("queued", jobs.Count);
 		Folders.Create(obj.AsFolders());
 		string label = Options.TaskLabel.Length > 0 ? Options.TaskLabel : "Compiling " + src.Count() + " file" + (src.Count() == 1 ? "" : "s");
@@ -636,9 +671,9 @@ public class Clang {
 			result.Errors += u.Errors;
 			if (u.Status == UnitStatus.Compiled || u.Status == UnitStatus.Warnings) {
 				result.Compiled++;
-				Record(j.Output, u.Command, DepInputs(j.Source, j.Output, j.Resource));
+				Record(RecordFile(j.Output), u.Command, DepInputs(j.Source, j.Output, j.Resource));
 			} else {
-				DeleteRecord(j.Output);
+				DeleteRecord(RecordFile(j.Output));
 				if (u.Status == UnitStatus.Failed)
 					result.Failed.Add(u);
 			}
@@ -661,9 +696,10 @@ public class Clang {
 	/// Builds a static library from the objects when the archive is missing, when an object or the
 	/// command line changed (an object removed from the list too: the archive is written again without
 	/// it), or when an object is missing from the previous record. The archive is deleted and created
-	/// again with every object (ar rcs, in several commands when the list is long).
+	/// again with every object in one command (ar rcs); when the command line exceeds what the
+	/// platform allows, the objects go through a response file in the temp folder, removed afterwards.
 	/// </summary>
-	/// <param name="objs">The objects. Every one must exist (NotFound otherwise).</param>
+	/// <param name="objs">The objects. Every one must exist (NotFound otherwise). A symbol defined by two of them is reported per ClangOptions.DuplicateSymbols when the check is on (a warning with Warn, InvalidArgument with Fail).</param>
 	/// <param name="output">The archive; on Linux and macOS the name takes the lib prefix.</param>
 	/// <param name="abortwhenfailed">Null takes ClangOptions.AbortOnFailure.</param>
 	/// <returns>The ToolResult of the archiver: Success, NoChanges when the archive was up to date, Failed otherwise with the reason in LastError. The detail is in LastLibrarian.</returns>
@@ -685,44 +721,81 @@ public class Clang {
 		}
 		string outf = RealPath(output);
 		string mode = Options.ClangVerbose ? "rcsv" : "rcs";
-		string command = Options.AR + " " + mode + " " + Q(outf) + " " + Join(inputs.Select(i => Q(i)));
+		// The recorded command carries a version of the way the archive is written: the archives the
+		// previous, chunked way left incomplete are made again once
+		string command = "archive-v2 " + Options.AR + " " + mode + " " + Q(outf) + " " + Join(inputs.Select(i => Q(i)));
 		string label = Options.TaskLabel.Length > 0 ? Options.TaskLabel : "Library " + Path.GetFileName(outf);
 		if (UpToDate(outf, command, null, inputs)) {
 			result.UpToDate = true;
 			UpToDateLine("Librarian", label);
 			return ToolResult.DefaultNoChanges();
 		}
+		// A symbol defined by two objects: the archiver keeps both members and the linker loads both.
+		// Reported here, where the mistake is (a source list taking a generic and a platform folder)
+		List<string> duplicates = new List<string>();
+		if (Options.DuplicateSymbols != DuplicateSymbolCheck.Ignore) {
+			string severity = Options.DuplicateSymbols == DuplicateSymbolCheck.Fail ? "error" : "warning";
+			List<string>? found = DuplicateSymbols(inputs, severity, out string note);
+			if (found == null) {
+				if (Options.DuplicateSymbols == DuplicateSymbolCheck.Fail)
+					return FailResult(ErrorCode.NotFound, note, "Librarian", abort);
+				duplicates.Add("librarian: warning: " + note);
+			} else {
+				duplicates = found;
+			}
+			if (Options.DuplicateSymbols == DuplicateSymbolCheck.Fail && found != null && found.Count > 0) {
+				Job refused = new Job { Cmd = Options.AR, Label = Path.GetFileName(outf), Property = "AR", Output = outf, Lines = found, Errors = found.Count, Failed = true, Ran = true };
+				if (Options.Output == ClangOutput.Progress) {
+					ITaskProgress progress = Options.Progress ?? Kltv.Kombine.Api.Progress.Default;
+					progress.Start(label);
+					progress.Finish(ResultText(1, found.Count, 0, false, false), ProgressOutcome.Error);
+				}
+				result.Errors = found.Count;
+				result.Diagnostics.AddRange(found);
+				Report("Librarian", new List<Job> { refused }, 0, found.Count, 1, false, false);
+				return FailResult(ErrorCode.InvalidArgument, found[0].Substring("librarian: error: ".Length) + (found.Count > 1 ? " (" + found.Count + " duplicate symbols)" : ""), "Librarian", abort);
+			}
+		}
 		Folders.Create(output.AsFolder());
 		// Created again from scratch so a removed object leaves it
 		if (File.Exists(outf))
 			File.Delete(outf);
-		DeleteRecord(outf);
+		DeleteRecord(LinkRecordFile(outf, inputs));
 		if (Options.Verbose && Options.Output == ClangOutput.Detailed)
 			foreach (string o in inputs)
 				Msg.Print("Adding object: " + o);
-		// Several commands when the line is long: Windows has the lowest limit, 4K keeps a margin everywhere
-		List<Job> jobs = new List<Job>();
-		string lobjs = string.Empty;
-		int part = 0;
-		foreach (string o in inputs) {
-			lobjs += " " + Q(o);
-			if (lobjs.Length > 4096) {
-				part++;
-				jobs.Add(new Job { Cmd = Options.AR, Args = mode + " " + Q(outf) + lobjs, Label = Path.GetFileName(outf) + " (" + part + ")", Property = "AR", Output = outf });
-				lobjs = string.Empty;
+		// One command with every object. When the line exceeds what the platform allows (Windows:
+		// 32767) the objects go through a response file, never through several incremental commands:
+		// each of those reads the archive and writes it back, so two overlapping ones lose objects
+		Status.Add("queued", 1);
+		Job job = new Job { Cmd = Options.AR, Args = mode + " " + Q(outf) + " " + Join(inputs.Select(i => Q(i))), Label = Path.GetFileName(outf), Property = "AR", Output = outf, Extra = duplicates };
+		string? responsefile = null;
+		ToolResult res;
+		try {
+			if (job.Args.Length > 32766) {
+				responsefile = Path.Combine(Path.GetTempPath(), "kombine-" + Guid.NewGuid().ToString("N") + ".rsp");
+				// Backslashes are escapes inside a response file; one object per line, quoted when needed
+				File.WriteAllLines(responsefile, inputs.Select(i => Q(i.Replace("\\", "/"))));
+				job.Args = mode + " " + Q(outf) + " @" + Q(responsefile);
+				if (Options.Verbose && Options.Output == ClangOutput.Detailed)
+					Msg.Print("Response file created: " + responsefile);
+			}
+			res = RunBatch("Librarian", label, new List<Job> { job }, 1, abort, null);
+		} finally {
+			if (responsefile != null) {
+				try {
+					File.Delete(responsefile);
+					if (Options.Verbose && Options.Output == ClangOutput.Detailed)
+						Msg.Print("Response file deleted: " + responsefile);
+				} catch (Exception ex) {
+					Msg.PrintWarning("clang: response file not deleted: " + responsefile + " (" + ex.Message + ")", Msg.LogLevels.Verbose);
+				}
 			}
 		}
-		if (lobjs.Length > 0) {
-			part++;
-			jobs.Add(new Job { Cmd = Options.AR, Args = mode + " " + Q(outf) + lobjs, Label = Path.GetFileName(outf) + (part > 1 ? " (" + part + ")" : ""), Property = "AR", Output = outf });
-		}
-		Status.Add("queued", 1);
-		ToolResult res = RunBatch("Librarian", label, jobs, 1, abort, null);
-		foreach (Job j in jobs) {
-			result.Warnings += j.Warnings;
-			result.Errors += j.Errors;
-			result.Diagnostics.AddRange(j.Lines);
-		}
+		List<Job> jobs = new List<Job> { job };
+		result.Warnings = job.Warnings;
+		result.Errors = job.Errors;
+		result.Diagnostics.AddRange(job.Lines);
 		LastOutput = string.Join("", jobs.Select(j => j.Text));
 		bool failed = jobs.Any(j => j.Failed);
 		Status.Add("completed", failed ? 0 : 1);
@@ -734,7 +807,7 @@ public class Clang {
 				File.Delete(outf);
 			return FailResult(ErrorCode.Failed, FailureMessage(jobs), "Librarian", abort, res);
 		}
-		Record(outf, command, inputs);
+		Record(LinkRecordFile(outf, inputs), command, inputs);
 		return res;
 	}
 
@@ -798,7 +871,7 @@ public class Clang {
 			return ToolResult.DefaultNoChanges();
 		}
 		Folders.Create(output.AsFolder());
-		DeleteRecord(outf);
+		DeleteRecord(LinkRecordFile(outf, inputs));
 		Status.Add("queued", 1);
 		// A response file when the line is too long for the platform (Windows: 32767)
 		string? responsefile = null;
@@ -835,7 +908,7 @@ public class Clang {
 		Report("Linker", new List<Job> { job }, result.Warnings, result.Errors, job.Failed ? 1 : 0, false, job.ToolFailure);
 		if (job.Failed)
 			return FailResult(ErrorCode.Failed, FailureMessage(new List<Job> { job }), "Linker", abort, res);
-		Record(outf, command, inputs);
+		Record(LinkRecordFile(outf, inputs), command, inputs);
 		return res;
 	}
 
@@ -1027,6 +1100,8 @@ public class Clang {
 		public ToolResult? Result = null;
 		/// <summary>Every line the tool printed, standard error first, endings removed.</summary>
 		public List<string> Lines = new List<string>();
+		/// <summary>Diagnostic lines of the extension itself, placed before the lines of the tool (the duplicate symbols of an archive).</summary>
+		public List<string> Extra = new List<string>();
 		/// <summary>The text the tool printed, as it came.</summary>
 		public string Text = string.Empty;
 		public int Warnings = 0;
@@ -1132,7 +1207,7 @@ public class Clang {
 		job.Ran = true;
 		job.Result = r;
 		job.Text = string.Concat(r.Stdout) + string.Concat(r.Stderr);
-		job.Lines = Lines(r.Stderr).Concat(Lines(r.Stdout)).ToList();
+		job.Lines = job.Extra.Concat(Lines(r.Stderr)).Concat(Lines(r.Stdout)).ToList();
 		job.TimedOut = job.Lines.Any(l => l.StartsWith("timeout after "));
 		foreach (string line in job.Lines) {
 			switch (Severity(line)) {
@@ -1370,7 +1445,8 @@ public class Clang {
 	private void Begin() {
 		LastError = ApiError.None;
 		LastOutput = string.Empty;
-		hashes.Clear();
+		states.Clear();
+		compdbIndex = null;
 	}
 
 	/// <summary>
@@ -1468,6 +1544,160 @@ public class Clang {
 	}
 
 	/// <summary>
+	/// The symbols defined by more than one of the objects, as diagnostic lines ("librarian: severity:
+	/// duplicate symbol X defined in a.obj and b.obj"), read through ReadObj in one invocation. Only
+	/// the strong external definitions count: weak and common symbols, the COMDAT sections of COFF
+	/// objects (inline functions, templates), the weak definitions of Mach-O objects and the weak
+	/// bindings of ELF objects are left out. Null when the reader is not available, with the reason in
+	/// note.
+	/// </summary>
+	private List<string>? DuplicateSymbols(List<string> objects, string severity, out string note) {
+		note = string.Empty;
+		if (FindTool(Options.ReadObj) == null) {
+			note = "duplicate symbol check skipped: " + Options.ReadObj + " not found (ClangOptions.ReadObj)";
+			return null;
+		}
+		string responsefile = Path.Combine(Path.GetTempPath(), "kombine-" + Guid.NewGuid().ToString("N") + ".rsp");
+		ToolResult r;
+		try {
+			File.WriteAllLines(responsefile, objects.Select(o => Q(o.Replace("\\", "/"))));
+			Tool tool = new Tool("clang");
+			tool.Timeout = Options.Timeout;
+			Msg.Print("clang: " + Options.ReadObj + " --symbols @" + responsefile, Msg.LogLevels.Verbose);
+			r = tool.CommandSync(Options.ReadObj, "--symbols @" + Q(responsefile));
+		} finally {
+			try {
+				File.Delete(responsefile);
+			} catch {
+			}
+		}
+		if (r.ExitCode != 0) {
+			note = "duplicate symbol check skipped: " + Options.ReadObj + " failed (" + (Lines(r.Stderr).FirstOrDefault() ?? "exit code " + r.ExitCode) + ")";
+			return null;
+		}
+		// One pass over the text: a "File:" header per object, a "Format:" line, then the symbol blocks
+		Dictionary<string, string> firstDefinition = new Dictionary<string, string>(StringComparer.Ordinal);
+		List<string> duplicates = new List<string>();
+		string file = string.Empty;
+		string format = string.Empty;
+		HashSet<int> comdat = new HashSet<int>();
+		List<(string name, int section)> coffCandidates = new List<(string, int)>();
+		List<string> defined = new List<string>();
+		// The fields of the symbol block being read
+		bool inSymbol = false;
+		string name = string.Empty;
+		int section = 0;
+		string sectionName = string.Empty;
+		string storage = string.Empty;
+		string binding = string.Empty;
+		string type = string.Empty;
+		bool external = false;
+		bool weak = false;
+		int selection = 0;
+		void CloseFile() {
+			// COFF: the COMDAT sections are known once the whole table was read
+			foreach ((string n, int s) in coffCandidates)
+				if (!comdat.Contains(s))
+					defined.Add(n);
+			Msg.Print("clang: symbols of " + file + " (" + format + "): " + defined.Count + " defined, " + coffCandidates.Count + " external, " + comdat.Count + " comdat sections", Msg.LogLevels.Verbose);
+			foreach (string n in defined) {
+				if (firstDefinition.TryGetValue(n, out string? first)) {
+					if (first != file)
+						duplicates.Add("librarian: " + severity + ": duplicate symbol " + n + " defined in " + first + " and " + file);
+				} else {
+					firstDefinition[n] = file;
+				}
+			}
+			coffCandidates.Clear();
+			comdat.Clear();
+			defined.Clear();
+		}
+		foreach (string raw in Lines(r.Stdout)) {
+			string line = raw.TrimEnd();
+			if (line.StartsWith("File: ")) {
+				if (file.Length > 0)
+					CloseFile();
+				file = line.Substring(6).Trim();
+				format = string.Empty;
+				continue;
+			}
+			if (line.StartsWith("Format: ")) {
+				format = line.Substring(8).Trim();
+				continue;
+			}
+			string t = line.Trim();
+			if (t == "Symbol {") {
+				inSymbol = true;
+				name = string.Empty; section = 0; sectionName = string.Empty; storage = string.Empty; binding = string.Empty; type = string.Empty;
+				external = false; weak = false; selection = 0;
+				continue;
+			}
+			if (!inSymbol)
+				continue;
+			if (t == "}" && line.StartsWith("  }")) {
+				inSymbol = false;
+				if (format.StartsWith("COFF")) {
+					if (storage.StartsWith("Static") && selection != 0)
+						comdat.Add(section);
+					else if (storage.StartsWith("External") && section > 0)
+						coffCandidates.Add((name, section));
+				} else if (format.StartsWith("elf") || format.StartsWith("ELF")) {
+					if (binding.StartsWith("Global") && section > 0 && section != 0xFFF2 && !type.StartsWith("Section") && !type.StartsWith("File"))
+						defined.Add(name);
+				} else if (format.StartsWith("Mach-O")) {
+					if (external && !weak && type.StartsWith("Section") && sectionName != "__common")
+						defined.Add(name);
+				}
+				continue;
+			}
+			if (t.StartsWith("Name: ")) {
+				name = t.Substring(6);
+				int paren = name.LastIndexOf(" (");
+				if (paren > 0 && name.EndsWith(")"))
+					name = name.Substring(0, paren);
+			} else if (t.StartsWith("Section: ")) {
+				string s = t.Substring(9);
+				int paren = s.LastIndexOf('(');
+				sectionName = paren > 0 ? s.Substring(0, paren).Trim() : s.Trim();
+				string num = paren > 0 ? s.Substring(paren + 1).TrimEnd(')') : string.Empty;
+				section = ParseNumber(num);
+			} else if (t.StartsWith("StorageClass: ")) {
+				storage = t.Substring(14);
+			} else if (t.StartsWith("Binding: ")) {
+				binding = t.Substring(9);
+			} else if (t.StartsWith("Type: ")) {
+				type = t.Substring(6);
+			} else if (t == "Extern") {
+				external = true;
+			} else if (t.StartsWith("WeakDef")) {
+				weak = true;
+			} else if (t.StartsWith("Selection: ")) {
+				// "Selection: Any (0x2)" for a COMDAT section, "Selection: 0x0" for a plain one
+				string v = t.Substring(11).Trim();
+				int paren = v.LastIndexOf('(');
+				selection = ParseNumber(paren >= 0 ? v.Substring(paren + 1).TrimEnd(')') : v);
+			}
+		}
+		if (file.Length > 0)
+			CloseFile();
+		return duplicates;
+	}
+
+	/// <summary>
+	/// A number as readobj prints it: decimal, or hexadecimal with 0x; -1 for anything else.
+	/// </summary>
+	private static int ParseNumber(string text) {
+		string s = text.Trim();
+		try {
+			if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+				return Convert.ToInt32(s.Substring(2), 16);
+			return int.Parse(s);
+		} catch {
+			return -1;
+		}
+	}
+
+	/// <summary>
 	/// The libraries of the options that exist as files: a path as it is, a name searched in every
 	/// library path as libname.a, name.lib, libname.so, libname.dylib, name.dll, libname.dll.a and
 	/// name.a. A library found nowhere (a system library) is not an input.
@@ -1550,10 +1780,20 @@ public class Clang {
 	}
 
 	/// <summary>
-	/// The record of an output: what it was built from, next to it.
+	/// The record of an object: what it was built from, next to it.
 	/// </summary>
 	private static string RecordFile(string output) {
 		return output + ".kdep";
+	}
+
+	/// <summary>
+	/// The record of an archive or an executable: in the folder of its first object, named after the
+	/// output, so the output folder holds nothing but what is shipped.
+	/// </summary>
+	private static string LinkRecordFile(string output, List<string> inputs) {
+		if (inputs.Count == 0)
+			return RecordFile(output);
+		return Path.Combine(Path.GetDirectoryName(inputs[0]) ?? string.Empty, Path.GetFileName(output) + ".kdep");
 	}
 
 	/// <summary>
@@ -1572,13 +1812,18 @@ public class Clang {
 		return inputs.Select(i => Path.GetFullPath(i)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 	}
 
+	/// <summary>The first line of a record, with the version of its layout.</summary>
+	private const string RecordHeader = "kombine-record 2";
+
 	/// <summary>
 	/// Decides whether an output is up to date from its record: the command line must be the same and
-	/// every recorded input must exist with the same content hash (a file is hashed once per verb
-	/// call, whatever the number of units that include it). A unit also needs its dependency file. An
-	/// output without record but present is checked the way the previous extension did (the dates of
-	/// the source and its dependency file against the object) and gets its record when it passes, so
-	/// an upgrade does not rebuild everything once.
+	/// every recorded input must exist and be unchanged. An input whose date and size are those of
+	/// the record counts as unchanged without being read; one whose date or size moved is read and
+	/// its content hash compared, so a file touched without an edit builds nothing. Every file is
+	/// looked at once per verb call, whatever the number of units that include it. A unit also needs
+	/// its dependency file. An output without record but present is checked the way the previous
+	/// extension did (the dates of the source and its dependency file against the object) and gets
+	/// its record when it passes, so an upgrade does not rebuild everything once.
 	/// </summary>
 	/// <param name="output">The object, archive or executable.</param>
 	/// <param name="command">Its command line.</param>
@@ -1594,8 +1839,11 @@ public class Clang {
 			return false;
 		}
 		string commandHash = Hash(Encoding.UTF8.GetBytes(command));
-		string recordFile = RecordFile(output);
-		if (!File.Exists(recordFile)) {
+		string recordFile = source == null && inputs != null ? LinkRecordFile(output, inputs) : RecordFile(output);
+		string[] lines;
+		try {
+			lines = File.ReadAllLines(recordFile);
+		} catch (FileNotFoundException) {
 			// No record yet: the check of the previous extension, then the record is written
 			List<string> legacyInputs = inputs != null ? new List<string>(inputs) : new List<string>();
 			if (source != null) {
@@ -1606,7 +1854,8 @@ public class Clang {
 			}
 			long outputTime = Files.GetModifiedTime(output);
 			foreach (string i in legacyInputs) {
-				if (!File.Exists(i)) {
+				FileState? state = StateOf(i);
+				if (state == null) {
 					Msg.Print("clang: " + i + " is missing, " + output + " will be built", Msg.LogLevels.Verbose);
 					return false;
 				}
@@ -1615,99 +1864,129 @@ public class Clang {
 					return false;
 				}
 			}
-			Record(output, command, legacyInputs);
+			Record(recordFile, command, legacyInputs);
 			return true;
-		}
-		JsonObject? record;
-		try {
-			record = JsonNode.Parse(File.ReadAllText(recordFile)) as JsonObject;
-		} catch {
-			record = null;
-		}
-		if (record == null || record["command"] == null || record["inputs"] is not JsonArray recorded) {
-			Msg.Print("clang: the record of " + output + " is unreadable, it will be built", Msg.LogLevels.Verbose);
+		} catch (Exception ex) {
+			Msg.Print("clang: the record of " + output + " cannot be read (" + ex.Message + "), it will be built", Msg.LogLevels.Verbose);
 			return false;
 		}
-		if (record["command"]!.ToString() != commandHash) {
+		if (lines.Length < 2 || lines[0] != RecordHeader || !lines[1].StartsWith("command ")) {
+			Msg.Print("clang: the record of " + output + " is of another layout, it will be built", Msg.LogLevels.Verbose);
+			return false;
+		}
+		if (lines[1].Substring(8) != commandHash) {
 			Msg.Print("clang: the command of " + output + " changed, it will be built", Msg.LogLevels.Verbose);
 			return false;
 		}
-		foreach (JsonNode? n in recorded) {
-			if (n is not JsonObject entry)
+		bool refresh = false;
+		for (int l = 2; l < lines.Length; l++) {
+			string line = lines[l];
+			if (line.Length == 0)
+				continue;
+			// hash, date, size and path, separated by tabs
+			string[] fields = line.Split('\t', 4);
+			if (fields.Length != 4) {
+				Msg.Print("clang: the record of " + output + " is unreadable, it will be built", Msg.LogLevels.Verbose);
 				return false;
-			string path = entry["path"]?.ToString() ?? string.Empty;
-			if (path.Length == 0 || !File.Exists(path)) {
+			}
+			string path = fields[3];
+			FileState? state = StateOf(path);
+			if (state == null) {
 				Msg.Print("clang: " + path + " is missing, " + output + " will be built", Msg.LogLevels.Verbose);
 				return false;
 			}
-			// The content decides: a file touched without an edit changes nothing, an edit with the
-			// date kept still builds
-			if (HashFile(path) != (entry["hash"]?.ToString() ?? string.Empty)) {
+			if (long.TryParse(fields[1], out long ticks) && long.TryParse(fields[2], out long size) && ticks == state.Ticks && size == state.Size)
+				continue;
+			// The date or the size moved: the content decides
+			if (HashOf(path, state) != fields[0]) {
 				Msg.Print("clang: " + path + " changed, " + output + " will be built", Msg.LogLevels.Verbose);
 				return false;
+			}
+			lines[l] = fields[0] + "\t" + state.Ticks + "\t" + state.Size + "\t" + path;
+			refresh = true;
+		}
+		if (refresh) {
+			// The moved dates are recorded so the next check does not read those files again
+			try {
+				File.WriteAllLines(recordFile, lines);
+			} catch (Exception ex) {
+				Msg.PrintWarning("clang: record not refreshed: " + recordFile + " (" + ex.Message + ")", Msg.LogLevels.Verbose);
 			}
 		}
 		return true;
 	}
 
 	/// <summary>
-	/// Writes the record of an output: the hash of its command line and, for every input, its path,
-	/// its content hash, and its date and size for whoever reads the file.
+	/// Writes the record of an output: a header, the hash of its command line, and one line per input
+	/// with its content hash, date, size and path, separated by tabs.
 	/// </summary>
-	private void Record(string output, string command, List<string> inputs) {
-		JsonObject record = new JsonObject();
-		record["command"] = Hash(Encoding.UTF8.GetBytes(command));
-		JsonArray list = new JsonArray();
+	private void Record(string recordFile, string command, List<string> inputs) {
+		List<string> lines = new List<string> { RecordHeader, "command " + Hash(Encoding.UTF8.GetBytes(command)) };
 		foreach (string i in inputs.Distinct(StringComparer.OrdinalIgnoreCase)) {
-			if (!File.Exists(i))
+			string path = Path.IsPathRooted(i) ? i : Path.GetFullPath(i);
+			FileState? state = StateOf(path);
+			if (state == null)
 				continue;
-			FileInfo fi = new FileInfo(i);
-			JsonObject entry = new JsonObject();
-			entry["path"] = Path.GetFullPath(i);
-			entry["date"] = fi.LastWriteTimeUtc.Ticks;
-			entry["size"] = fi.Length;
-			entry["hash"] = HashFile(i, true);
-			list.Add(entry);
+			lines.Add(HashOf(path, state) + "\t" + state.Ticks + "\t" + state.Size + "\t" + path);
 		}
-		record["inputs"] = list;
 		try {
-			File.WriteAllText(RecordFile(output), record.ToJsonString());
+			File.WriteAllLines(recordFile, lines);
 		} catch (Exception ex) {
-			Msg.PrintWarning("clang: record not written: " + RecordFile(output) + " (" + ex.Message + ")", Msg.LogLevels.Verbose);
+			Msg.PrintWarning("clang: record not written: " + recordFile + " (" + ex.Message + ")", Msg.LogLevels.Verbose);
 		}
 	}
 
 	/// <summary>
 	/// Removes the record of an output that failed to build, so the next call builds it again.
 	/// </summary>
-	private static void DeleteRecord(string output) {
+	private static void DeleteRecord(string recordFile) {
 		try {
-			if (File.Exists(RecordFile(output)))
-				File.Delete(RecordFile(output));
+			if (File.Exists(recordFile))
+				File.Delete(recordFile);
 		} catch {
 		}
 	}
 
 	/// <summary>
-	/// The content hashes read during the current verb call, so a header included by many units is
-	/// read once. Cleared by every verb.
+	/// What is known of an input during one verb call: its date and size from one look at the file
+	/// system, and its content hash once it was read.
 	/// </summary>
-	private readonly Dictionary<string, string> hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+	private class FileState {
+		public long Ticks;
+		public long Size;
+		public string? Hash;
+	}
 
 	/// <summary>
-	/// The content hash of a file, from the cache of the current call unless the file was just
-	/// written (fresh).
+	/// The states of the inputs seen during the current verb call, so a header included by many units
+	/// is looked at once and read at most once. Cleared by every verb.
 	/// </summary>
-	private string HashFile(string path, bool fresh = false) {
-		string key = Path.GetFullPath(path);
-		if (!fresh && hashes.TryGetValue(key, out string? known))
+	private readonly Dictionary<string, FileState?> states = new Dictionary<string, FileState?>(StringComparer.OrdinalIgnoreCase);
+
+	/// <summary>
+	/// The state of a file, null when it is missing.
+	/// </summary>
+	private FileState? StateOf(string path) {
+		if (states.TryGetValue(path, out FileState? known))
 			return known;
-		string hash;
-		using (FileStream s = File.OpenRead(path)) {
-			hash = Convert.ToHexString(SHA256.HashData(s));
+		FileState? state = null;
+		FileInfo fi = new FileInfo(path);
+		if (fi.Exists)
+			state = new FileState { Ticks = fi.LastWriteTimeUtc.Ticks, Size = fi.Length };
+		states[path] = state;
+		return state;
+	}
+
+	/// <summary>
+	/// The content hash of a file, read once per verb call.
+	/// </summary>
+	private string HashOf(string path, FileState state) {
+		if (state.Hash == null) {
+			using (FileStream s = File.OpenRead(path)) {
+				state.Hash = Convert.ToHexString(SHA256.HashData(s));
+			}
 		}
-		hashes[key] = hash;
-		return hash;
+		return state.Hash;
 	}
 
 	/// <summary>
@@ -1853,14 +2132,21 @@ public class Clang {
 		if (compdb.Doc == null)
 			compdb.Doc = new JsonArray();
 		string directory = Folders.GetCurrentFolder();
-		foreach (JsonNode? node in compdb.Doc.AsArray()) {
-			if (node == null)
-				continue;
-			if (node["file"]?.ToString() == file && node["directory"]?.ToString() == directory) {
-				node["command"] = JsonValue.Create(cmd);
-				node["output"] = JsonValue.Create(outputfile);
-				return;
+		// The entries indexed once per call by folder and file, instead of a scan of the whole
+		// database for every unit
+		if (compdbIndex == null) {
+			compdbIndex = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
+			foreach (JsonNode? node in compdb.Doc.AsArray()) {
+				if (node == null)
+					continue;
+				string key = (node["directory"]?.ToString() ?? string.Empty) + "\n" + (node["file"]?.ToString() ?? string.Empty);
+				compdbIndex[key] = node;
 			}
+		}
+		if (compdbIndex.TryGetValue(directory + "\n" + file, out JsonNode? existing)) {
+			existing["command"] = JsonValue.Create(cmd);
+			existing["output"] = JsonValue.Create(outputfile);
+			return;
 		}
 		JsonObject entry = new JsonObject();
 		entry.Add("directory", JsonValue.Create(directory));
@@ -1868,5 +2154,9 @@ public class Clang {
 		entry.Add("file", JsonValue.Create(file));
 		entry.Add("output", JsonValue.Create(outputfile));
 		compdb.Doc.AsArray().Add(entry);
+		compdbIndex[directory + "\n" + file] = entry;
 	}
+
+	/// <summary>The entries of the compile database by folder and file, built once per verb call.</summary>
+	private Dictionary<string, JsonNode>? compdbIndex = null;
 }

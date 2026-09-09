@@ -1420,6 +1420,9 @@ public static class Git {
 
 	// ---------------------------------------------------------------- version
 
+	/// <summary>The version read by the first call of the run.</summary>
+	private static GitVersion? cachedVersion = null;
+
 	/// <summary>
 	/// The installed git version, from "git --version". Every field is -1 when git is not available;
 	/// LastError says so.
@@ -1427,6 +1430,9 @@ public static class Git {
 	/// <returns>The version.</returns>
 	public static GitVersion Version() {
 		Begin();
+		// Read once per run: git does not change while the script runs
+		if (cachedVersion != null)
+			return cachedVersion.Value;
 		GitVersion version = new GitVersion();
 		Command c = new Command();
 		c.Args.Add("--version");
@@ -1447,6 +1453,7 @@ public static class Git {
 		version.Major = int.Parse(m.Groups[1].Value);
 		version.Minor = int.Parse(m.Groups[2].Value);
 		version.Revision = m.Groups[3].Success ? int.Parse(m.Groups[3].Value) : 0;
+		cachedVersion = version;
 		return version;
 	}
 

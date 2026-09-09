@@ -86,7 +86,8 @@ namespace Kltv.Kombine.Api {
 		public bool UseShell { get; set; } = false;
 
 		/// <summary>
-		/// Number of concurrent process launched by the tool
+		/// Number of queued commands ExecuteCommands runs at the same time: 1, the default, runs them one at a
+		/// time, 2 two at a time and so on; zero runs every queued command at once.
 		/// </summary>
 		public uint ConcurrentCommands { get; set; } = 1;
 
@@ -309,7 +310,9 @@ namespace Kltv.Kombine.Api {
 					current.callback?.Invoke(ref results);
 					current.res = results;
 				}, current.id);
-				CommandAsyncWaitAll(ConcurrentCommands);
+				// The next command starts once fewer than ConcurrentCommands are running; zero never waits
+				if (ConcurrentCommands > 0)
+					CommandAsyncWaitAll(ConcurrentCommands - 1);
 			}
 			// Wait for all the commands to finish
 			CommandAsyncWaitAll(0);
@@ -452,8 +455,15 @@ namespace Kltv.Kombine.Api {
 			}
 			// And finally this task has been finished
 			Interlocked.Decrement(ref PendingAsyncTasks);
+			Finished.Set();
 			return;
 		}
+
+		/// <summary>
+		/// Signaled by every completed asynchronous command, so a waiter continues at once instead of at
+		/// the next poll.
+		/// </summary>
+		private readonly AutoResetEvent Finished = new AutoResetEvent(false);
 
 		/// <summary>
 		/// Waits for all the pending tasks to complete (or by given threshold) 
@@ -461,7 +471,8 @@ namespace Kltv.Kombine.Api {
 		public void CommandAsyncWaitAll(uint Limit = 0) {
 			UInt64 Pending = Interlocked.Read(ref PendingAsyncTasks);
 			while (Pending > Limit) {
-				Thread.Sleep(10);
+				// Woken by the completion of a command; the timeout keeps the cancellation checks alive
+				Finished.WaitOne(10);
 				Pending = Interlocked.Read(ref PendingAsyncTasks);
 				if (CancelExecution == true) {
 					Msg.PrintMod("Canceling execution of async commands.", ".tool", Msg.LogLevels.Debug);

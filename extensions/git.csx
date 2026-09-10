@@ -1046,9 +1046,17 @@ public static class Git {
 		tool.CaptureOutput = (mode == GitOutput.Detailed);
 		tool.Timeout = c.Timeout > 0 ? c.Timeout : Timeout;
 		Transfer? progress = null;
-		if (c.Transfer && mode == GitOutput.Progress) {
+		if (c.Transfer && mode == GitOutput.Progress)
 			progress = new Transfer(Progress ?? Kltv.Kombine.Api.Progress.Default, c.Label);
-			tool.OnStderr = (string s) => { progress.Fragment(s); };
+		if (mode != GitOutput.Detailed) {
+			// Git's own text still goes out, at verbose level: invisible on the console, delivered to a
+			// Msg.OnMessage handler. The progress updates git redraws with carriage returns are left out
+			tool.OnStdout = (string s) => { if (s.EndsWith("\n")) Msg.RawPrint(s, Msg.LogLevels.Verbose); };
+			tool.OnStderr = (string s) => {
+				progress?.Fragment(s);
+				if (s.EndsWith("\n"))
+					Msg.RawPrint(s, Msg.LogLevels.Verbose);
+			};
 		}
 		ToolResult result = new ToolResult(new string[0], new string[0], Tool.ToolStatus.Failed, -1);
 		int attempts = c.Retries + 1;

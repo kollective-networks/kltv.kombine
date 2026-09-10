@@ -357,13 +357,14 @@ public class Bin2obj {
 	/// The line of one file in the Detailed mode, as the previous version printed it.
 	/// </summary>
 	private void Line(string file, string? success, string? error) {
-		if (Output != OutputMode.Detailed)
-			return;
-		Msg.PrintTask("Bin2obj: Processing " + file + ":");
+		// Always emitted: at normal level in the Detailed mode, at verbose level otherwise, where it
+		// reaches a Msg.OnMessage handler without reaching the console
+		Msg.LogLevels level = Output == OutputMode.Detailed ? Msg.LogLevels.Normal : Msg.LogLevels.Verbose;
+		Msg.PrintTask("Bin2obj: Processing " + file + ":", level);
 		if (error != null)
-			Msg.PrintTaskError(error);
+			Msg.PrintTaskError(error, level);
 		else
-			Msg.PrintTaskSuccess(success ?? string.Empty);
+			Msg.PrintTaskSuccess(success ?? string.Empty, level);
 	}
 
 	/// <summary>

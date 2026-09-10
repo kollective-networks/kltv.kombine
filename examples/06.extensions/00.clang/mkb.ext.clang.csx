@@ -331,6 +331,23 @@ void TestOutputModes(){
 		clang.Librarian(Objects("a.c"), Path.Combine(Lib, "one" + LibExt));
 		Check("reporter lines in " + mode, recorder.Started + " started, " + recorder.Finished, mode == ClangOutput.Progress ? "2 started, ok" : "0 started, ");
 	}
+	// The detailed lines go out in every mode: at normal level in Detailed, at verbose level in the
+	// others, so a message handler receives them while the console shows only what the mode says
+	foreach (ClangOutput mode in new[] { ClangOutput.Silent, ClangOutput.Progress, ClangOutput.Detailed }){
+		int normalCount = 0, verboseCount = 0, diagnostics = 0;
+		Msg.OnMessage = (Msg.LogLevels level, Msg.MessageKind kind, string module, string message, int indent) => {
+			if (kind == Msg.MessageKind.Task && message.StartsWith("Compiling ")){
+				if (level == Msg.LogLevels.Normal) normalCount++; else verboseCount++;
+			}
+			if (kind == Msg.MessageKind.Warning && message.Contains("unused variable"))
+				diagnostics++;
+		};
+		Clang clang = Configured(mode);
+		clang.Options.Progress = recorder;
+		clang.Compile(Sources("a.c", "b.cpp", "warn.c"), Objects("a.c", "b.cpp", "warn.c"), false, true);
+		Msg.OnMessage = null;
+		Check("handler gets the unit lines in " + mode, normalCount + " normal, " + verboseCount + " verbose, warning " + (diagnostics > 0 ? "delivered" : "missing"), (mode == ClangOutput.Detailed ? "3 normal, 0 verbose" : "0 normal, 3 verbose") + ", warning delivered");
+	}
 	EndBanner();
 }
 

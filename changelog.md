@@ -1,37 +1,61 @@
 ## [Unreleased]
 
-- [Feature] `Tool.OnStdout` and `Tool.OnStderr` deliver the output fragments while a command runs; `Tool.Timeout` kills a command that runs longer, synchronous or queued; `Tool.CancelCommands()` cancels a running batch. See doc/api.md, Tool
-- [Feature] Clang extension rewritten: output modes (`Silent`, `Progress`, `Detailed`) with the diagnostics printed after the build naming the offending files, results in `LastCompile`, `LastLibrarian`, `LastLinker`, `LastFormat` and `LastError`, run wide counters in `Clang.Status`, tool presence and version checks, timeout per invocation, up to date checks by content hash and recorded command line for the units, the archives and the links, the libraries of the link and system headers tracked. See doc/extensions/clang.md
-- [Bugfix] Tool: `ConcurrentCommands` let one command more than asked run at the same time (a limit of 1 ran two); the limit is exact now, and 0 runs every queued command at once
-- [Misc] Clang extension: the up to date checks look at every file once per call and read only the files whose date or size moved; the records are compact text files and the compile database is indexed, so a check of hundreds of units with the system headers tracked takes a fraction of a second; the record of an archive or an executable lives in the folder of its first object, not next to the output. The records of the earlier 1.6 development builds are made again once
-- [Misc] Tool: a batch continues at once when a command completes instead of at the next 10 ms poll
-- [Misc] Bin2cpp and bin2obj: an input whose date and size match the record is not read again; bin2cpp writes large assets many times faster
-- [Misc] Git extension: the version is read once per run
-- [Bugfix] Clang extension: a long archive is written in one `ar` command through a response file instead of several incremental ones, which could overlap and lose objects; a symbol defined by two objects of an archive is reported by `Librarian` per `ClangOptions.DuplicateSymbols` (off by default; a warning naming the symbol and both objects with `Warn`, `InvalidArgument` with `Fail`) instead of surfacing at the link
-- [Misc] Clang extension: `ClangOptions.LD` names the linker the driver uses (`-fuse-ld=`, default `lld`, empty leaves the choice to the driver); `Format` is an instance method run through the tool runner; the listings print with `Verbose` and `ClangVerbose` passes `-v`; a rebuilt script no longer forces a rebuild of every unit; the dependency files are generated with `-MD`
-- [Misc] `Engine.LastError` of a child script aborted with `Msg.PrintAndAbort` carries the abort message; the line `Kombine()` prints for such a child says "(aborted)" instead of repeating the reason the child printed
-- [Misc] Every extension declares its minimum Kombine version with `#pragma kombine requires`: 1.6 for clang, git, bin2cpp and bin2obj, 1.5 for clang.doc, dotnet.doc, github and modder
-- [Feature] Bin2cpp and bin2obj extensions: outputs generated again by the content hash of their inputs and what generates them (names, list, layout version, machine) instead of the dates, a failure leaves the previous output intact, `LastError`, `LastGenerate`, output modes and `AbortOnFailure`; bin2obj objects carry no timestamp. See doc/extensions/bin2cpp.md and bin2obj.md
-- [Feature] `#pragma kombine requires <major.minor>`: a script or extension declares the minimum Kombine version, reported instead of compiler errors by an older engine. See doc/api.md, Script Basics
-- [Feature] Git extension rewritten: one verb per git command (clone, pull, fetch, checkout, submodule, push, ls-remote, status, info, diff, ls-files, check-ignore, rev-parse, merge-base, patch, add, commit, tag, archive, clean, sparse-checkout, worktree, lfs, bundle, hooks), options per verb with the previous defaults, results in `Git.Last<Verb>`, `Git.LastError`, output modes, abort on failure, authentication inheritance. See doc/extensions/git.md
-- [Misc] Git extension: `Pull` defaults to fast forward only, `Patch` is implemented, the git example tests every verb by groups
-- [Bugfix] sdl2 extra: on Windows the generic thread folder contributes only the sources the Windows folder does not provide, as upstream does; the rest duplicated the symbols of the Windows folder inside the archive
-- [Bugfix] Git example: a step run against a failed clone could add and commit into the Kombine repository itself; the sandbox is now walled off with `GIT_CEILING_DIRECTORIES`, the group stops when the clone failed, and the test sandboxes are ignored by git
-- [Feature] Progress reporting: `ITaskProgress` contract with bar, dots and plain renderers, selectable per facility (`Http.Progress`, `Progress.Default`). See doc/api.md, Progress
-- [Feature] `Folders.Copy` honors `CopyOptions.ShowProgress` through `Folders.Progress`
-- [Feature] `Compress.Zip` and `Compress.Tar` show a progress line through `Compress.Progress`; `Compress.ShowProgress` or the `showprogress` argument silence it. See doc/api.md, Compress
-- [Feature] Error reporting: every facility exposes `LastError` (`ErrorCode` and message) so scripts explain failures themselves. See doc/api.md, Error reporting
-- [Feature] `Engine.ForwardSearch`, `Engine.RebuildScripts` and `Engine.LastError`: the script side of `-kforward` and `-ksrb`, and the reason of a failed child script. See doc/api.md, Engine settings
-- [Bugfix] Tool: the captured output of a very short command could miss its last fragments; the exit is signaled once the output readers end
-- [Bugfix] `Compress.Tar.Decompress` creates the destination folder and returns false when entries are refused or not extracted
-- [Bugfix] Failed compressions leave no partial archive; xz compression returns false instead of aborting
-- [Misc] Zip extraction goes entry by entry like tar: refused (path traversal) and failed entries are reported, existing files with overwrite disabled are skipped and reported as `AlreadyExists` (tar too); archive entries always use `/`
-- [Misc] `Folders.SetCurrentFolder`, `Folders.CurrentFolderPop` and `KValue.Export` return bool
-- [Misc] Engine messages a script can handle through its return value or `LastError` are logged at verbose level only
-- [Misc] Child script failures (not found, unresolved references, compile errors, missing action) print nothing: `Kombine()` returns 1 and `Engine.LastError` carries the reason
-- [Misc] Forward search hits (`-kforward`) are logged at verbose level instead of printing a warning
-- [Misc] Documentation: extensions split into one page each (doc/extensions/), building guide with the root script actions, progress and error reporting guides, readme index with direct links, usage output and exit code contract
-- [Misc] Examples: progress example, `LastError` checks in the folders, types and network examples, `#load` resolution example running both forward search modes
+### Breaking changes
+
+What no longer compiles or no longer runs, why, and what to change.
+
+- **Clang extension: `Format` is an instance method.** `Clang.Format(files, args)` no longer compiles: the verb runs through the tool runner with the options of an instance and leaves its result in `LastFormat`. Call it on the instance the script already has, or on `new Clang()`.
+- **Clang extension: `ClangOptions.LD` names the linker, not the driver.** The link is always driven by the C++ compiler of the options (`CXX`), and `LD` is passed to it as `-fuse-ld=<LD>` (`lld` by default, what the previous version forced on every link). A script that set `LD` to a compiler driver ("clang++", "clang++-16", "g++") now fails the link with "invalid linker name". Put the driver in `CXX` and in `LD` the linker name (`lld`, `gold`, `bfd`, `mold`, or a path), or an empty string to let the driver choose.
+- **Bin2obj and bin2cpp: no `WasProcessed`.** Copies of the extensions that carried a `WasProcessed` member find nothing under that name: `LastGenerate.Generated` says how many outputs the call wrote and `LastGenerate.Entries` what happened to each input.
+- **Git extension: the fourth parameter of `Clone` is the options object.** `Clone(uri, path, branch, showdettach)` took a bool; it takes a `CloneOptions` now, so a call passing the bool positionally no longer compiles. Use `Git.Clone(uri, path, branch, new CloneOptions { DetachedHeadAdvice = true })`; calls with three arguments compile unchanged.
+
+### Features
+
+- `Msg.OnMessage`: a delegate that receives every message of the engine and of every script of the run, with its level, kind, module and indentation, before it is written to the console, so a script filters the log and forwards it to another facility or log system. See doc/api.md, Logging
+- The clang, git, bin2cpp and bin2obj extensions emit their detailed lines whatever their output mode, at verbose level in `Progress` and `Silent`, so a `Msg.OnMessage` handler receives the whole detail while the console shows the progress line
+- `Tool.OnStdout` and `Tool.OnStderr` deliver the output fragments while a command runs; `Tool.Timeout` kills a command that runs longer, synchronous or queued; `Tool.CancelCommands()` cancels a running batch. See doc/api.md, Tool
+- Clang extension rewritten: output modes (`Silent`, `Progress`, `Detailed`) with the diagnostics printed after the build naming the offending files, results in `LastCompile`, `LastLibrarian`, `LastLinker`, `LastFormat` and `LastError`, run wide counters in `Clang.Status`, tool presence and version checks, timeout per invocation, up to date checks by content hash and recorded command line for the units, the archives and the links, the libraries of the link and system headers tracked, duplicate symbols of an archive reported per `ClangOptions.DuplicateSymbols`. See doc/extensions/clang.md
+- Bin2cpp and bin2obj extensions: outputs generated again by the content hash of their inputs and what generates them (names, list, layout version, machine) instead of the dates, a failure leaves the previous output intact, `LastError`, `LastGenerate`, output modes and `AbortOnFailure`; bin2obj objects carry no timestamp. See doc/extensions/bin2cpp.md and bin2obj.md
+- `#pragma kombine requires <major.minor>`: a script or extension declares the minimum Kombine version, reported instead of compiler errors by an older engine. See doc/api.md, Script Basics
+- Git extension rewritten: one verb per git command (clone, pull, fetch, checkout, submodule, push, ls-remote, status, info, diff, ls-files, check-ignore, rev-parse, merge-base, patch, add, commit, tag, archive, clean, sparse-checkout, worktree, lfs, bundle, hooks), options per verb with the previous defaults, results in `Git.Last<Verb>`, `Git.LastError`, output modes, abort on failure, authentication inheritance. See doc/extensions/git.md
+- Progress reporting: `ITaskProgress` contract with bar, dots and plain renderers, selectable per facility (`Http.Progress`, `Progress.Default`). See doc/api.md, Progress
+- `Folders.Copy` honors `CopyOptions.ShowProgress` through `Folders.Progress`
+- `Compress.Zip` and `Compress.Tar` show a progress line through `Compress.Progress`; `Compress.ShowProgress` or the `showprogress` argument silence it. See doc/api.md, Compress
+- Error reporting: every facility exposes `LastError` (`ErrorCode` and message) so scripts explain failures themselves. See doc/api.md, Error reporting
+- `Engine.ForwardSearch`, `Engine.RebuildScripts` and `Engine.LastError`: the script side of `-kforward` and `-ksrb`, and the reason of a failed child script. See doc/api.md, Engine settings
+
+### Bugfixes
+
+- Tool: `ConcurrentCommands` let one command more than asked run at the same time (a limit of 1 ran two); the limit is exact now
+- Tool: the captured output of a very short command could miss its last fragments; the exit is signaled once the output readers end
+- Clang extension: a long archive is written in one `ar` command through a response file instead of several incremental ones, which could overlap and lose objects
+- Clang extension: the library change detection never fired, a header whose path contains a space was skipped, a deleted header was ignored, system headers were not tracked, a missing source aborted whatever `abortwhenfailed` said, and an unknown extension left a hole the link tripped on later; every case is handled by the up to date checks and the failures of the verbs
+- sdl2 extra: on Windows the generic thread folder contributes only the sources the Windows folder does not provide, as upstream does; the rest duplicated the symbols of the Windows folder inside the archive
+- Git example: a step run against a failed clone could add and commit into the Kombine repository itself; the sandbox is now walled off with `GIT_CEILING_DIRECTORIES`, the group stops when the clone failed, and the test sandboxes are ignored by git
+- `Compress.Tar.Decompress` creates the destination folder and returns false when entries are refused or not extracted
+- Failed compressions leave no partial archive; xz compression returns false instead of aborting
+
+### Misc
+
+- Clang extension: the default output mode is `Progress`, one line per verb; the per unit lines of the previous version are the `Detailed` mode and the listings print only with `Verbose`; `Verbose` no longer passes `-v` to the tools, `ClangVerbose` does
+- Clang extension: `Librarian` deletes the archive and writes it again with every object of the call, so an object removed from the list leaves it; a script that built one archive from several calls passes the whole list in one call
+- Bin2cpp and bin2obj: a failure aborts the script by default (`AbortOnFailure`); false is returned instead with `AbortOnFailure = false`; the per file lines are the `Detailed` output mode, `Progress` is the default
+- Git extension: `Pull` only fast forwards by default, a diverged branch returns false with `Different` (`PullMode.Merge`, `Rebase` or `Reset` ask for the rest); `GIT_TERMINAL_PROMPT=0` is exported when the extension loads, so a missing credential fails at once with `AccessDenied` instead of prompting
+- Tool: `ConcurrentCommands` is exact: 1 runs the queued commands one at a time, N runs N, 0 runs every one at once (0 used to mean one at a time)
+- Every extension declares its minimum Kombine version with `#pragma kombine requires`: 1.6 for clang, git, bin2cpp and bin2obj, 1.5 for clang.doc, dotnet.doc, github and modder
+- Clang extension: the up to date checks look at every file once per call and read only the files whose date or size moved; the records are compact text files and the compile database is indexed, so a check of hundreds of units with the system headers tracked takes a fraction of a second; the record of an archive or an executable lives in the folder of its first object, not next to the output. The records of the earlier 1.6 development builds are made again once
+- Clang extension: a rebuilt script no longer forces a rebuild of every unit, the recorded command lines decide; the dependency files are generated with `-MD`
+- Tool: a batch continues at once when a command completes instead of at the next 10 ms poll
+- Bin2cpp and bin2obj: an input whose date and size match the record is not read again; bin2cpp writes large assets many times faster
+- Git extension: `Patch` is implemented, the version is read once per run, the git example tests every verb by groups
+- `Engine.LastError` of a child script aborted with `Msg.PrintAndAbort` carries the abort message; the line `Kombine()` prints for such a child says "(aborted)" instead of repeating the reason the child printed
+- Zip extraction goes entry by entry like tar: refused (path traversal) and failed entries are reported, existing files with overwrite disabled are skipped and reported as `AlreadyExists` (tar too); archive entries always use `/`
+- `Folders.SetCurrentFolder`, `Folders.CurrentFolderPop` and `KValue.Export` return bool
+- Engine messages a script can handle through its return value or `LastError` are logged at verbose level only
+- Child script failures (not found, unresolved references, compile errors, missing action) print nothing: `Kombine()` returns 1 and `Engine.LastError` carries the reason
+- Forward search hits (`-kforward`) are logged at verbose level instead of printing a warning
+- Documentation: extensions split into one page each (doc/extensions/), building guide with the root script actions, progress and error reporting guides, readme index with direct links, usage output and exit code contract
+- Examples: progress example, `LastError` checks in the folders, types and network examples, `#load` resolution example running both forward search modes
 
 ## [1.5.24359387]
 

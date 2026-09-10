@@ -319,6 +319,13 @@ current output level (see `-ko:` parameters) is equal or higher.
 | `void BeginIndent(bool bSkipNotUsed = false)` | Adds one level of indentation to the log output. With `bSkipNotUsed` the level is only added if the current one was used. |
 | `void EndIndent()` | Removes one level of indentation. |
 | `void Lock()` / `void UnLock()` | Locks/unlocks the log output. Use to keep output together when printing from concurrent callbacks. |
+| `int Indent` | The current indentation depth. |
+| `MessageHandler? OnMessage` | A delegate called with every message before it is written to the console, whatever the log level and the output: the messages of the engine and of every script of the run, from every thread, one at a time. The script filters them and forwards them to another facility or log system. A message printed by the handler reaches the console but not the handler again; an exception thrown by it is printed once at verbose level and does not stop the script. Null by default. |
+| | The extensions emit their detailed lines whatever their output mode, at verbose level in the modes that do not show them, so the handler receives the whole detail while the console shows the progress line. |
+| `delegate void MessageHandler(LogLevels level, MessageKind kind, string module, string message, int indent)` | What the handler receives: the level the message was printed at, its kind, the engine module that printed it (empty for a script message), the text without indentation, module prefix or trailing newline, and the indentation depth. |
+
+**`Msg.MessageKind`:** `Normal`, `Warning`, `Error`, `Task` (the start of a task line, no
+newline), `TaskSuccess`, `TaskWarning`, `TaskError` (the result that closes it), `Raw`.
 
 ```csharp
 Msg.PrintTask("Compiling module... ");
@@ -326,6 +333,15 @@ if (Exec("clang++", flags) == 0)
 	Msg.PrintTaskSuccess();
 else
 	Msg.PrintTaskError();
+```
+
+A handler that keeps every warning and error of the run, engine messages included, in a file:
+
+```csharp
+Msg.OnMessage = (Msg.LogLevels level, Msg.MessageKind kind, string module, string message, int indent) => {
+	if (kind == Msg.MessageKind.Warning || kind == Msg.MessageKind.Error || kind == Msg.MessageKind.TaskError)
+		File.AppendAllText("out/build.log", kind + " " + (module.Length > 0 ? module + " " : "") + message + Environment.NewLine);
+};
 ```
 
 ---

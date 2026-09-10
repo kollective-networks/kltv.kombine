@@ -581,12 +581,10 @@ public class Clang {
 		// A rebuilt script no longer forces a rebuild of every unit, as the previous extension did: the
 		// command line of every unit is recorded, so a script change that alters it compiles by itself
 		// The listings, with Verbose
-		if (Options.Verbose && Options.Output != ClangOutput.Silent) {
-			Listing("Include paths:", Options.IncludeDirs);
-			Listing("Defines:", Options.Defines);
-			Listing("Switches for C compiler:", Options.SwitchesCC);
-			Listing("Switches for C++ compiler:", Options.SwitchesCXX);
-		}
+		Listing("Include paths:", Options.IncludeDirs, VerboseLevel);
+		Listing("Defines:", Options.Defines, VerboseLevel);
+		Listing("Switches for C compiler:", Options.SwitchesCC, VerboseLevel);
+		Listing("Switches for C++ compiler:", Options.SwitchesCXX, VerboseLevel);
 		// The common arguments
 		foreach (KValue v in Options.IncludeDirs)
 			if (v.IsEmpty())
@@ -762,9 +760,8 @@ public class Clang {
 		if (File.Exists(outf))
 			File.Delete(outf);
 		DeleteRecord(LinkRecordFile(outf, inputs));
-		if (Options.Verbose && Options.Output == ClangOutput.Detailed)
-			foreach (string o in inputs)
-				Msg.Print("Adding object: " + o);
+		foreach (string o in inputs)
+			Msg.Print("Adding object: " + o, VerboseLevel);
 		// One command with every object. When the line exceeds what the platform allows (Windows:
 		// 32767) the objects go through a response file, never through several incremental commands:
 		// each of those reads the archive and writes it back, so two overlapping ones lose objects
@@ -778,16 +775,14 @@ public class Clang {
 				// Backslashes are escapes inside a response file; one object per line, quoted when needed
 				File.WriteAllLines(responsefile, inputs.Select(i => Q(i.Replace("\\", "/"))));
 				job.Args = mode + " " + Q(outf) + " @" + Q(responsefile);
-				if (Options.Verbose && Options.Output == ClangOutput.Detailed)
-					Msg.Print("Response file created: " + responsefile);
+				Msg.Print("Response file created: " + responsefile, VerboseLevel);
 			}
 			res = RunBatch("Librarian", label, new List<Job> { job }, 1, abort, null);
 		} finally {
 			if (responsefile != null) {
 				try {
 					File.Delete(responsefile);
-					if (Options.Verbose && Options.Output == ClangOutput.Detailed)
-						Msg.Print("Response file deleted: " + responsefile);
+					Msg.Print("Response file deleted: " + responsefile, VerboseLevel);
 				} catch (Exception ex) {
 					Msg.PrintWarning("clang: response file not deleted: " + responsefile + " (" + ex.Message + ")", Msg.LogLevels.Verbose);
 				}
@@ -841,11 +836,9 @@ public class Clang {
 		foreach (KValue v in Options.Libraries)
 			if (v.IsEmpty())
 				return FailResult(ErrorCode.InvalidArgument, "empty library found", "Linker", abort);
-		if (Options.Verbose && Options.Output != ClangOutput.Silent) {
-			Listing("Library paths:", Options.LibraryDirs);
-			Listing("Libraries:", Options.Libraries);
-			Listing("Switches for linker:", Options.SwitchesLD);
-		}
+		Listing("Library paths:", Options.LibraryDirs, VerboseLevel);
+		Listing("Libraries:", Options.Libraries, VerboseLevel);
+		Listing("Switches for linker:", Options.SwitchesLD, VerboseLevel);
 		List<string> inputs = new List<string>();
 		foreach (KValue o in objs) {
 			string f = RealPath(o);
@@ -884,16 +877,14 @@ public class Clang {
 				// Backslashes are escapes inside a response file
 				File.WriteAllText(responsefile, args.Replace("\\", "/"));
 				job.Args = "@" + Q(responsefile);
-				if (Options.Verbose && Options.Output == ClangOutput.Detailed)
-					Msg.Print("Response file created: " + responsefile);
+				Msg.Print("Response file created: " + responsefile, VerboseLevel);
 			}
 			res = RunBatch("Linker", label, new List<Job> { job }, 1, abort, null);
 		} finally {
 			if (responsefile != null) {
 				try {
 					File.Delete(responsefile);
-					if (Options.Verbose && Options.Output == ClangOutput.Detailed)
-						Msg.Print("Response file deleted: " + responsefile);
+					Msg.Print("Response file deleted: " + responsefile, VerboseLevel);
 				} catch (Exception ex) {
 					Msg.PrintWarning("clang: response file not deleted: " + responsefile + " (" + ex.Message + ")", Msg.LogLevels.Verbose);
 				}
@@ -1158,8 +1149,7 @@ public class Clang {
 						failed++;
 					if (current.Unit != null && current.Warnings > 0 && !current.Failed)
 						r.Status = ToolStatus.Warnings;
-					if (mode == ClangOutput.Detailed)
-						UnitLine(verb, current);
+					UnitLine(verb, current, mode == ClangOutput.Detailed ? Msg.LogLevels.Normal : Msg.LogLevels.Verbose);
 					if (mode == ClangOutput.Progress && progress != null)
 						// The status says what it counts: the units this call had to run, and the ones it did not
 						progress.Report((double)done / jobs.Count, unitWord == null ? null : done + "/" + jobs.Count + " " + unitWord + (upToDate > 0 ? ", " + upToDate + " up to date" : ""));
@@ -1240,31 +1230,50 @@ public class Clang {
 	}
 
 	/// <summary>
-	/// The task line of one unit in the Detailed mode: "Compiling x: Ok", as the previous extension.
+	/// The level of the detailed lines (the task line of every unit, the objects added, the response
+	/// file messages, the result line): normal in the Detailed mode, verbose in the others. Every line
+	/// is always emitted, so a Msg.OnMessage handler receives it whatever the mode, and the console
+	/// shows it only where the mode says.
 	/// </summary>
-	private static void UnitLine(string verb, Job job) {
+	private Msg.LogLevels DetailLevel { get { return Options.Output == ClangOutput.Detailed ? Msg.LogLevels.Normal : Msg.LogLevels.Verbose; } }
+
+	/// <summary>
+	/// The level of the lines ClangOptions.Verbose reveals (the listings, the response file messages):
+	/// normal with Verbose in the Progress and Detailed modes, verbose otherwise.
+	/// </summary>
+	private Msg.LogLevels VerboseLevel { get { return Options.Verbose && Options.Output != ClangOutput.Silent ? Msg.LogLevels.Normal : Msg.LogLevels.Verbose; } }
+
+	/// <summary>
+	/// The level of the diagnostics report: normal in the Progress and Detailed modes, verbose in Silent.
+	/// </summary>
+	private Msg.LogLevels ReportLevel { get { return Options.Output == ClangOutput.Silent ? Msg.LogLevels.Verbose : Msg.LogLevels.Normal; } }
+
+	/// <summary>
+	/// The task line of one unit: "Compiling x: Ok", as the previous extension, at the level given.
+	/// </summary>
+	private static void UnitLine(string verb, Job job, Msg.LogLevels level) {
 		string task = verb == "Compile" ? "Compiling " : (verb == "Format" ? "Formatting " : (verb == "Linker" ? "Linking " : "Archiving "));
-		Msg.PrintTask(task + job.Label + ":");
+		Msg.PrintTask(task + job.Label + ":", level);
 		if (job.Failed)
-			Msg.PrintTaskError(" Failed");
+			Msg.PrintTaskError(" Failed", level);
 		else if (job.Warnings > 0)
-			Msg.PrintTaskWarning(" Warnings");
+			Msg.PrintTaskWarning(" Warnings", level);
 		else
-			Msg.PrintTaskSuccess(" Ok");
+			Msg.PrintTaskSuccess(" Ok", level);
 	}
 
 	/// <summary>
 	/// The one line of a verb that had nothing to do: the progress line ended with "ok (up to date)" in
-	/// Progress, the result line in Detailed, nothing in Silent.
+	/// Progress, the result line otherwise, at the detail level.
 	/// </summary>
 	private void UpToDateLine(string verb, string label) {
 		if (Options.Output == ClangOutput.Progress) {
 			ITaskProgress progress = Options.Progress ?? Kltv.Kombine.Api.Progress.Default;
 			progress.Start(label);
 			progress.Finish("ok (up to date)", ProgressOutcome.Success);
-		} else if (Options.Output == ClangOutput.Detailed) {
-			Msg.PrintTask(verb + ": ");
-			Msg.PrintTaskSuccess("ok (up to date)");
+		} else {
+			Msg.PrintTask(verb + ": ", DetailLevel);
+			Msg.PrintTaskSuccess("ok (up to date)", DetailLevel);
 		}
 	}
 
@@ -1292,36 +1301,34 @@ public class Clang {
 	/// verb closes with its result line.
 	/// </summary>
 	private void Report(string verb, List<Job> jobs, int warnings, int errors, int failed, bool upToDate, bool toolFailure) {
-		if (Options.Output == ClangOutput.Silent)
-			return;
-		// With ClangVerbose in Detailed, the text of the tools shows for every unit that printed some
-		bool toolText = Options.ClangVerbose && Options.Output == ClangOutput.Detailed;
 		foreach (Job job in jobs) {
-			if (job.Warnings == 0 && job.Errors == 0 && !job.Failed && !(toolText && job.Lines.Count > 0))
+			if (job.Warnings == 0 && job.Errors == 0 && !job.Failed && job.Lines.Count == 0)
 				continue;
-			PrintDiagnostics(job);
+			PrintDiagnostics(job, ReportLevel);
 		}
-		if (Options.Output == ClangOutput.Detailed) {
-			Msg.PrintTask(verb + ": ");
-			string text = ResultText(failed, errors, warnings, toolFailure, upToDate);
-			if (failed > 0)
-				Msg.PrintTaskError(text);
-			else if (warnings > 0)
-				Msg.PrintTaskWarning(text);
-			else
-				Msg.PrintTaskSuccess(text);
-		}
+		Msg.PrintTask(verb + ": ", DetailLevel);
+		string text = ResultText(failed, errors, warnings, toolFailure, upToDate);
+		if (failed > 0)
+			Msg.PrintTaskError(text, DetailLevel);
+		else if (warnings > 0)
+			Msg.PrintTaskWarning(text, DetailLevel);
+		else
+			Msg.PrintTaskSuccess(text, DetailLevel);
 	}
 
 	/// <summary>
 	/// The diagnostics of one unit: a header with the unit, then each diagnostic (its line and the
-	/// excerpt that follows it) indented, printed as warning or error; the other lines the tool printed
-	/// (a tool failure, a timeout, the -v text with ClangVerbose in Detailed) plain.
+	/// excerpt that follows it) indented, printed as warning or error at the level given; the
+	/// diagnostics the options hide (the warnings with ShowWarnings false, the ones DiagnosticFilter
+	/// refuses) and the other lines the tool printed (its -v text) go out at verbose level, shown with
+	/// ClangVerbose in Detailed or by a message handler; a tool failure or a timeout shows its lines.
 	/// </summary>
-	private void PrintDiagnostics(Job job) {
+	private void PrintDiagnostics(Job job, Msg.LogLevels level) {
 		int hiddenWarnings = 0;
 		List<string> lines = new List<string>();
 		List<int> kinds = new List<int>();
+		List<Msg.LogLevels> levels = new List<Msg.LogLevels>();
+		bool shown = false;
 		// Group the lines into diagnostics: a diagnostic line and the lines until the next one
 		int i = 0;
 		while (i < job.Lines.Count) {
@@ -1330,42 +1337,44 @@ public class Clang {
 			int end = i + 1;
 			while (end < job.Lines.Count && Severity(job.Lines[end]) == 0 && !IsDiagnostic(job.Lines[end]))
 				end++;
-			bool show = true;
+			Msg.LogLevels groupLevel = level;
 			if (severity == 1 && !Options.ShowWarnings) {
-				show = false;
+				groupLevel = Msg.LogLevels.Verbose;
 				hiddenWarnings++;
 			}
-			if (show && severity != 0 && Options.DiagnosticFilter != null && !Options.DiagnosticFilter(job.Label, head))
-				show = false;
+			if (groupLevel == level && severity != 0 && Options.DiagnosticFilter != null && !Options.DiagnosticFilter(job.Label, head))
+				groupLevel = Msg.LogLevels.Verbose;
 			if (severity == 0 && !job.Failed && !job.TimedOut && !(Options.ClangVerbose && Options.Output == ClangOutput.Detailed))
-				show = false;
-			if (show) {
-				for (int k = i; k < end; k++) {
-					lines.Add(job.Lines[k]);
-					kinds.Add(k == i ? severity : 0);
-				}
+				groupLevel = Msg.LogLevels.Verbose;
+			if (groupLevel == level)
+				shown = true;
+			for (int k = i; k < end; k++) {
+				lines.Add(job.Lines[k]);
+				kinds.Add(k == i ? severity : 0);
+				levels.Add(groupLevel);
 			}
 			i = end;
 		}
-		if (lines.Count == 0 && hiddenWarnings == 0)
+		if (lines.Count == 0)
 			return;
+		Msg.LogLevels headerLevel = shown || hiddenWarnings > 0 ? level : Msg.LogLevels.Verbose;
 		string header = job.Label + ":" + (hiddenWarnings > 0 ? " " + hiddenWarnings + " warning" + (hiddenWarnings == 1 ? "" : "s") : "");
 		if (job.Failed && job.Errors > 0)
-			Msg.PrintError(header);
+			Msg.PrintError(header, headerLevel);
 		else if (job.Failed)
-			Msg.PrintError(header + (job.TimedOut ? " timed out" : " tool failure, see below"));
+			Msg.PrintError(header + (job.TimedOut ? " timed out" : " tool failure, see below"), headerLevel);
 		else if (job.Warnings > 0)
-			Msg.PrintWarning(header);
+			Msg.PrintWarning(header, headerLevel);
 		else
-			Msg.Print(header);
+			Msg.Print(header, headerLevel);
 		Msg.BeginIndent();
 		for (int k = 0; k < lines.Count; k++) {
 			if (kinds[k] == 2)
-				Msg.PrintError(lines[k]);
+				Msg.PrintError(lines[k], levels[k]);
 			else if (kinds[k] == 1)
-				Msg.PrintWarning(lines[k]);
+				Msg.PrintWarning(lines[k], levels[k]);
 			else
-				Msg.Print(lines[k]);
+				Msg.Print(lines[k], levels[k]);
 		}
 		Msg.EndIndent();
 	}
@@ -1531,13 +1540,13 @@ public class Clang {
 	}
 
 	/// <summary>
-	/// The listing of one option in the Verbose mode: a header and the values indented.
+	/// The listing of one option: a header and the values indented, at the level given.
 	/// </summary>
-	private static void Listing(string title, KList values) {
-		Msg.Print(title);
+	private static void Listing(string title, KList values, Msg.LogLevels level) {
+		Msg.Print(title, level);
 		Msg.BeginIndent();
 		foreach (KValue v in values)
-			Msg.Print(v);
+			Msg.Print(v, level);
 		Msg.EndIndent();
 	}
 

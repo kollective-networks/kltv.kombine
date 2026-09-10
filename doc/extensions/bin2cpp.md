@@ -54,7 +54,7 @@ int assets(string[] args) {
 
 | Member | Default | Meaning |
 | --- | --- | --- |
-| `OutputMode Output` | `Progress` | What reaches the console: `Silent` (nothing), `Progress` (one progress line per call through `Progress`, ended with `ok`, `ok (up to date)`, `ok (n up to date)` or `failed (n)`), `Detailed` (one line per file, as the previous version printed). |
+| `OutputMode Output` | `Progress` | What reaches the console: `Silent` (nothing), `Progress` (one progress line per call through `Progress`, ended with `ok`, `ok (up to date)`, `ok (n up to date)` or `failed (n)`), `Detailed` (one line per file, as the previous version printed). The per file lines always go out, at verbose level in the other modes, so a `Msg.OnMessage` handler receives them whatever the mode. |
 | `ITaskProgress? Progress` | null, the engine default | The reporter of the progress line; assign a `ProgressBar`, `ProgressDots` or `ProgressPlain` (see [Progress](../api.md#progress)). |
 | `bool AbortOnFailure` | true | A failing call prints its reason and aborts the script; false returns false with the reason in `LastError`. |
 | `string TaskLabel` | empty | The start message of the progress line; empty uses "Generating N files" or "Generating <output>". |

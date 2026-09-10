@@ -75,6 +75,13 @@ int build(string[] args) {
 | `Progress` (default) | one progress line per verb through `ClangOptions.Progress`, started with `TaskLabel` and ended with the result: `ok`, `ok (up to date)`, `ok (n warnings)`, `failed (n errors)`, `failed (tool failure)`; the listings before the line with `Verbose` | captured and counted, never shown while running |
 | `Detailed` | one task line per unit ("Compiling x: Ok"), the verb closed with its result line; with `Verbose` the listings and the response file messages, with `ClangVerbose` the extra lines the tools print | kept, the `-v` text shown after the batch |
 
+The mode decides what the console shows, not what is emitted: the detailed lines (the task line
+of every unit, the listings, the objects added, the response file messages, the result line, the
+text of the tools, and in `Silent` the diagnostics too) always go out, at verbose level in the
+modes that do not show them. They stay off the console unless `-ko:v`, and a `Msg.OnMessage`
+handler receives them whatever the mode, so a script can show the progress line on screen and
+forward the whole detail to a log.
+
 Once a build ended, `Progress` and `Detailed` print nothing when it had no warning and no
 error. Otherwise they print the diagnostics themselves, grouped per unit, every line naming the
 offending file as the compiler wrote it:

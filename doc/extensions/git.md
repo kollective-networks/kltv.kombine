@@ -52,7 +52,7 @@ int fetch(string[] args) {
 | Member | Default | Meaning |
 | --- | --- | --- |
 | `ITaskProgress? Progress` | null, the engine default | Reporter of the progress line of the transfer verbs; assign a `ProgressBar`, `ProgressDots` or `ProgressPlain` (see [Progress](../api.md#progress)). |
-| `GitOutput Output` | `Progress` | What reaches the console while git runs: `Silent` (nothing but what the extension prints), `Progress` (one line per transfer through `Progress`), `Detailed` (git's own text). The transfer verbs take an `Output` property to override it for one call. |
+| `GitOutput Output` | `Progress` | What reaches the console while git runs: `Silent` (nothing but what the extension prints), `Progress` (one line per transfer through `Progress`), `Detailed` (git's own text). In `Silent` and `Progress` git's text still goes out at verbose level, without the progress updates it redraws, so a `Msg.OnMessage` handler receives it. The transfer verbs take an `Output` property to override it for one call. |
 | `ApiError LastError` | none | The reason of the last failure: `NotFound`, `AccessDenied`, `NetworkError`, `AlreadyExists`, `Different`, `NotSupported`, `InvalidArgument` or `Failed`, and git's message. Reset by every verb. |
 | `string LastOutput` | empty | The full text git printed in the last call. |
 | `bool AbortOnFailure` | false | A failing verb prints its reason and aborts the script (exit code 1) instead of returning false. Only failures abort, never the answers of a call that returned true. |

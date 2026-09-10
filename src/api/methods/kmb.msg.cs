@@ -121,6 +121,79 @@ namespace Kltv.Kombine.Api
 		/// </summary>
 		public static LogLevels LogLevel { get; internal set; } = LogLevels.Normal;
 
+		/// <summary>
+		/// What kind of message a handler receives: the plain, warning and error lines, the task lines (a
+		/// task line has no newline, the task result that follows it closes the line) and the raw text.
+		/// </summary>
+		public enum MessageKind {
+			/// <summary>A plain line (Print).</summary>
+			Normal,
+			/// <summary>A warning line (PrintWarning).</summary>
+			Warning,
+			/// <summary>An error line (PrintError, PrintAndAbort).</summary>
+			Error,
+			/// <summary>The start of a task line (PrintTask): no newline, a task result follows.</summary>
+			Task,
+			/// <summary>The result that closes a task line (PrintTaskSuccess).</summary>
+			TaskSuccess,
+			/// <summary>The result that closes a task line (PrintTaskWarning).</summary>
+			TaskWarning,
+			/// <summary>The result that closes a task line (PrintTaskError).</summary>
+			TaskError,
+			/// <summary>Raw text (RawPrint), printed as it is.</summary>
+			Raw
+		}
+
+		/// <summary>
+		/// Receives one message of the engine or of a script.
+		/// </summary>
+		/// <param name="level">The level the message was printed at (Normal, Verbose, Debug).</param>
+		/// <param name="kind">What the message is.</param>
+		/// <param name="module">The engine module that printed it (".exec.script", ".tool"), empty for a script message.</param>
+		/// <param name="message">The text without the indentation, the module prefix and the trailing newline.</param>
+		/// <param name="indent">The indentation depth of the message (BeginIndent), for a log that keeps the structure.</param>
+		public delegate void MessageHandler(LogLevels level, MessageKind kind, string module, string message, int indent);
+
+		/// <summary>
+		/// Called with every message before it is written to the console, whatever the log level and the
+		/// output: a script installs it to filter the log and forward it to another facility or log system.
+		/// It receives the messages of every script of the run, since the facility is one for the process,
+		/// and of every thread (the callbacks of the tools), one message at a time. A message printed by the
+		/// handler itself reaches the console but not the handler again, and an exception thrown by it is
+		/// printed once at verbose level and does not stop the script. Null by default.
+		/// </summary>
+		public static MessageHandler? OnMessage { get; set; } = null;
+
+		/// <summary>
+		/// The current indentation depth, as BeginIndent and EndIndent left it.
+		/// </summary>
+		public static int Indent { get { return cm_CurrentIndent; } }
+
+		/// <summary>True while the handler runs on this thread, so its own messages do not come back to it.</summary>
+		[ThreadStatic]
+		private static bool inHandler;
+
+		/// <summary>The lock that hands the handler one message at a time.</summary>
+		private static readonly object handlerLock = new object();
+
+		/// <summary>
+		/// Hands a message to the handler, if any: under a lock, never re-entered, never allowed to throw.
+		/// </summary>
+		private static void Forward(LogLevels level, MessageKind kind, string module, string message) {
+			MessageHandler? handler = OnMessage;
+			if (handler == null || inHandler)
+				return;
+			lock (handlerLock) {
+				inHandler = true;
+				try {
+					handler(level, kind, module, message.TrimEnd('\r', '\n'), cm_CurrentIndent);
+				} catch (Exception ex) {
+					PrintWarningMod("The message handler threw: " + ex.Message, ".msg", LogLevels.Verbose);
+				} finally {
+					inHandler = false;
+				}
+			}
+		}
 
 		#region Private Elements
 		//private static System.IO.StreamWriter? LogFileStream = null;
@@ -158,6 +231,7 @@ namespace Kltv.Kombine.Api
 		/// <param name="Mod"></param>
 		/// <param name="Level"></param>
 		static internal void PrintMod(string Message, string Mod = "", LogLevels Level = LogLevels.Normal) {
+			Forward(Level, MessageKind.Normal, Mod, Message);
 			InternalPrint(Message+Environment.NewLine, Mod, Level);
 		}
 
@@ -178,6 +252,7 @@ namespace Kltv.Kombine.Api
 		/// <param name="Mod"></param>
 		/// <param name="Level"></param>
 		static internal void PrintWarningMod(string Message, string Mod = "", LogLevels Level = LogLevels.Normal) {
+			Forward(Level, MessageKind.Warning, Mod, Message);
 			InternalPrint(Message + Environment.NewLine, Mod, Level, ConsoleColor.Yellow);
 		}
 
@@ -197,6 +272,7 @@ namespace Kltv.Kombine.Api
 		/// <param name="Mod"></param>
 		/// <param name="Level"></param>
 		static internal void PrintErrorMod(string Message, string Mod = "", LogLevels Level = LogLevels.Normal) {
+			Forward(Level, MessageKind.Error, Mod, Message);
 			InternalPrint(Message + Environment.NewLine, Mod, Level, ConsoleColor.Red);
 		}
 
@@ -216,6 +292,7 @@ namespace Kltv.Kombine.Api
 		/// <param name="Mod">Module source of the message</param>
 		/// <param name="Level">Loglevel, by default, normal.</param>
 		static internal void PrintAndAbortMod(string Message = "", string Mod = "", LogLevels Level = LogLevels.Normal) {
+			Forward(Level, MessageKind.Error, Mod, Message);
 			InternalPrint(Message + Environment.NewLine, Mod, Level, ConsoleColor.Red);
 			// TODO: Close log here for log outputed to file
 
@@ -233,6 +310,7 @@ namespace Kltv.Kombine.Api
 		/// <param name="Level">Log level</param>
 		/// <remarks>It skips colors and indentation</remarks>
 		static public void RawPrint(string Message, LogLevels Level = LogLevels.Normal){
+			Forward(Level, MessageKind.Raw, "", Message);
 			InternalPrint(Message, "", Level, ConsoleColor.Gray, true);
 		}
 
@@ -242,6 +320,7 @@ namespace Kltv.Kombine.Api
 		/// <param name="Message"></param>
 		/// <param name="Level"></param>
 		static public void PrintTask(string Message, LogLevels Level = LogLevels.Normal) {
+			Forward(Level, MessageKind.Task, "", Message);
 			InternalPrint(Message, "", Level);
 		}
 
@@ -253,6 +332,7 @@ namespace Kltv.Kombine.Api
 		static public void PrintTaskSuccess(string Message = "",LogLevels Level = LogLevels.Normal) {
 			if (Message == "")
 				Message = "Done";
+			Forward(Level, MessageKind.TaskSuccess, "", Message);
 			InternalPrint(Message+Environment.NewLine, "", Level,ConsoleColor.Green,true);
 		}
 
@@ -264,6 +344,7 @@ namespace Kltv.Kombine.Api
 		static public void PrintTaskWarning(string Message = "", LogLevels Level = LogLevels.Normal) {
 			if (Message == "")
 				Message = "Done";
+			Forward(Level, MessageKind.TaskWarning, "", Message);
 			InternalPrint(Message + Environment.NewLine, "", Level, ConsoleColor.Yellow,true);
 		}
 
@@ -275,6 +356,7 @@ namespace Kltv.Kombine.Api
 		static public void PrintTaskError(string Message="", LogLevels Level = LogLevels.Normal) {
 			if (Message == "")
 				Message = "Failed";
+			Forward(Level, MessageKind.TaskError, "", Message);
 			InternalPrint(Message + Environment.NewLine, "", Level, ConsoleColor.Red,true);
 		}
 

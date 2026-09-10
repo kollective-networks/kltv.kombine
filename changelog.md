@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.6.24363661]
 
 ### Breaking changes
 

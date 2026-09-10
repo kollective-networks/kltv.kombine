@@ -35,6 +35,8 @@
 
 // Remember, this is just used for intellisense, nothing else
 #r "../../out/bin/win-x64/debug/mkb.dll"
+// The results of the checks, for the examples runner
+#load "mkb.results.csx"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using System;
@@ -69,12 +71,14 @@ int test(string[] args){
 	//
 	Banner("[1/7] Compile once, one copy for every script");
 	int moduleCompiles = 0;
+	// The handler of the caller, if any, is put back after the test
+	Msg.MessageHandler? previous = Msg.OnMessage;
 	Msg.OnMessage = (Msg.LogLevels level, Msg.MessageKind kind, string module, string message, int indent) => {
 		if (message.StartsWith("Compiling the module counter.csx"))
 			moduleCompiles++;
 	};
 	int code = Kombine(sandbox + "/runner.csx", "once", args, false);
-	Msg.OnMessage = null;
+	Msg.OnMessage = previous;
 	Check("runner and children", code.ToString(), "0");
 	Check("module compiled", moduleCompiles.ToString(), "1");
 	EndBanner();
@@ -190,11 +194,7 @@ int test(string[] args){
 	EndBanner();
 
 	int total = passed + failed;
-	Msg.PrintTask($"Summary : {passed} of {total} checks passed ");
-	if (failed == 0)
-		Msg.PrintTaskSuccess("OK");
-	else
-		Msg.PrintTaskError($"{failed} FAILED");
+	TestSummary(passed, failed);
 	Msg.EndIndent();
 	Msg.EndIndent();
 	Msg.Print("----------------------------------------------------------");
@@ -472,6 +472,7 @@ Compiles Run(string[] arguments) {
 void Banner(string title){
 	Msg.Print(title);
 	Msg.BeginIndent();
+	TestGroup(title);
 }
 
 void EndBanner(){
@@ -493,4 +494,5 @@ void Check(string what, string actual, string expected){
 		failed++;
 		Msg.PrintError($"{"expected",-36} : {expected}");
 	}
+	TestResult(actual == expected ? "OK" : "FAILED", what + " : " + actual);
 }

@@ -35,6 +35,8 @@
 
 // Remember, this is just used for intellisense, nothing else
 #r "mkb.dll"
+// The results of the checks, for the examples runner
+#load "mkb.results.csx"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using System;
@@ -120,11 +122,7 @@ int test(string[] args){
 	Engine.RebuildScripts = launchedRebuild;
 
 	int total = passed + failed;
-	Msg.PrintTask($"Summary : {passed} of {total} checks passed ");
-	if (failed == 0)
-		Msg.PrintTaskSuccess("OK");
-	else
-		Msg.PrintTaskError($"{failed} FAILED");
+	TestSummary(passed, failed);
 
 	Msg.EndIndent();
 	Msg.EndIndent();
@@ -154,6 +152,7 @@ void Check(string what, string actual, string expected){
 		failed++;
 		Msg.PrintError($"{"expected",-14} : {expected}");
 	}
+	TestResult(actual == expected ? "OK" : "FAILED", what + " : " + actual);
 }
 
 /// <summary>
@@ -171,6 +170,7 @@ void Verify(string what, bool ok, string shown){
 		Msg.PrintTaskError("FAILED");
 		failed++;
 	}
+	TestResult(ok ? "OK" : "FAILED", what + " : " + shown);
 }
 
 /// <summary>

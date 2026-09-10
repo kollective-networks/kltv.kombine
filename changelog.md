@@ -64,7 +64,7 @@ What no longer compiles or no longer runs, why, and what to change.
 - Child script failures (not found, unresolved references, compile errors, missing action) print nothing: `Kombine()` returns 1 and `Engine.LastError` carries the reason
 - Forward search hits (`-kforward`) are logged at verbose level instead of printing a warning
 - Documentation: extensions split into one page each (doc/extensions/), building guide with the root script actions, progress and error reporting guides, readme index with direct links, usage output and exit code contract, how Kombine runs a script (doc/execution.md) with the cache moved there from the building guide, the LLVM toolchain assumption of the clang extension (lld as linker on every platform)
-- Examples: progress example, `LastError` checks in the folders, types and network examples, `#load` resolution example running both forward search modes
+- Examples: progress example, `LastError` checks in the folders, types and network examples, `#load` resolution example running both forward search modes, the examples runner runs every script whatever the previous ones returned and closes the run with one summary (the checks passed and failed per category, and the category, group and check of every failure); the per script summaries are silent under it and the root `test` action runs the whole suite through its `all` action. See doc/building.md, The examples runner
 
 ## [1.5.24359387]
 

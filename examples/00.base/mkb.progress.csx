@@ -8,6 +8,8 @@
 
 // Remember, this is just used for intellisense, nothing else
 #r "../../out/bin/win-x64/debug/mkb.dll"
+// The results of the checks, for the examples runner
+#load "mkb.results.csx"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using System;
@@ -149,11 +151,7 @@ int test(string[] args){
 	EndBanner();
 
 	int total = passed + failed;
-	Msg.PrintTask($"Summary : {passed} of {total} checks passed ");
-	if (failed == 0)
-		Msg.PrintTaskSuccess("OK");
-	else
-		Msg.PrintTaskError($"{failed} FAILED");
+	TestSummary(passed, failed);
 
 	Msg.EndIndent();
 	Msg.EndIndent();
@@ -209,6 +207,7 @@ void Demo(string what, Action action){
 void Banner(string title){
 	Msg.Print(title);
 	Msg.BeginIndent();
+	TestGroup(title);
 }
 
 /// <summary>
@@ -247,6 +246,7 @@ void Verify(string what, string actual, bool ok, string expected){
 		failed++;
 		Msg.PrintError($"{"expected",-24} : {expected}");
 	}
+	TestResult(ok ? "OK" : "FAILED", what + " : " + actual);
 }
 
 /// <summary>

@@ -10,6 +10,8 @@
 
 ---------------------------------------------------------------------------------------------------------*/
 
+// The results of the checks, for the examples runner
+#load "mkb.results.csx"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using System;
@@ -24,6 +26,7 @@ int failed = 0;
 void Banner(string title){
 	Msg.Print(title);
 	Msg.BeginIndent();
+	TestGroup(title);
 }
 
 /// <summary>
@@ -62,6 +65,7 @@ void Verify(string what, string actual, bool ok, string expected){
 		failed++;
 		Msg.PrintError($"{"expected",-26} : {expected}");
 	}
+	TestResult(ok ? "OK" : "FAILED", what + " : " + actual);
 }
 
 /// <summary>
@@ -69,11 +73,7 @@ void Verify(string what, string actual, bool ok, string expected){
 /// </summary>
 /// <returns>The number of failed checks, to be returned to the parent script.</returns>
 int Summary(){
-	Msg.PrintTask($"Summary : {passed} of {passed + failed} checks passed ");
-	if (failed == 0)
-		Msg.PrintTaskSuccess("OK");
-	else
-		Msg.PrintTaskError($"{failed} FAILED");
+	TestSummary(passed, failed);
 	return failed;
 }
 

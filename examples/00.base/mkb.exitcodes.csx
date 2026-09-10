@@ -8,6 +8,8 @@
 
 // Remember, this is just used for intellisense, nothing else
 #r "../../out/bin/win-x64/debug/mkb.dll"
+// The results of the checks, for the examples runner
+#load "mkb.results.csx"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using System;
@@ -71,6 +73,7 @@ int test(string[] args){
 		var c = cases[i];
 		Msg.Print($"[{i + 1:00}/{cases.Count:00}] {c.Name}");
 		Msg.BeginIndent();
+		TestGroup($"[{i + 1:00}/{cases.Count:00}] {c.Name}");
 		// Child output is collected but never echoed, keeping the report clean
 		Tool tool = new Tool("exitcodes");
 		tool.CaptureOutput = false;
@@ -86,17 +89,14 @@ int test(string[] args){
 			failed++;
 			PrintChildOutput(result);
 		}
+		TestResult(result.ExitCode == c.Expected ? "OK" : "FAILED", "exitcode : expected " + c.Expected + ", got " + result.ExitCode);
 		Msg.EndIndent();
 		Msg.RawPrint(Environment.NewLine);
 	}
 
 	Folders.Delete(tempFolder, true);
 
-	Msg.PrintTask($"Summary : {passed} of {cases.Count} contracts verified ");
-	if (failed == 0)
-		Msg.PrintTaskSuccess("OK");
-	else
-		Msg.PrintTaskError($"{failed} FAILED");
+	TestSummary(passed, failed, 0, "contracts verified");
 
 	Msg.EndIndent();
 	Msg.EndIndent();

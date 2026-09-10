@@ -34,6 +34,8 @@
 
 // Remember, this is just used for intellisense, nothing else
 #r "mkb.dll"
+// The results of the checks, for the examples runner
+#load "mkb.results.csx"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using System;
@@ -82,11 +84,7 @@ int test(string[] args){
 		TestDecisions();
 	TestInheritance();
 	int total = passed + failed;
-	Msg.PrintTask($"Summary : {passed} of {total} checks passed" + (skipped > 0 ? $", {skipped} groups skipped " : " "));
-	if (failed == 0)
-		Msg.PrintTaskSuccess("OK");
-	else
-		Msg.PrintTaskError($"{failed} FAILED");
+	TestSummary(passed, failed, skipped);
 	Msg.EndIndent();
 	Msg.EndIndent();
 	// The sandbox is removed once the report is printed; run "clean" to remove one left by an interrupted run
@@ -895,6 +893,7 @@ string Show(bool value){
 void Banner(string title){
 	Msg.Print(title);
 	Msg.BeginIndent();
+	TestGroup(title);
 }
 
 void EndBanner(){
@@ -907,6 +906,7 @@ void Skip(string group, string reason){
 	Msg.PrintTask($"{group,-28} : skipped ");
 	Msg.PrintTaskWarning(reason);
 	Msg.RawPrint(Environment.NewLine);
+	TestResult("SKIPPED", group + " : " + reason);
 }
 
 /// <summary>
@@ -925,4 +925,5 @@ void Check(string what, string actual, string expected){
 		if (Git.LastError.IsError)
 			Msg.PrintError($"{"last error",-28} : {Git.LastError}");
 	}
+	TestResult(actual == expected ? "OK" : "FAILED", what + " : " + actual);
 }

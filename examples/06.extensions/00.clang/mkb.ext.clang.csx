@@ -33,6 +33,8 @@
 
 // Remember, this is just used for intellisense, nothing else
 #r "../../../out/bin/win-x64/debug/mkb.dll"
+// The results of the checks, for the examples runner
+#load "mkb.results.csx"
 using Kltv.Kombine.Api;
 using Kltv.Kombine.Types;
 using System;
@@ -88,11 +90,7 @@ int test(string[] args){
 		TestBatchLimit();
 	}
 	int total = passed + failed;
-	Msg.PrintTask($"Summary : {passed} of {total} checks passed" + (skipped > 0 ? $", {skipped} groups skipped " : " "));
-	if (failed == 0)
-		Msg.PrintTaskSuccess("OK");
-	else
-		Msg.PrintTaskError($"{failed} FAILED");
+	TestSummary(passed, failed, skipped);
 	Msg.EndIndent();
 	Msg.EndIndent();
 	Nuke(Sandbox);
@@ -335,6 +333,8 @@ void TestOutputModes(){
 	// others, so a message handler receives them while the console shows only what the mode says
 	foreach (ClangOutput mode in new[] { ClangOutput.Silent, ClangOutput.Progress, ClangOutput.Detailed }){
 		int normalCount = 0, verboseCount = 0, diagnostics = 0;
+		// The handler of the caller, if any, is put back after the test
+		Msg.MessageHandler? previous = Msg.OnMessage;
 		Msg.OnMessage = (Msg.LogLevels level, Msg.MessageKind kind, string module, string message, int indent) => {
 			if (kind == Msg.MessageKind.Task && message.StartsWith("Compiling ")){
 				if (level == Msg.LogLevels.Normal) normalCount++; else verboseCount++;
@@ -345,7 +345,7 @@ void TestOutputModes(){
 		Clang clang = Configured(mode);
 		clang.Options.Progress = recorder;
 		clang.Compile(Sources("a.c", "b.cpp", "warn.c"), Objects("a.c", "b.cpp", "warn.c"), false, true);
-		Msg.OnMessage = null;
+		Msg.OnMessage = previous;
 		Check("handler gets the unit lines in " + mode, normalCount + " normal, " + verboseCount + " verbose, warning " + (diagnostics > 0 ? "delivered" : "missing"), (mode == ClangOutput.Detailed ? "3 normal, 0 verbose" : "0 normal, 3 verbose") + ", warning delivered");
 	}
 	EndBanner();
@@ -422,10 +422,10 @@ void TestVerbs(){
 	Check("second database not created", Show(!File.Exists(Path.Combine(Sandbox, "other.json"))), "true");
 	// Status
 	Check("Status errors so far", Clang.Status.Errors >= 3 ? "counted" : Clang.Status.Errors.ToString(), "counted");
+	// Shown, not checked: the table is printed for the eye and counts as no check
 	Msg.PrintTask("Status.Print()          : ");
 	Msg.RawPrint("");
 	Clang.Status.Print();
-	passed++;
 	// Two instances with different options: each compiles its own objects
 	Clang second = Configured();
 	second.Options.Defines = new KList { "SECOND=1" };
@@ -892,6 +892,7 @@ string Show(bool value){
 void Banner(string title){
 	Msg.Print(title);
 	Msg.BeginIndent();
+	TestGroup(title);
 }
 
 void EndBanner(){
@@ -904,6 +905,7 @@ void Skip(string group, string reason){
 	Msg.PrintTask($"{group,-28} : skipped ");
 	Msg.PrintTaskWarning(reason);
 	Msg.RawPrint(Environment.NewLine);
+	TestResult("SKIPPED", group + " : " + reason);
 }
 
 /// <summary>
@@ -920,4 +922,5 @@ void Check(string what, string actual, string expected){
 		failed++;
 		Msg.PrintError($"{"expected",-40} : {expected}");
 	}
+	TestResult(actual == expected ? "OK" : "FAILED", what + " : " + actual);
 }

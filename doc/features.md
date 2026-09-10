@@ -210,6 +210,7 @@ Legend: :heavy_check_mark: implemented — :x: planned / not implemented yet.
 | :heavy_check_mark: | Compress a folder / folders / a file into a tar.lz file |
 | :x: | Compress into a tar.xz file |
 | :heavy_check_mark: | Uncompress tar files with format auto-detection (tar, tar.gz, tar.bz2, tar.lz, tar.xz) |
+| :heavy_check_mark: | Uncompress tar files restoring the file permissions (outside Windows) and the links (symbolic links as links, or as copies on Windows without the privilege; hard links as copies) |
 
 ## Network API
 

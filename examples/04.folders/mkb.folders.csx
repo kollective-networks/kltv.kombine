@@ -53,6 +53,7 @@ int test(string[] args){
 	TestZip();
 	TestTar();
 	TestSafeExtract();
+	TestTarLinks();
 
 	Folders.Delete(Sandbox, true);
 
@@ -72,7 +73,7 @@ int test(string[] args){
 /// Built in properties with the well known folders of a script run.
 /// </summary>
 void TestWellKnownFolders(){
-	Banner("[1/9] Well known folders");
+	Banner("[1/10] Well known folders");
 	Verify("CurrentWorkingFolder", Tail(CurrentWorkingFolder, 2), Unix(CurrentWorkingFolder).EndsWith("/examples/04.folders"), "a path ending in /examples/04.folders");
 	Verify("CurrentScriptFolder", Tail(CurrentScriptFolder, 2), Unix(CurrentScriptFolder) == Unix(CurrentWorkingFolder), "the working folder (scripts run in their own folder)");
 	string tool = CurrentToolFolder + (Host.IsWindows() ? "/mkb.exe" : "/mkb");
@@ -85,7 +86,7 @@ void TestWellKnownFolders(){
 /// Forward search: the script folder and its subfolders, with or without a relative path.
 /// </summary>
 void TestSearch(){
-	Banner("[2/9] Forward file search");
+	Banner("[2/10] Forward file search");
 	string found = Folders.SearchForwardPath("src/file1.txt");
 	Verify("SearchForwardPath", Tail(found, 3), Unix(found).EndsWith("/folder1/src/file1.txt"), "a path ending in /folder1/src/file1.txt");
 	found = Folders.SearchForwardPath("file1.txt");
@@ -99,7 +100,7 @@ void TestSearch(){
 /// </summary>
 /// <param name="args">Action arguments, forwarded to the children.</param>
 void TestChildScripts(string[] args){
-	Banner("[3/9] Child scripts and backward search");
+	Banner("[3/10] Child scripts and backward search");
 	int code = Kombine("child/child.csx", "test", args, false);
 	Check("child.csx returned", code.ToString(), "0");
 	// The forward search on dispatch is disabled by default (-kforward): locate the script explicitly
@@ -114,7 +115,7 @@ void TestChildScripts(string[] args){
 /// File operations on the sandbox.
 /// </summary>
 void TestFiles(){
-	Banner("[4/9] File operations");
+	Banner("[4/10] File operations");
 	string folder = Sandbox + "/files";
 	Folders.Create(folder);
 	string file = folder + "/file.txt";
@@ -150,7 +151,7 @@ void TestFiles(){
 /// File operations on a missing file: the failure is reported in the return value.
 /// </summary>
 void TestMissingFiles(){
-	Banner("[5/9] File operations on a missing file (expected to fail)");
+	Banner("[5/10] File operations on a missing file (expected to fail)");
 	// Every failure is reported through the return value and Files.LastError, nothing is printed
 	string missing = Sandbox + "/files/missing.txt";
 	string target = Sandbox + "/files/target.txt";
@@ -180,7 +181,7 @@ void TestMissingFiles(){
 /// Folder operations on the sandbox, including the failing ones.
 /// </summary>
 void TestFolders(){
-	Banner("[6/9] Folder operations");
+	Banner("[6/10] Folder operations");
 	string root = Sandbox + "/folders";
 	string created = root + "/created/nested";
 	Check("Create nested", Show(Folders.Create(created)), "true");
@@ -222,7 +223,7 @@ void TestFolders(){
 /// Zip compression: folders, several folders, single files, and the failing cases.
 /// </summary>
 void TestZip(){
-	Banner("[7/9] Zip compression");
+	Banner("[7/10] Zip compression");
 	string root = Sandbox + "/zip";
 	Folders.Create(root);
 	// The archive operations show a progress line (Compress.Progress, a bar by default): shown for the
@@ -262,7 +263,7 @@ void TestZip(){
 /// Tar compression with every supported type, xz extraction, and the failing cases.
 /// </summary>
 void TestTar(){
-	Banner("[8/9] Tar compression");
+	Banner("[8/10] Tar compression");
 	string root = Sandbox + "/tar";
 	Folders.Create(root);
 	// The progress line is silenced for the round trips and shown as dots for the several folders case below
@@ -318,7 +319,7 @@ void TestTar(){
 /// Safe extraction: entries trying to escape the destination folder (zip-slip) must be refused.
 /// </summary>
 void TestSafeExtract(){
-	Banner("[9/9] Safe extraction (path traversal entries are refused)");
+	Banner("[9/10] Safe extraction (path traversal entries are refused)");
 	string root = Sandbox + "/safe";
 	Folders.Create(root + "/out");
 	// A hand made tar with a benign entry and two entries trying to escape the destination folder
@@ -339,20 +340,73 @@ void TestSafeExtract(){
 }
 
 /// <summary>
+/// Links and permissions of a tar archive: a symbolic link is created as a link (on Windows as a
+/// copy of its target when the process may not create links), a hard link as a copy, a link that
+/// leaves the destination folder is refused, and outside Windows the executable bit is restored.
+/// </summary>
+void TestTarLinks(){
+	Banner("[10/10] Tar links and permissions");
+	string root = Sandbox + "/links";
+	Folders.Create(root);
+	// A hand made tar: a tool with the executable bit, a symbolic link to it, a hard link to it, a link
+	// escaping the destination folder and a plain file
+	byte[] tool = Encoding.ASCII.GetBytes("#!/bin/sh\necho tool\n");
+	byte[] tar = MakeTar(new (string name, byte[] data, char type, string link, int mode)[] {
+		("bin/", Array.Empty<byte>(), '5', "", 0x1ED),
+		("bin/tool", tool, '0', "", 0x1ED),
+		("bin/link", Array.Empty<byte>(), '2', "tool", 0x1FF),
+		("bin/hard", Array.Empty<byte>(), '1', "bin/tool", 0x1ED),
+		("bin/evil", Array.Empty<byte>(), '2', "../../outside", 0x1FF),
+		("readme.txt", tool, '0', "", 0x1A4)
+	});
+	File.WriteAllBytes(root + "/links.tar", tar);
+	// The escaping link is refused and makes the call fail; everything else is extracted
+	Check("Decompress links.tar", Show(Compress.Tar.Decompress(root + "/links.tar", root + "/out/")), "false");
+	Check("refusal reported", Compress.Tar.LastError.Code + ", " + (Compress.Tar.LastError.Message.Contains("refused") ? "refused" : Compress.Tar.LastError.Message), "Failed, refused");
+	Check("file extracted", Show(Files.Exists(root + "/out/bin/tool")), "true");
+	Check("symbolic link usable", Show(Files.Exists(root + "/out/bin/link") && Files.Compare(root + "/out/bin/tool", root + "/out/bin/link", Files.CompareOptions.CompareContents)), "true");
+	Check("hard link copied", Show(Files.Compare(root + "/out/bin/tool", root + "/out/bin/hard", Files.CompareOptions.CompareContents)), "true");
+	Check("escaping link refused", Show(!Files.Exists(root + "/out/bin/evil") && !Files.Exists(root + "/outside")), "true");
+	if (!Host.IsWindows()){
+		Check("executable bit restored", Show((File.GetUnixFileMode(root + "/out/bin/tool") & UnixFileMode.UserExecute) != 0), "true");
+		Check("plain file not executable", Show((File.GetUnixFileMode(root + "/out/readme.txt") & UnixFileMode.UserExecute) == 0), "true");
+		Check("link is a link", Show(new FileInfo(root + "/out/bin/link").LinkTarget != null), "true");
+	}
+	// Extracting again replaces the links and the files; the escaping link is refused again
+	Check("Decompress again", Show(Compress.Tar.Decompress(root + "/links.tar", root + "/out/")), "false");
+	Check("symbolic link still usable", Show(Files.Compare(root + "/out/bin/tool", root + "/out/bin/link", Files.CompareOptions.CompareContents)), "true");
+	EndBanner();
+}
+
+/// <summary>
 /// Minimal ustar tar builder, so the traversal test needs no committed binary fixture.
 /// </summary>
 /// <param name="entries">Entries to write: name, data and whether it is a directory.</param>
 /// <returns>The tar archive bytes.</returns>
 byte[] MakeTar((string name, byte[] data, bool isDir)[] entries){
+	var full = new (string name, byte[] data, char type, string link, int mode)[entries.Length];
+	for (int i = 0; i < entries.Length; i++)
+		full[i] = (entries[i].name, entries[i].data, entries[i].isDir ? '5' : '0', "", 0x1ED);
+	return MakeTar(full);
+}
+
+/// <summary>
+/// The full form of the tar builder: the type of every entry ('0' file, '5' directory, '2' symbolic
+/// link, '1' hard link), its link target and its mode.
+/// </summary>
+/// <param name="entries">Entries to write: name, data, type, link target and mode.</param>
+/// <returns>The tar archive bytes.</returns>
+byte[] MakeTar((string name, byte[] data, char type, string link, int mode)[] entries){
 	using var ms = new MemoryStream();
 	foreach (var e in entries){
 		byte[] h = new byte[512];
-		long size = e.isDir ? 0 : e.data.Length;
+		long size = e.type == '0' ? e.data.Length : 0;
 		TarPutString(h, 0, 100, e.name);
-		TarPutOctal(h, 100, 8, 0x1ED);
+		TarPutOctal(h, 100, 8, e.mode);
 		TarPutOctal(h, 124, 12, size);
 		TarPutOctal(h, 136, 12, 0);
-		h[156] = (byte)(e.isDir ? '5' : '0');
+		h[156] = (byte)e.type;
+		TarPutString(h, 157, 100, e.link);
 		TarPutString(h, 257, 6, "ustar");
 		h[263] = (byte)'0';
 		h[264] = (byte)'0';
@@ -365,7 +419,7 @@ byte[] MakeTar((string name, byte[] data, bool isDir)[] entries){
 		h[154] = 0;
 		h[155] = (byte)' ';
 		ms.Write(h, 0, 512);
-		if (!e.isDir && size > 0){
+		if (size > 0){
 			ms.Write(e.data, 0, e.data.Length);
 			int pad = (int)((512 - (size % 512)) % 512);
 			if (pad > 0)

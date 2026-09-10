@@ -9,6 +9,7 @@
 using Kltv.Kombine.Types;
 using System.IO;
 using SharpCompress.Common;
+using SharpCompress.Common.Tar;
 using SharpCompress.Writers.Tar;
 using SharpCompress.Writers;
 using SharpCompress.Readers;
@@ -228,6 +229,11 @@ namespace Kltv.Kombine.Api {
 
 			/// <summary>
 			/// Decompress a tar file into a folder. The folder is created if needed.
+			/// Outside Windows the permissions of every file are restored from the archive (the executable
+			/// bit of a tool). Symbolic links are created as links; on Windows, where a link needs a privilege
+			/// (developer mode or elevation), as a copy of their target when the process may not create them.
+			/// Hard links are extracted as copies. A link whose target leaves the destination folder is
+			/// refused like any traversal entry.
 			/// Entries that try to escape the destination folder (path traversal) are refused, a file that
 			/// exists when overwrite is disabled is skipped, and the remaining entries are still extracted.
 			/// Any skipped entry makes the call return false: AlreadyExists when only existing files were
@@ -258,8 +264,13 @@ namespace Kltv.Kombine.Api {
 						ReaderOptions r = new SharpCompress.Readers.ReaderOptions();
 						using (var tar = ReaderFactory.OpenReader(fs,r)) {
 							ExtractionOptions exOp = new ExtractionOptions() { ExtractFullPath = true, Overwrite = overwrite };
-							exOp.SymbolicLinkHandler = (sender, e) => {
-								Msg.PrintMod("Symbolic Links not supported: " + e, ".compress.tar", Msg.LogLevels.Verbose);
+							// The library hands the links over instead of writing them: created here, per platform
+							exOp.SymbolicLinkHandler = (string destination, string linkTarget) => {
+								switch (WriteLink(outputFolder, destination, linkTarget, overwrite)) {
+									case LinkOutcome.Existing: existing++; break;
+									case LinkOutcome.Refused: refused++; break;
+									case LinkOutcome.Failed: failed++; break;
+								}
 							};
 							string nextFileName = string.Empty;
 							while (tar.MoveToNextEntry()) {
@@ -318,6 +329,8 @@ namespace Kltv.Kombine.Api {
 											} else {
 												Msg.PrintMod("Unpacking file (long): " + nextFileName, ".compress.tar", Msg.LogLevels.Verbose);
 												tar.WriteEntryToFile(longTarget, exOp);
+												if (tar.Entry.LinkTarget == null && !ApplyMode(longTarget, tar.Entry))
+													failed++;
 											}
 											nextFileName = string.Empty;
 										} else {
@@ -328,6 +341,8 @@ namespace Kltv.Kombine.Api {
 											} else {
 												Msg.PrintMod("Unpacking file: " + tar.Entry.Key, ".compress.tar", Msg.LogLevels.Verbose);
 												tar.WriteEntryToDirectory(outputFolder, exOp);
+												if (tar.Entry.LinkTarget == null && !ApplyMode(target, tar.Entry))
+													failed++;
 											}
 										}
 									} else {
@@ -360,6 +375,113 @@ namespace Kltv.Kombine.Api {
 					return Fail(ExtractionError(refused, failed, existing, tarPath));
 				}
 				progress.Done();
+				return true;
+			}
+
+			/// <summary>
+			/// Restores the permissions of an extracted file from its entry, outside Windows, where the
+			/// archive carries them (the executable bit of a tool). Nothing to do on Windows.
+			/// </summary>
+			/// <param name="path">The file written.</param>
+			/// <param name="entry">Its entry.</param>
+			/// <returns>True when set or not needed, false when the mode could not be set.</returns>
+			private static bool ApplyMode(string path, IEntry entry) {
+				if (!OperatingSystem.IsWindows()) {
+					long mode = (entry as TarEntry)?.Mode ?? 0;
+					if (mode == 0)
+						return true;
+					try {
+						File.SetUnixFileMode(path, (UnixFileMode)(int)(mode & 0xFFF));
+					} catch (Exception ex) {
+						Msg.PrintWarningMod("Permissions not set: " + path + " " + ex.Message, ".compress.tar", Msg.LogLevels.Verbose);
+						return false;
+					}
+				}
+				return true;
+			}
+
+			/// <summary>The outcome of a link entry.</summary>
+			private enum LinkOutcome { Written, Existing, Refused, Failed }
+
+			/// <summary>
+			/// Creates the link of an entry. A symbolic link names its target from its own folder and is
+			/// created as a link; on Windows, where a link needs a privilege the process may not have, as
+			/// a copy of its target when that exists. A hard link names its target from the root of the
+			/// archive, an entry already extracted, and is created as a copy of it. The library does not
+			/// tell the two apart: a target that exists from the root and not from the link folder is a
+			/// hard link. A target that leaves the destination folder is refused.
+			/// </summary>
+			/// <param name="outputFolder">The destination folder of the extraction.</param>
+			/// <param name="destination">The path of the link.</param>
+			/// <param name="linkTarget">The target as the archive gives it.</param>
+			/// <param name="overwrite">If something at the place of the link may be replaced.</param>
+			/// <returns>What happened.</returns>
+			private static LinkOutcome WriteLink(string outputFolder, string destination, string linkTarget, bool overwrite) {
+				string linkFolder = Path.GetDirectoryName(destination) ?? outputFolder;
+				string fromRoot = Path.GetFullPath(Path.Combine(outputFolder, linkTarget));
+				string fromLink = Path.GetFullPath(Path.Combine(linkFolder, linkTarget));
+				bool hard = !Path.IsPathRooted(linkTarget) && fromRoot != fromLink && File.Exists(fromRoot) && !File.Exists(fromLink);
+				string resolved = hard ? fromRoot : fromLink;
+				if (Path.IsPathRooted(linkTarget) || !IsInsideOutputFolder(outputFolder, resolved)) {
+					Msg.PrintWarningMod("Refusing link outside destination (path traversal): " + destination + " -> " + linkTarget, ".compress.tar", Msg.LogLevels.Verbose);
+					return LinkOutcome.Refused;
+				}
+				try {
+					FileInfo place = new FileInfo(destination);
+					if (place.Exists || Directory.Exists(destination) || place.LinkTarget != null) {
+						if (!overwrite) {
+							Msg.PrintMod("Entry already exists, overwrite is disabled: " + destination, ".compress.tar", Msg.LogLevels.Verbose);
+							return LinkOutcome.Existing;
+						}
+						if (!RemoveLinkPlace(destination)) {
+							Msg.PrintWarningMod("Link not created, a folder is in the way: " + destination, ".compress.tar", Msg.LogLevels.Verbose);
+							return LinkOutcome.Failed;
+						}
+					}
+					Directory.CreateDirectory(linkFolder);
+					if (hard) {
+						File.Copy(fromRoot, destination, true);
+						Msg.PrintMod("Hard link extracted as a copy: " + destination + " -> " + linkTarget, ".compress.tar", Msg.LogLevels.Verbose);
+						return LinkOutcome.Written;
+					}
+					try {
+						// The target stays as the archive gives it, relative to the link, so the tree can move
+						string target = OperatingSystem.IsWindows() ? linkTarget.Replace('/', '\\') : linkTarget;
+						if (Directory.Exists(resolved))
+							Directory.CreateSymbolicLink(destination, target);
+						else
+							File.CreateSymbolicLink(destination, target);
+						Msg.PrintMod("Symbolic link created: " + destination + " -> " + linkTarget, ".compress.tar", Msg.LogLevels.Verbose);
+						return LinkOutcome.Written;
+					} catch (Exception ex) when (OperatingSystem.IsWindows() && File.Exists(resolved)) {
+						// Without the privilege (developer mode or elevation) Windows refuses the link: a copy of the target serves instead
+						File.Copy(resolved, destination, true);
+						Msg.PrintMod("Symbolic link extracted as a copy, a link needs a privilege on Windows (" + ex.Message.Trim() + "): " + destination + " -> " + linkTarget, ".compress.tar", Msg.LogLevels.Verbose);
+						return LinkOutcome.Written;
+					}
+				} catch (Exception ex) {
+					Msg.PrintWarningMod("Link not created: " + destination + " -> " + linkTarget + " " + ex.Message, ".compress.tar", Msg.LogLevels.Verbose);
+					return LinkOutcome.Failed;
+				}
+			}
+
+			/// <summary>
+			/// Removes what is at the place of a link: a file, or a link whatever it points to. A real
+			/// folder is left alone.
+			/// </summary>
+			/// <returns>True when the place is free, false when a folder is in the way.</returns>
+			private static bool RemoveLinkPlace(string destination) {
+				FileInfo place = new FileInfo(destination);
+				if (place.LinkTarget != null) {
+					if (Directory.Exists(destination))
+						Directory.Delete(destination);
+					else
+						File.Delete(destination);
+					return true;
+				}
+				if (Directory.Exists(destination))
+					return false;
+				File.Delete(destination);
 				return true;
 			}
 		}

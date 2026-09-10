@@ -36,6 +36,7 @@ What no longer compiles or no longer runs, why, and what to change.
 - sdl2 extra: on Windows the generic thread folder contributes only the sources the Windows folder does not provide, as upstream does; the rest duplicated the symbols of the Windows folder inside the archive
 - Git example: a step run against a failed clone could add and commit into the Kombine repository itself; the sandbox is now walled off with `GIT_CEILING_DIRECTORIES`, the group stops when the clone failed, and the test sandboxes are ignored by git
 - `Compress.Tar.Decompress` creates the destination folder and returns false when entries are refused or not extracted
+- `Compress.Tar.Decompress` restores the file permissions outside Windows and creates the symbolic links (as copies of their target on Windows without the privilege), hard links as copies; a link leaving the destination folder is refused. See doc/api.md, Compress
 - Failed compressions leave no partial archive; xz compression returns false instead of aborting
 
 ### Misc
@@ -61,7 +62,7 @@ What no longer compiles or no longer runs, why, and what to change.
 - Engine messages a script can handle through its return value or `LastError` are logged at verbose level only
 - Child script failures (not found, unresolved references, compile errors, missing action) print nothing: `Kombine()` returns 1 and `Engine.LastError` carries the reason
 - Forward search hits (`-kforward`) are logged at verbose level instead of printing a warning
-- Documentation: extensions split into one page each (doc/extensions/), building guide with the root script actions, progress and error reporting guides, readme index with direct links, usage output and exit code contract, how Kombine runs a script (doc/execution.md) with the cache moved there from the building guide
+- Documentation: extensions split into one page each (doc/extensions/), building guide with the root script actions, progress and error reporting guides, readme index with direct links, usage output and exit code contract, how Kombine runs a script (doc/execution.md) with the cache moved there from the building guide, the LLVM toolchain assumption of the clang extension (lld as linker on every platform)
 - Examples: progress example, `LastError` checks in the folders, types and network examples, `#load` resolution example running both forward search modes
 
 ## [1.5.24359387]

@@ -11,6 +11,13 @@ executable, a shared library, each in its own child script) and tested by the gr
 of the same folder; used by the sdl2 extra example
 ([examples/07.extras/00.sdl2](../../examples/07.extras/00.sdl2/)).
 
+The extension assumes the whole LLVM toolchain on every platform, under the same names: `clang`
+and `clang++` as compilers and link driver, `lld` as linker, `llvm-ar` as archiver, `llvm-rc` as
+resource compiler. That is why `lld` is the default linker on Linux and macOS as well as on
+Windows. A build with another linker, Apple's clang without lld or a Linux with the system `ld`,
+sets `LD` to the linker name or to an empty string, which lets the driver pick the linker of its
+target.
+
 ```csharp
 #load "extensions/clang.csx"
 ```
@@ -114,7 +121,7 @@ extension did.
 | --- | --- | --- |
 | `string CC` | `clang` | The C compiler; `gcc` takes the same command lines. |
 | `string CXX` | `clang++` | The C++ compiler, and the driver of the link. |
-| `string LD` | `lld` | The linker the driver must use: a name (`lld`, `gold`, `bfd`, `mold`) passed as `-fuse-ld=name`, a path passed as `--ld-path=path` (clang only), empty adds nothing and the driver picks the linker of its target (how a macOS build or a Linux without lld links). The previous extension forced `lld` on every link. |
+| `string LD` | `lld` | The linker the driver must use: a name (`lld`, `gold`, `bfd`, `mold`) passed as `-fuse-ld=name`, a path passed as `--ld-path=path` (clang only), empty adds nothing and the driver picks the linker of its target. The default is `lld` on every platform because the extension assumes the LLVM toolchain everywhere (see the introduction); a macOS build with Apple's clang, or a Linux without lld, sets it empty or to its linker. The previous extension forced `lld` on every link. |
 | `string AR` | `llvm-ar` | The archiver; `ar` takes the same command line. |
 | `string RC` | `llvm-rc` | The resource compiler of Windows resources. |
 | `string ReadObj` | `llvm-readobj` | The object reader `Librarian` uses to find the symbols every object defines. |

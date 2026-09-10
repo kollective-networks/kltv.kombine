@@ -167,6 +167,29 @@ namespace Kltv.Kombine.Api {
 		}
 
 		/// <summary>
+		/// Sets or clears the executable bits of a file (user, group and others): what a downloaded or
+		/// copied tool needs to run on Linux and macOS. Nothing to do on Windows, where it returns true.
+		/// </summary>
+		/// <param name="Filename">File to change.</param>
+		/// <param name="executable">True, the default, sets the bits; false clears them.</param>
+		/// <returns>True if okey or nothing to do, false otherwise (see LastError).</returns>
+		static public bool SetExecutable(KValue Filename, bool executable = true) {
+			LastError = ApiError.None;
+			if (!FSAPI.FileExists(Filename))
+				return Fail(ErrorCode.NotFound, "The file to make executable does not exist", Filename);
+			if (!OperatingSystem.IsWindows()) {
+				try {
+					UnixFileMode mode = File.GetUnixFileMode(Filename);
+					UnixFileMode bits = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+					File.SetUnixFileMode(Filename, executable ? mode | bits : mode & ~bits);
+				} catch (Exception ex) {
+					return Fail(ex, Filename);
+				}
+			}
+			return true;
+		}
+
+		/// <summary>
 		/// Copy a file.
 		/// </summary>
 		/// <param name="source">Source file.</param>

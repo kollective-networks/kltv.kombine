@@ -62,8 +62,9 @@ namespace Kltv.Kombine.Api {
 		/// <param name="path">The resulting path for the file.</param>
 		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
 		/// <param name="showprogress">If the progress line should be shown. Null takes Http.ShowProgress.</param>
+		/// <param name="executable">If the downloaded file must be executable (Files.SetExecutable; nothing to do on Windows).</param>
 		/// <returns>True if file was downloaded, false otherwise.</returns>
-		public static bool DownloadFile(string uri, string path, Dictionary<string, string>? headers = null, bool? showprogress = null) {
+		public static bool DownloadFile(string uri, string path, Dictionary<string, string>? headers = null, bool? showprogress = null, bool executable = false) {
 			LastError = ApiError.None;
 			HttpClient client = new HttpClient();
 			if (headers != null) {
@@ -113,6 +114,11 @@ namespace Kltv.Kombine.Api {
 					Files.Delete(path);
 				return false;
 			}
+			if (executable && !Files.SetExecutable(path)) {
+				LastError = Files.LastError;
+				reporter?.Finish("failed", ProgressOutcome.Error);
+				return false;
+			}
 			reporter?.Report(1.0);
 			reporter?.Finish("done");
 			return true;
@@ -125,8 +131,9 @@ namespace Kltv.Kombine.Api {
 		/// <param name="paths">Array of paths+filenames to be used</param>
 		/// <param name="headers">Optional dictionary of headers to inject in the request</param>
 		/// <param name="showprogress">If the progress line should be shown. Null takes Http.ShowProgress.</param>
+		/// <param name="executable">If the downloaded files must be executable (Files.SetExecutable; nothing to do on Windows).</param>
 		/// <returns>True if all files download fine, false otherwise.</returns>
-		public static bool DownloadFiles(string[] uris,string[] paths, Dictionary<string, string>? headers = null, bool? showprogress = null){
+		public static bool DownloadFiles(string[] uris,string[] paths, Dictionary<string, string>? headers = null, bool? showprogress = null, bool executable = false){
 			LastError = ApiError.None;
 			if (uris.Length != paths.Length){
 				Msg.PrintErrorMod("The number of uris and paths must be the same.",".http",Msg.LogLevels.Verbose);
@@ -200,6 +207,15 @@ namespace Kltv.Kombine.Api {
 				LastError = new ApiError(ErrorCode.Failed, "The downloads did not complete", string.Join(", ", uris));
 				reporter?.Finish("failed", ProgressOutcome.Error);
 				return false;
+			}
+			if (executable) {
+				foreach (string path in paths) {
+					if (!Files.SetExecutable(path)) {
+						LastError = Files.LastError;
+						reporter?.Finish("failed", ProgressOutcome.Error);
+						return false;
+					}
+				}
 			}
 			reporter?.Report(1.0);
 			reporter?.Finish("done");

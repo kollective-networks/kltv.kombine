@@ -144,6 +144,12 @@ void TestFiles(){
 	Check("Compare error", Files.LastError.Code.ToString(), "Different");
 	Check("Delete", Show(Files.Delete(moved)), "true");
 	Check("Delete gone", Show(Files.Exists(moved)), "false");
+	// The executable bits: nothing to do on Windows, set and cleared elsewhere
+	Check("SetExecutable", Show(Files.SetExecutable(renamed)), "true");
+	if (!Host.IsWindows()){
+		Check("executable bit set", Show((File.GetUnixFileMode(renamed) & UnixFileMode.UserExecute) != 0), "true");
+		Check("SetExecutable cleared", Show(Files.SetExecutable(renamed, false) && (File.GetUnixFileMode(renamed) & UnixFileMode.UserExecute) == 0), "true");
+	}
 	EndBanner();
 }
 
@@ -164,6 +170,8 @@ void TestMissingFiles(){
 	Check("GetModifiedTime error", Files.LastError.Code.ToString(), "NotFound");
 	Check("Rename", Show(Files.Rename(missing, target)), "false");
 	Check("Rename error", Files.LastError.Code.ToString(), "NotFound");
+	Check("SetExecutable", Show(Files.SetExecutable(missing)), "false");
+	Check("SetExecutable error", Files.LastError.Code.ToString(), "NotFound");
 	Check("Copy", Show(Files.Copy(missing, target)), "false");
 	Check("Copy error", Files.LastError.Code.ToString(), "NotFound");
 	Check("Compare", Show(Files.Compare(missing, Sandbox + "/files/renamed.txt")), "false");

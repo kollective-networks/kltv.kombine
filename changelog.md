@@ -24,6 +24,7 @@ What no longer compiles or no longer runs, why, and what to change.
 - Progress reporting: `ITaskProgress` contract with bar, dots and plain renderers, selectable per facility (`Http.Progress`, `Progress.Default`). See doc/api.md, Progress
 - `Folders.Copy` honors `CopyOptions.ShowProgress` through `Folders.Progress`
 - `Compress.Zip` and `Compress.Tar` show a progress line through `Compress.Progress`; `Compress.ShowProgress` or the `showprogress` argument silence it. See doc/api.md, Compress
+- `Files.SetExecutable` sets or clears the executable bits of a file (nothing to do on Windows) and `Http.DownloadFile` / `DownloadFiles` take an `executable` flag, so a script bootstraps a toolchain on Linux or macOS without an external chmod; the git extension uses it for its hook. See doc/api.md, Files
 - Error reporting: every facility exposes `LastError` (`ErrorCode` and message) so scripts explain failures themselves. See doc/api.md, Error reporting
 - `Engine.ForwardSearch`, `Engine.RebuildScripts` and `Engine.LastError`: the script side of `-kforward` and `-ksrb`, and the reason of a failed child script. See doc/api.md, Engine settings
 

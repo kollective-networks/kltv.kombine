@@ -139,6 +139,7 @@ Legend: :heavy_check_mark: implemented — :x: planned / not implemented yet.
 | :heavy_check_mark: | Copy a file (optionally only if newer) |
 | :heavy_check_mark: | Rename a file |
 | :heavy_check_mark: | Move a file |
+| :heavy_check_mark: | Set or clear the executable bits of a file (nothing to do on Windows), also on download |
 | :heavy_check_mark: | Glob static function to retrieve a list of matching files from a pattern (current or given folder) |
 | :x: | Patch a file (diff) |
 | :x: | Generate a patch file (diff) |

@@ -2406,12 +2406,9 @@ public static class Git {
 		} catch (Exception ex) {
 			return Fail(ApiError.CodeOf(ex), "the hook could not be written: " + ex.Message, hook);
 		}
-		if (o.Executable && !Host.IsWindows()) {
-			Tool chmod = new Tool("chmod");
-			ToolResult r = chmod.CommandSync("chmod", new string[] { "+x", hook });
-			if (r.ExitCode != 0)
-				return Fail(ErrorCode.AccessDenied, "the hook could not be made executable", hook);
-		}
+		// The executable bits are set by the engine (nothing to do on Windows), no external chmod
+		if (o.Executable && !Files.SetExecutable(hook))
+			return Fail(ErrorCode.AccessDenied, "the hook could not be made executable: " + Files.LastError.Message, hook);
 		return true;
 	}
 

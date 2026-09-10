@@ -8,14 +8,14 @@
 	sandbox (.tmp.bin2obj) and removed at the end:
 
 		[1/5] Basics                   one object per binary, one object for all, the symbols, the records,
-		                               reproducible objects
+		                               reproducible objects, every format whatever the host
 		[2/5] Output modes             what each mode renders, shown on screen once
 		[3/5] Nothing left behind      every change that must generate something generates exactly that,
-		                               a changed machine included
+		                               a changed machine or format included
 		[4/5] Nothing without need     every change that must generate nothing generates nothing
-		[5/5] Failures                 a missing binary, mismatched lists, a duplicate name, an unknown machine,
-		                               a write that fails leaving the previous output intact, the abort through
-		                               a child script
+		[5/5] Failures                 a missing binary, mismatched lists, a duplicate name, an unknown, empty
+		                               or unsuitable machine, a write that fails leaving the previous output
+		                               intact, the abort through a child script
 
 	The build action converts the svg files of the res folder and links them with clang, the way a
 	build script does; clean removes what it produced.
@@ -92,8 +92,10 @@ int test(string[] args){
 /// </summary>
 int build(string[] args) {
 	Bin2obj converter = new Bin2obj();
+	Clang clang = new Clang();
+	// The objects take the format and the machine of the host, and the object extension of the platform
 	KList binFiles = Glob("res/**/*.svg");
-	KList objFiles = binFiles.WithExtension(".obj").WithReplace("res/", OutputTmp + "gen/");
+	KList objFiles = binFiles.WithExtension(clang.Options.ObjectExtension).WithReplace("res/", OutputTmp + "gen/");
 	if (!converter.Generate(binFiles, objFiles)) {
 		Msg.PrintError("Failed to generate obj files: " + converter.LastError.Message);
 		return 1;
@@ -105,11 +107,10 @@ int build(string[] args) {
 	foreach (var symbol in converter.Symbols)
 		Msg.Print(symbol.Key + " -> " + symbol.Value);
 	Msg.EndIndent();
-	if (!converter.Generate(binFiles, OutputTmp + "gen/amalgamation.obj")) {
+	if (!converter.Generate(binFiles, OutputTmp + "gen/amalgamation" + clang.Options.ObjectExtension)) {
 		Msg.PrintError("Failed to generate the amalgamation: " + converter.LastError.Message);
 		return 1;
 	}
-	Clang clang = new Clang();
 	clang.OpenCompileCommands("out/tmp/compile_commands.json");
 	Kombine("mybin.csx", "build", args);
 	return 0;
@@ -197,6 +198,17 @@ void TestBasics(){
 	Check("every symbol in the object", Show(c.Symbols.Values.All(s => HasSymbol(Single(), s))), "true");
 	Check("single second run", Show(c.Generate(Inputs("a.bin", "b.bin", "c.bin"), Single())) + ", " + Counts(c), "true, 0 generated, 1 up to date, 0 failed");
 	Check("no temporary left", Show(!Directory.EnumerateFiles(Gen, "*.tmp").Any()), "true");
+	// Every format, whatever the host: the magic of the file and the symbols in it
+	foreach (Bin2obj.ObjectFormat format in new[] { Bin2obj.ObjectFormat.Coff, Bin2obj.ObjectFormat.Elf, Bin2obj.ObjectFormat.MachO }){
+		Bin2obj f = Silent();
+		f.Format = format;
+		f.Machine = "x64";
+		KValue output = Gen + "/" + format.ToString().ToLower() + ".o";
+		bool ok = f.Generate(Inputs("a.bin", "b.bin"), output);
+		string magic = ok ? BitConverter.ToString(File.ReadAllBytes(output).Take(4).ToArray()) : f.LastError.Code.ToString();
+		string expected = format == Bin2obj.ObjectFormat.Coff ? "64-86-01-00" : (format == Bin2obj.ObjectFormat.Elf ? "7F-45-4C-46" : "CF-FA-ED-FE");
+		Check(format + " object", Show(ok) + ", " + magic + ", symbols " + Show(f.Symbols.Values.All(s => HasSymbol(output, s) && HasSymbol(output, s + "_size"))), "true, " + expected + ", symbols true");
+	}
 	EndBanner();
 }
 
@@ -245,10 +257,13 @@ void TestNothingLeftBehind(){
 	Case(c, "binary edited, dated older", () => { Flip(Path.Combine(In, "c.bin")); File.SetLastWriteTimeUtc(Path.Combine(In, "c.bin"), new DateTime(2000, 1, 1)); }, "c.obj", true);
 	Case(c, "record deleted", () => File.Delete(Gen + "/a.obj.kdep"), "a.obj", false);
 	Case(c, "output deleted", () => File.Delete(Gen + "/b.obj"), "b.obj", false);
-	if (!Host.IsMacOS()){
-		Case(c, "machine changed", () => c.Machine = "arm64", "a.obj,b.obj,c.obj", true);
-		Case(c, "machine restored", () => c.Machine = "x64", "a.obj,b.obj,c.obj", true);
-	}
+	// The machine and the format are part of what generates every output, whatever the host
+	string machine = c.Machine;
+	Bin2obj.ObjectFormat format = c.Format;
+	Case(c, "machine changed", () => c.Machine = machine == "arm64" ? "x64" : "arm64", "a.obj,b.obj,c.obj", true);
+	Case(c, "machine restored", () => c.Machine = machine, "a.obj,b.obj,c.obj", true);
+	Case(c, "format changed", () => c.Format = format == Bin2obj.ObjectFormat.Elf ? Bin2obj.ObjectFormat.Coff : Bin2obj.ObjectFormat.Elf, "a.obj,b.obj,c.obj", true);
+	Case(c, "format restored", () => c.Format = format, "a.obj,b.obj,c.obj", true);
 	// A path given differently is another symbol: generated again with it
 	string before = c.Symbols[".tmp.bin2obj.in.a.bin"];
 	KList other = new KList { "./" + In + "/a.bin" };
@@ -292,11 +307,16 @@ void TestFailures(){
 	Check("missing binary, single output present", Show(c.Generate(Inputs("a.bin", "nope.bin"), Single())) + ", " + c.LastError.Code, "false, NotFound");
 	Check("mismatched lists", Show(c.Generate(Inputs("a.bin", "b.bin"), Outputs("a.bin"))) + ", " + c.LastError.Code, "false, InvalidArgument");
 	Check("duplicate name", Show(c.Generate(Inputs("a.bin", "a.bin"), Outputs("a.bin", "b.obj"))) + ", " + c.LastError.Code, "false, InvalidArgument");
-	if (!Host.IsMacOS()){
-		c.Machine = "mips";
-		Check("unknown machine", Show(c.Generate(Inputs("a.bin"), Outputs("a.bin"))) + ", " + c.LastError.Code, "false, InvalidArgument");
-		c.Machine = "x64";
-	}
+	string machine = c.Machine;
+	c.Machine = "mips";
+	Check("unknown machine", Show(c.Generate(Inputs("a.bin"), Outputs("a.bin"))) + ", " + c.LastError.Code, "false, InvalidArgument");
+	c.Machine = "";
+	Check("empty machine", Show(c.Generate(Inputs("a.bin"), Outputs("a.bin"))) + ", " + c.LastError.Code, "false, InvalidArgument");
+	c.Machine = "x86";
+	c.Format = Bin2obj.ObjectFormat.MachO;
+	Check("machine the format does not take", Show(c.Generate(Inputs("a.bin"), Outputs("a.bin"))) + ", " + c.LastError.Code, "false, InvalidArgument");
+	c.Machine = machine;
+	c.Format = Bin2obj.HostFormat();
 	if (Host.IsWindows()){
 		// A write that fails: the previous output stays intact and no temporary file is left
 		string output = Gen + "/a.obj";

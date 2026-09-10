@@ -7,9 +7,10 @@
 	(C) Kollective Networks 2026
 
 	Generates object files embedding binary files as data sections, one object per file or one
-	object for all of them, so assets can be linked without an intermediate C++ source: COFF objects
-	on Windows and Linux hosts, Mach-O 64 bit objects on macOS. Every public member is documented in
-	place; this header is the overview.
+	object for all of them, so assets can be linked without an intermediate C++ source. The format
+	follows the host, COFF on Windows, ELF on Linux, Mach-O 64 bit on macOS, and the machine its
+	architecture; Format and Machine set them to anything else. Every public member is documented
+	in place; this header is the overview.
 
 	Verbs. Generate(bin, obj) with two lists makes one object per binary; Generate(bin, obj) with one
 	output makes a single object holding every binary. Both return true when every output is in
@@ -27,9 +28,9 @@
 	edit generates nothing and an edit dated older than the output still generates. The one edit
 	that passes unseen keeps both the date and the size of the file. The record lives next to the
 	output (<output>.kdep). An output is written to a temporary file and moved into place once
-	complete, so a failure leaves the previous output as it was. The objects are reproducible: the COFF header carries no
-	timestamp, so an object generated again from the same data has the same bytes and the archive or
-	the link behind it is not made again.
+	complete, so a failure leaves the previous output as it was. The objects are reproducible: no
+	header carries a timestamp, so an object generated again from the same data has the same bytes
+	and the archive or the link behind it is not made again.
 
 	Output. Output decides what reaches the console: Silent (nothing), Progress (one progress line
 	per call through Progress, the default) or Detailed (one line per file, as the previous version
@@ -38,7 +39,9 @@
 
 	The symbol of an input derives from its path exactly as given, so a script should pass its
 	binaries through relative paths and keep them stable; a path given differently is a different
-	symbol and the output is generated again with it.
+	symbol and the output is generated again with it. The size symbol (<symbol>_size) is a 32 bit
+	unsigned value in every format: declared as unsigned int, not as unsigned long, which is 8 bytes
+	on Linux and macOS.
 
 ---------------------------------------------------------------------------------------------------------*/
 
@@ -124,10 +127,55 @@ public class Bin2obj {
 	}
 
 	/// <summary>
-	/// The machine of the COFF objects: "x64" (default), "x86", "arm" or "arm64". The Mach-O objects
-	/// of a macOS host take the architecture of the host. A change generates the outputs again.
+	/// The format of the objects.
 	/// </summary>
-	public string Machine { get; set; } = "x64";
+	public enum ObjectFormat {
+		/// <summary>COFF, the object format of Windows.</summary>
+		Coff,
+		/// <summary>ELF, the object format of Linux and the other Unix systems.</summary>
+		Elf,
+		/// <summary>Mach-O 64 bit, the object format of macOS. Takes the x64 and arm64 machines only.</summary>
+		MachO
+	}
+
+	/// <summary>
+	/// The format of the objects: Coff, Elf or MachO. Default: the format of the host (HostFormat),
+	/// Coff on Windows, MachO on macOS, Elf elsewhere. A change generates the outputs again.
+	/// </summary>
+	public ObjectFormat Format { get; set; } = HostFormat();
+
+	/// <summary>
+	/// The machine of the objects: "x86", "x64", "arm" or "arm64" (arm64 pads every block to four
+	/// bytes). Default: the architecture of the host (HostMachine), empty on a host with another
+	/// architecture, which fails the calls until it is set. Mach-O takes x64 and arm64 only. A change
+	/// generates the outputs again.
+	/// </summary>
+	public string Machine { get; set; } = HostMachine();
+
+	/// <summary>
+	/// The object format of the host: Coff on Windows, MachO on macOS, Elf elsewhere.
+	/// </summary>
+	public static ObjectFormat HostFormat() {
+		if (Host.IsWindows())
+			return ObjectFormat.Coff;
+		if (Host.IsMacOS())
+			return ObjectFormat.MachO;
+		return ObjectFormat.Elf;
+	}
+
+	/// <summary>
+	/// The machine of the host, from the architecture of the operating system (not of the process,
+	/// which may run emulated): "x86", "x64", "arm" or "arm64", empty for any other.
+	/// </summary>
+	public static string HostMachine() {
+		switch (RuntimeInformation.OSArchitecture) {
+			case Architecture.X86: return "x86";
+			case Architecture.X64: return "x64";
+			case Architecture.Arm: return "arm";
+			case Architecture.Arm64: return "arm64";
+			default: return string.Empty;
+		}
+	}
 
 	/// <summary>
 	/// The symbols of the last call: the friendly name of every input (its path with dots, lower
@@ -289,24 +337,35 @@ public class Bin2obj {
 	}
 
 	/// <summary>
-	/// What the format of the outputs depends on: the object format of the host, the machine and,
-	/// for Mach-O, the architecture of the host. Part of what generates every output.
+	/// What the format of the outputs depends on: the object format and the machine. Part of what
+	/// generates every output.
 	/// </summary>
 	private string Target() {
-		if (Host.IsMacOS())
-			return "macho|" + RuntimeInformation.ProcessArchitecture;
+		return Format.ToString().ToLowerInvariant() + "|" + Machine;
+	}
+
+	/// <summary>
+	/// The reason Format and Machine cannot be written, null when they can: an empty machine (a host
+	/// with another architecture), an unknown one, or one the format does not take.
+	/// </summary>
+	private string? TargetError() {
+		if (string.IsNullOrEmpty(Machine))
+			return "no machine: the host architecture is " + RuntimeInformation.OSArchitecture + ", set Machine (x86, x64, arm or arm64)";
 		if (!MachineTypes.ContainsKey(Machine))
-			throw new ArgumentException("unknown machine: " + Machine + " (x86, x64, arm or arm64)");
-		return "coff|" + Machine;
+			return "unknown machine: " + Machine + " (x86, x64, arm or arm64)";
+		if (Format == ObjectFormat.MachO && Machine != "x64" && Machine != "arm64")
+			return "Mach-O objects take the x64 or arm64 machines, not " + Machine;
+		return null;
 	}
 
 	/// <summary>
 	/// Builds the entries of a call and runs the checks that come before any write: every binary
-	/// exists, no friendly name or symbol repeats, the machine is known. Fills Symbols.
+	/// exists, no friendly name or symbol repeats, the format and the machine are valid. Fills Symbols.
 	/// </summary>
 	private bool Prepare(KList bin, KList outputs, Result result) {
-		if (!Host.IsMacOS() && !MachineTypes.ContainsKey(Machine))
-			return Fail(ErrorCode.InvalidArgument, "unknown machine: " + Machine + " (x86, x64, arm or arm64)", "Generate");
+		string? target = TargetError();
+		if (target != null)
+			return Fail(ErrorCode.InvalidArgument, target, "Generate");
 		HashSet<string> friendly = new HashSet<string>();
 		HashSet<string> symbols = new HashSet<string>();
 		for (int i = 0; i < bin.Count(); i++) {
@@ -655,64 +714,74 @@ public class Bin2obj {
 	private const byte SYM_EXT_SECT = 0x0F;
 
 	/// <summary>
-	/// Writes the object of one binary: a data section with the bytes, padding on arm64, and the
-	/// size, with a symbol for each.
+	/// A symbol of an object: its name, its offset in the data section, the length of its block and
+	/// whether it names the size of a block (a 32 bit unsigned value) or the block itself.
 	/// </summary>
-	private void GenerateObjectFile(byte[] data, string symbolName, string outputFile) {
-		int paddingLen = (Machine == "arm64") ? (4 - data.Length % 4) % 4 : 0;
-		byte[] padding = new byte[paddingLen];
-		uint sizeValue = (uint)data.Length;
-		byte[] sizeBytes = BitConverter.GetBytes(sizeValue);
-		List<byte> sectionData = new List<byte>();
-		sectionData.AddRange(data);
-		sectionData.AddRange(padding);
-		sectionData.AddRange(sizeBytes);
-		if (Host.IsMacOS()) {
-			var macSymbols = new List<(string name, uint offset)>() {
-				(symbolName, 0),
-				(symbolName + "_size", (uint)(data.Length + paddingLen))
-			};
-			WriteMachOFile(sectionData.ToArray(), macSymbols, outputFile);
-		} else {
-			List<Section> sections = new() { new Section(sectionData.ToArray(), ".data") };
-			List<Symbol> symbols = new() {
-				new Symbol(symbolName, 1, 0, CoffSymbolType.Null, CoffSymbolClass.External),
-				new Symbol(symbolName + "_size", 1, (uint)(data.Length + paddingLen), CoffSymbolType.Uint, CoffSymbolClass.External)
-			};
-			WriteCoffFile(sections, symbols, outputFile);
+	private class ObjectSymbol {
+		public string Name { get; }
+		public uint Offset { get; }
+		public uint Size { get; }
+		public bool IsSize { get; }
+		public ObjectSymbol(string name, uint offset, uint size, bool isSize) {
+			Name = name;
+			Offset = offset;
+			Size = size;
+			IsSize = isSize;
 		}
 	}
 
 	/// <summary>
-	/// Writes the object holding every binary: one data section with every one after the other,
-	/// each followed by its size, with the symbols at their offsets.
+	/// Lays out the data section: every binary followed by its size as a 32 bit unsigned value,
+	/// padded to four bytes on arm64, with a symbol for the block and one for its size. The same
+	/// layout in every format.
 	/// </summary>
-	private void GenerateObjectFileMultipleSections(List<byte[]> datas, List<string> names, string outputFile) {
-		List<byte> allData = new List<byte>();
-		var macSymbols = new List<(string name, uint offset)>();
-		List<Symbol> coffSymbols = new List<Symbol>();
+	private byte[] Layout(List<byte[]> datas, List<string> names, out List<ObjectSymbol> symbols) {
+		List<byte> section = new List<byte>();
+		symbols = new List<ObjectSymbol>();
 		uint offset = 0;
 		for (int i = 0; i < datas.Count; i++) {
 			byte[] data = datas[i];
 			int paddingLen = (Machine == "arm64") ? (4 - data.Length % 4) % 4 : 0;
-			byte[] padding = new byte[paddingLen];
-			uint sizeValue = (uint)data.Length;
-			byte[] sizeBytes = BitConverter.GetBytes(sizeValue);
-			macSymbols.Add((names[i], offset));
-			coffSymbols.Add(new Symbol(names[i], 1, offset, CoffSymbolType.Null, CoffSymbolClass.External));
 			uint sizeOffset = offset + (uint)data.Length + (uint)paddingLen;
-			macSymbols.Add((names[i] + "_size", sizeOffset));
-			coffSymbols.Add(new Symbol(names[i] + "_size", 1, sizeOffset, CoffSymbolType.Uint, CoffSymbolClass.External));
-			allData.AddRange(data);
-			allData.AddRange(padding);
-			allData.AddRange(sizeBytes);
-			offset += (uint)(data.Length + paddingLen + 4);
+			symbols.Add(new ObjectSymbol(names[i], offset, (uint)data.Length, false));
+			symbols.Add(new ObjectSymbol(names[i] + "_size", sizeOffset, 4, true));
+			section.AddRange(data);
+			section.AddRange(new byte[paddingLen]);
+			section.AddRange(BitConverter.GetBytes((uint)data.Length));
+			offset = sizeOffset + 4;
 		}
-		if (Host.IsMacOS()) {
-			WriteMachOFile(allData.ToArray(), macSymbols, outputFile);
-		} else {
-			List<Section> sections = new() { new Section(allData.ToArray(), ".data") };
-			WriteCoffFile(sections, coffSymbols, outputFile);
+		return section.ToArray();
+	}
+
+	/// <summary>
+	/// Writes the object of one binary: a data section with the bytes, padding on arm64, and the
+	/// size, with a symbol for each.
+	/// </summary>
+	private void GenerateObjectFile(byte[] data, string symbolName, string outputFile) {
+		GenerateObjectFileMultipleSections(new List<byte[]> { data }, new List<string> { symbolName }, outputFile);
+	}
+
+	/// <summary>
+	/// Writes the object holding every binary: one data section with every one after the other,
+	/// each followed by its size, with the symbols at their offsets, in the format selected.
+	/// </summary>
+	private void GenerateObjectFileMultipleSections(List<byte[]> datas, List<string> names, string outputFile) {
+		byte[] section = Layout(datas, names, out List<ObjectSymbol> symbols);
+		switch (Format) {
+			case ObjectFormat.Elf: {
+				WriteElfFile(section, symbols, outputFile);
+				break;
+			}
+			case ObjectFormat.MachO: {
+				WriteMachOFile(section, symbols.Select(s => (name: s.Name, offset: s.Offset)).ToList(), outputFile);
+				break;
+			}
+			default: {
+				List<Section> sections = new() { new Section(section, ".data") };
+				List<Symbol> coffSymbols = symbols.Select(s => new Symbol(s.Name, 1, s.Offset, s.IsSize ? CoffSymbolType.Uint : CoffSymbolType.Null, CoffSymbolClass.External)).ToList();
+				WriteCoffFile(sections, coffSymbols, outputFile);
+				break;
+			}
 		}
 	}
 
@@ -824,16 +893,16 @@ public class Bin2obj {
 	}
 
 	/// <summary>
-	/// Writes a Mach-O 64 bit object with one data section and the symbols given, for the
-	/// architecture of the host.
+	/// Writes a Mach-O 64 bit object with one data section and the symbols given, for the machine
+	/// selected (x64 or arm64).
 	/// </summary>
 	private void WriteMachOFile(byte[] sectionData, List<(string name, uint offset)> symbols, string outputFile) {
 		using FileStream fs = new(outputFile, FileMode.Create);
 		using BinaryWriter writer = new(fs);
 
-		var arch = RuntimeInformation.ProcessArchitecture;
-		int cputype = arch == Architecture.Arm64 ? CPU_TYPE_ARM64 : CPU_TYPE_X86_64;
-		int cpusubtype = arch == Architecture.Arm64 ? CPU_SUBTYPE_ARM64_ALL : CPU_SUBTYPE_X86_64_ALL;
+		bool arm64 = Machine == "arm64";
+		int cputype = arm64 ? CPU_TYPE_ARM64 : CPU_TYPE_X86_64;
+		int cpusubtype = arm64 ? CPU_SUBTYPE_ARM64_ALL : CPU_SUBTYPE_X86_64_ALL;
 
 		var macSymbols = symbols.Select(s => ("_" + s.name, s.offset)).ToList();
 
@@ -919,5 +988,145 @@ public class Bin2obj {
 		byte[] buf = new byte[len];
 		Encoding.ASCII.GetBytes(s, 0, Math.Min(s.Length, len), buf, 0);
 		w.Write(buf);
+	}
+
+	// --------------------------------------------------------------------------------------------
+	// ELF
+	// --------------------------------------------------------------------------------------------
+
+	/// <summary>The machine field of an ELF header, by machine name.</summary>
+	private static readonly Dictionary<string, ushort> ElfMachines = new() {
+		["x86"] = 3,      // EM_386
+		["x64"] = 62,     // EM_X86_64
+		["arm"] = 40,     // EM_ARM
+		["arm64"] = 183   // EM_AARCH64
+	};
+
+	private const ushort ET_REL = 1;
+	private const uint SHT_PROGBITS = 1;
+	private const uint SHT_SYMTAB = 2;
+	private const uint SHT_STRTAB = 3;
+	private const uint SHF_ALLOC = 0x2;
+	private const uint EF_ARM_EABI_VER5 = 0x05000000;
+	private const byte STB_GLOBAL_STT_OBJECT = 0x11;
+
+	/// <summary>
+	/// Writes an ELF relocatable object, 64 bit for x64 and arm64 and 32 bit for x86 and arm, little
+	/// endian, with one read only data section (.rodata), the symbols given as global objects with
+	/// their sizes, and no relocations. Nothing in it depends on the time, so the same data gives
+	/// the same bytes.
+	/// </summary>
+	private void WriteElfFile(byte[] sectionData, List<ObjectSymbol> symbols, string outputFile) {
+		bool is64 = Machine == "x64" || Machine == "arm64";
+		int ehsize = is64 ? 64 : 52;
+		int shentsize = is64 ? 64 : 40;
+		int symentsize = is64 ? 24 : 16;
+		// The string tables: the symbol names and the section names
+		List<byte> strtab = new List<byte> { 0 };
+		List<uint> nameOffsets = new List<uint>();
+		foreach (ObjectSymbol s in symbols) {
+			nameOffsets.Add((uint)strtab.Count);
+			strtab.AddRange(Encoding.ASCII.GetBytes(s.Name));
+			strtab.Add(0);
+		}
+		string[] sectionNames = { ".rodata", ".symtab", ".strtab", ".shstrtab" };
+		List<byte> shstrtab = new List<byte> { 0 };
+		uint[] sectionNameOffsets = new uint[sectionNames.Length];
+		for (int i = 0; i < sectionNames.Length; i++) {
+			sectionNameOffsets[i] = (uint)shstrtab.Count;
+			shstrtab.AddRange(Encoding.ASCII.GetBytes(sectionNames[i]));
+			shstrtab.Add(0);
+		}
+		// The layout: header, data, symbol table (aligned), string tables, section headers (aligned)
+		ulong dataOffset = (ulong)ehsize;
+		ulong symtabOffset = Align(dataOffset + (ulong)sectionData.Length, 8);
+		ulong symtabSize = (ulong)((symbols.Count + 1) * symentsize);
+		ulong strtabOffset = symtabOffset + symtabSize;
+		ulong shstrtabOffset = strtabOffset + (ulong)strtab.Count;
+		ulong shoff = Align(shstrtabOffset + (ulong)shstrtab.Count, 8);
+
+		using FileStream fs = new(outputFile, FileMode.Create);
+		using BinaryWriter writer = new(fs);
+		// The ELF header
+		writer.Write(new byte[] { 0x7F, (byte)'E', (byte)'L', (byte)'F', (byte)(is64 ? 2 : 1), 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+		writer.Write(ET_REL);
+		writer.Write(ElfMachines[Machine]);
+		writer.Write((uint)1);                                    // e_version
+		WriteWord(writer, 0, is64);                               // e_entry
+		WriteWord(writer, 0, is64);                               // e_phoff
+		WriteWord(writer, shoff, is64);                           // e_shoff
+		writer.Write(Machine == "arm" ? EF_ARM_EABI_VER5 : 0u);   // e_flags
+		writer.Write((ushort)ehsize);
+		writer.Write((ushort)0);                                  // e_phentsize
+		writer.Write((ushort)0);                                  // e_phnum
+		writer.Write((ushort)shentsize);
+		writer.Write((ushort)5);                                  // e_shnum
+		writer.Write((ushort)4);                                  // e_shstrndx
+		// The data
+		writer.Write(sectionData);
+		Pad(writer, symtabOffset);
+		// The symbol table: the null symbol, then every symbol as a global object of the data section
+		writer.Write(new byte[symentsize]);
+		for (int i = 0; i < symbols.Count; i++) {
+			ObjectSymbol s = symbols[i];
+			if (is64) {
+				writer.Write(nameOffsets[i]);                     // st_name
+				writer.Write(STB_GLOBAL_STT_OBJECT);              // st_info
+				writer.Write((byte)0);                            // st_other
+				writer.Write((ushort)1);                          // st_shndx
+				writer.Write((ulong)s.Offset);                    // st_value
+				writer.Write((ulong)s.Size);                      // st_size
+			} else {
+				writer.Write(nameOffsets[i]);                     // st_name
+				writer.Write(s.Offset);                           // st_value
+				writer.Write(s.Size);                             // st_size
+				writer.Write(STB_GLOBAL_STT_OBJECT);              // st_info
+				writer.Write((byte)0);                            // st_other
+				writer.Write((ushort)1);                          // st_shndx
+			}
+		}
+		writer.Write(strtab.ToArray());
+		writer.Write(shstrtab.ToArray());
+		Pad(writer, shoff);
+		// The section headers: null, .rodata, .symtab, .strtab, .shstrtab
+		writer.Write(new byte[shentsize]);
+		WriteSectionHeader(writer, is64, sectionNameOffsets[0], SHT_PROGBITS, SHF_ALLOC, dataOffset, (ulong)sectionData.Length, 0, 0, 16, 0);
+		WriteSectionHeader(writer, is64, sectionNameOffsets[1], SHT_SYMTAB, 0, symtabOffset, symtabSize, 3, 1, (ulong)(is64 ? 8 : 4), (ulong)symentsize);
+		WriteSectionHeader(writer, is64, sectionNameOffsets[2], SHT_STRTAB, 0, strtabOffset, (ulong)strtab.Count, 0, 0, 1, 0);
+		WriteSectionHeader(writer, is64, sectionNameOffsets[3], SHT_STRTAB, 0, shstrtabOffset, (ulong)shstrtab.Count, 0, 0, 1, 0);
+	}
+
+	/// <summary>One ELF section header, 64 or 32 bit.</summary>
+	private static void WriteSectionHeader(BinaryWriter w, bool is64, uint name, uint type, ulong flags, ulong offset, ulong size, uint link, uint info, ulong align, ulong entsize) {
+		w.Write(name);
+		w.Write(type);
+		WriteWord(w, flags, is64);
+		WriteWord(w, 0, is64);                                    // sh_addr
+		WriteWord(w, offset, is64);
+		WriteWord(w, size, is64);
+		w.Write(link);
+		w.Write(info);
+		WriteWord(w, align, is64);
+		WriteWord(w, entsize, is64);
+	}
+
+	/// <summary>A word of the ELF class: 8 bytes in a 64 bit object, 4 in a 32 bit one.</summary>
+	private static void WriteWord(BinaryWriter w, ulong value, bool is64) {
+		if (is64)
+			w.Write(value);
+		else
+			w.Write((uint)value);
+	}
+
+	/// <summary>Zero bytes up to the offset.</summary>
+	private static void Pad(BinaryWriter w, ulong offset) {
+		long missing = (long)offset - w.BaseStream.Position;
+		if (missing > 0)
+			w.Write(new byte[missing]);
+	}
+
+	/// <summary>The value rounded up to the alignment.</summary>
+	private static ulong Align(ulong value, ulong alignment) {
+		return (value + alignment - 1) / alignment * alignment;
 	}
 }

@@ -28,6 +28,7 @@ to learn.
   - [API reference](doc/api.md): the types, functions and classes available in scripts
   - [Extensions](doc/extensions.md): [clang](doc/extensions/clang.md), [clang docs](doc/extensions/clang.doc.md), [git](doc/extensions/git.md), [github](doc/extensions/github.md), [bin2cpp](doc/extensions/bin2cpp.md), [bin2obj](doc/extensions/bin2obj.md), [modder](doc/extensions/modder.md), [dotnet docs](doc/extensions/dotnet.doc.md)
   - [Debugging guide](doc/debug.md)
+  - [How Kombine runs a script](doc/execution.md): reference resolution, compilation, the cache and execution
   - [Building the tool](doc/building.md), with the build, test and publish actions
   - [Feature state](doc/features.md), [reasons](doc/reasons.md), [changelog](changelog.md), [TODO list](doc/todo.md), [third-party licenses](doc/licenses.md)
 - [License](#license)
@@ -244,20 +245,12 @@ Quite easy, right? We tried to fetch the simplicity from make while being cross-
 out of the box. From an action function you can do whatever you want (create instances,
 call other functions... remember, it is C#).
 
-But wait, this should be slow, right? Well, in fact, it is — for the first execution of
-the script. Invoking Roslyn to compile a piece of C# code (maybe with other includes) is
-not a fast task. It is not the end of the world either: it takes a couple of seconds,
-not half your life.
-
-That's why we added a build cache which is transparent to you. The first time a script
-is executed — or whenever you modify it — it is built and placed in the cache (in your
-home folder, in the space reserved for applications; for example, on Windows,
-`/users/<username>/appdata/roaming/kombine`). In the following executions the script
-runs as an application, without being rebuilt, so it's fast. The cache goes by content:
-touching or moving a script changes nothing. The extensions are modules, compiled once
-per run and shared by every script that loads them, so a project with many scripts pays
-for an extension once; see [the building guide](doc/building.md#the-cache) for what is
-compiled again when.
+But wait, this should be slow, right? Only the first time: compiling the script with
+Roslyn takes a couple of seconds. The compiled script is kept in a cache and the next
+executions run it as an application, so they are fast. The cache goes by content:
+touching or moving a script changes nothing, and editing one compiles that script only.
+The extensions are modules, compiled once per run and shared by every script that loads
+them, so a project with many scripts pays for an extension once.
 
 If you want to rebuild your script, use a parameter or an action:
 
@@ -266,8 +259,9 @@ If you want to rebuild your script, use a parameter or an action:
 - `mkb -ksrb youraction yourargs` ignores the cache for the current script, so it is
   rebuilt.
 
-The cache is intended to have its own garbage collection system, dropping files no
-longer needed on any Kombine execution. This is not implemented yet.
+Where the cache lives, what a cached build records and what is compiled again when is
+explained in [How Kombine runs a script](doc/execution.md), together with how references
+are resolved and how child scripts run.
 
 We also tried to make the syntax as simple as possible. For example, to define a list:
 
@@ -649,6 +643,7 @@ Everything is welcome.
 - [Debugging guide](doc/debug.md) — how to debug scripts in Visual Studio and VSCode.
 - [Feature state](doc/features.md) — current state of each feature.
 - [Reasons](doc/reasons.md) — requirements and why Kombine was created.
+- [How Kombine runs a script](doc/execution.md) — how a script is found, compiled, cached and run.
 - [Building the tool](doc/building.md) — how to build Kombine itself.
 - [Changelog](changelog.md) — version history.
 - [TODO list](doc/todo.md) — what is pending.

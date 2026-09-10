@@ -76,8 +76,8 @@ int build(string[] args){
 	// As example we will add the object files generated from the bin2obj extension to the sources to be linked
 	// except the amalgamation to avoid symbol redefinitions (since this is just a test and we generated the resources twice).
 	// 
-	objs += Glob("out/tmp/gen/**/*.obj");
-	objs -= "out/tmp/gen/amalgamation.obj";
+	objs += Glob("out/tmp/gen/**/*" + clang.Options.ObjectExtension);
+	objs -= "out/tmp/gen/amalgamation" + clang.Options.ObjectExtension;
 	// And link
 	clang.Linker(objs, OutputBin + Name + clang.Options.BinaryExtension);
 	Msg.PrintTask("Building binary: " + Name +" ");

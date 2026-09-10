@@ -284,7 +284,7 @@ Reusable build scripts shipped in the [extensions](../extensions/) folder — se
 | :heavy_check_mark: | git: clone, pull, status, hooks (patch not implemented yet) |
 | :heavy_check_mark: | github: create releases, upload assets, publish |
 | :heavy_check_mark: | bin2cpp: embed binary files into C++ sources, generated again by content |
-| :heavy_check_mark: | bin2obj: embed binary files into COFF and Mach-O object files, generated again by content, reproducible objects |
+| :heavy_check_mark: | bin2obj: embed binary files into COFF, ELF and Mach-O object files, the format and the machine of the host by default or set, generated again by content, reproducible objects |
 | :heavy_check_mark: | modder: apply and verify modifications over third-party sources |
 | :heavy_check_mark: | dotnet.doc: convert C# XML documentation to Markdown |
 

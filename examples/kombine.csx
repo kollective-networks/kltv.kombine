@@ -61,6 +61,7 @@ int test(string[] args){
 	Run("Progress", "00.base/mkb.progress.csx", "test", args);
 	Run("Log handler", "00.base/mkb.log.csx", "test", args);
 	Run("Modules", "00.base/mkb.modules.csx", "test", args);
+	Run("Environment", "00.base/mkb.env.csx", "test", args);
 	Msg.Print("----------------------------------------------------------");
 	Msg.Print("");
 	Msg.Print("Testing: Simple script (two actions)");
@@ -129,6 +130,10 @@ int extensions(string[] args){
 	Run("bin2obj", "06.extensions/05.bin2obj/mkb.ext.bin2obj.csx", "test", args);
 	Run("bin2obj", "06.extensions/05.bin2obj/mkb.ext.bin2obj.csx", "build", args);
 	Run("bin2obj", "06.extensions/05.bin2obj/mkb.ext.bin2obj.csx", "clean", args);
+	Msg.Print("----------------------------------------------------------");
+	Msg.Print("");
+	Msg.Print("Testing: env.win.msvc");
+	Run("env.win.msvc", "06.extensions/06.env.win.msvc/mkb.ext.env.win.msvc.csx", "test", args);
 	Msg.Print("----------------------------------------------------------");
 	return own ? Report() : 0;
 }

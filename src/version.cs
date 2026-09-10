@@ -17,7 +17,7 @@ namespace Kltv.Kombine {
 
 			public static string Major = "1";
 
-			public static string Minor = "6";
+			public static string Minor = "7";
 
 			// Raw build number. The release script rewrites the bracketed BUILD
 			// placeholder below with the numeric build. Local and debug
@@ -30,7 +30,7 @@ namespace Kltv.Kombine {
 				get { return rawBuild.StartsWith('[') ? "development" : rawBuild; }
 			}
 
-			public static int HexVersion = 0x0106;
+			public static int HexVersion = 0x0107;
 		}
 	}
 }

@@ -129,6 +129,7 @@ namespace Kltv.Kombine
 		/// khelp: Show this help and exit
 		/// kconfig: Manages the tool configuration
 		/// kcache: Manages the tool cache
+		/// kenv: Shows the environment the tools receive; kenv tool... shows where each tool resolves
 		///
 		/// [action parameters]
 		/// They are optional and belong to the specified action. In case of scripts, they are passed to the
@@ -295,6 +296,7 @@ namespace Kltv.Kombine
 			Msg.Print(" khelp: Show this help and exit. Also available as \"-h\" or \"--help\" when used alone.");
 			Msg.Print(" kconfig: Manages the tool configuration.");
 			Msg.Print(" kcache: Manages the tool cache.");
+			Msg.Print(" kenv: Shows the environment the tools receive. \"kenv tool...\" shows where each tool resolves on the path.");
 			Msg.Print("");
 			Msg.Print("[action parameters]");
 			Msg.Print("         They are optional and belong to the specified action. In case of scripts, they are passed to the");

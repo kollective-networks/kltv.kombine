@@ -1815,6 +1815,33 @@ public class Clang {
 	private const string RecordHeader = "kombine-record 2";
 
 	/// <summary>
+	/// The part of the environment that changes what a command produces, hashed with the command line
+	/// of every record: the include and library paths and the file the tool of the command resolves
+	/// to on the path (the case aside on Windows). A toolchain switch (another SDK, another compiler
+	/// first on the path) builds everything again instead of mixing objects.
+	/// </summary>
+	private string EnvironmentKey(string command) {
+		string tool = ToolOf(command);
+		string resolved = FindTool(tool) ?? tool;
+		if (Host.IsWindows())
+			resolved = resolved.ToLowerInvariant();
+		return "\nINCLUDE=" + KValue.Import("INCLUDE", "") + "\nLIB=" + KValue.Import("LIB", "") + "\nTOOL=" + resolved;
+	}
+
+	/// <summary>The tool of a command line: its first token, quoted or not; of an archive command, the archiver.</summary>
+	private static string ToolOf(string command) {
+		string c = command.Trim();
+		if (c.StartsWith("archive-v2 "))
+			c = c.Substring(11).Trim();
+		if (c.StartsWith("\"")) {
+			int end = c.IndexOf('"', 1);
+			return end > 0 ? c.Substring(1, end - 1) : c;
+		}
+		int space = c.IndexOf(' ');
+		return space > 0 ? c.Substring(0, space) : c;
+	}
+
+	/// <summary>
 	/// Decides whether an output is up to date from its record: the command line must be the same and
 	/// every recorded input must exist and be unchanged. An input whose date and size are those of
 	/// the record counts as unchanged without being read; one whose date or size moved is read and
@@ -1837,7 +1864,7 @@ public class Clang {
 			Msg.Print("clang: " + DepFile(output) + " is missing, " + output + " will be built", Msg.LogLevels.Verbose);
 			return false;
 		}
-		string commandHash = Hash(Encoding.UTF8.GetBytes(command));
+		string commandHash = Hash(Encoding.UTF8.GetBytes(command + EnvironmentKey(command)));
 		string recordFile = source == null && inputs != null ? LinkRecordFile(output, inputs) : RecordFile(output);
 		string[] lines;
 		try {
@@ -1920,7 +1947,7 @@ public class Clang {
 	/// with its content hash, date, size and path, separated by tabs.
 	/// </summary>
 	private void Record(string recordFile, string command, List<string> inputs) {
-		List<string> lines = new List<string> { RecordHeader, "command " + Hash(Encoding.UTF8.GetBytes(command)) };
+		List<string> lines = new List<string> { RecordHeader, "command " + Hash(Encoding.UTF8.GetBytes(command + EnvironmentKey(command))) };
 		foreach (string i in inputs.Distinct(StringComparer.OrdinalIgnoreCase)) {
 			string path = Path.IsPathRooted(i) ? i : Path.GetFullPath(i);
 			FileState? state = StateOf(path);

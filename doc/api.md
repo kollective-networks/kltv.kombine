@@ -24,6 +24,7 @@ internals are not part of the script API.
 - [JSON (JsonFile / JsonExtensions)](#json-jsonfile--jsonextensions)
 - [Yaml](#yaml)
 - [Share](#share)
+- [Environment (Env)](#environment-env)
 - [Tool](#tool)
 - [Host](#host)
 - [Progress](#progress)
@@ -43,7 +44,8 @@ int build(string[] args) {
 ```
 
 Invoke it with `mkb build [action parameters]`. The action names `khelp`, `kversion`,
-`kconfig` and `kcache` are reserved by the tool.
+`kconfig`, `kcache` and `kenv` are reserved by the tool (`kenv` prints the environment the
+tools receive, `kenv cl gn` where each tool resolves on the path; see [Environment](#environment-env)).
 
 Code at the top level of the script (variable definitions, prints, etc.) runs when the
 script is evaluated, before the requested action is invoked.
@@ -709,6 +711,55 @@ Share.Register("build", "config", "release");
 // Child script
 KValue config = Share.Registry("build", "config");
 ```
+
+---
+
+## Environment (Env)
+
+`Kltv.Kombine.Api.Env` — the environment of the script: the variables every tool and child
+script receives. It starts as a copy of the environment of the process, every child script gets
+a copy of its parent's, and `KValue.Import` / `Export` read and write the same variables. On
+Windows the names ignore the case, as the system does (`PATH` and `Path` are one variable);
+elsewhere they are exact. The facility is generic and knows no toolchain: what to clear or to
+set is the knowledge of the caller, and an environment extension such as
+[env.win.msvc.csx](extensions/env.win.msvc.md) carries its own list. Failures are reported in
+the return value and `Env.LastError` (see [Error reporting](#error-reporting)); nothing is
+printed at normal level except the aborts asked with `ExitIfError`.
+
+| Method | Description |
+| --- | --- |
+| `bool Has(KValue name)` | True when the variable exists. |
+| `KValue Get(KValue name, KValue? defvalue = null)` | The value, or the default (empty by default) when it does not exist. Nothing aborts here, unlike `KValue.Import`. |
+| `bool Set(KValue name, KValue value)` | Creates or replaces a variable. `InvalidArgument` for an empty name. |
+| `bool Remove(KValue name)` | Removes a variable; false when it was not there, never an error. |
+| `KList Clean(KList names)`, `KList Clean(params string[] names)` | Removes the variables of the list, names or wildcards (`VSCMD_*`, `?_HOME`), and returns the names removed. The list is the caller's: no list lives in the engine. |
+| `Dictionary<string,string> Snapshot()` | A copy of the environment, for `Restore`. |
+| `bool Restore(Dictionary<string,string>? snapshot)` | Replaces the environment with a snapshot: its variables and nothing else. `InvalidArgument` for null. |
+| `bool Require(KValue name, bool ExitIfError = true)` | Aborts, or returns false with `NotFound`, when the variable is missing. |
+| `bool Forbid(KValue name, bool ExitIfError = true)` | Aborts, or returns false with `AlreadyExists`, when the variable is present: an `INCLUDE` leaking from another toolchain. |
+| `KList Paths()` | The entries of the path variable, in order, empty ones dropped. |
+| `bool SetPaths(KList entries)` | Replaces the path variable with the entries given. |
+| `bool PrependPath(KValue folder)` | Puts a folder first in the path; a folder already there is moved first. |
+| `bool AppendPath(KValue folder)` | Puts a folder last in the path, unless it is already there. |
+| `KList RemovePath(KValue pattern)` | Removes the entries matching a name or a wildcard (`*\Windows Kits\*`) and returns them. |
+| `KList Which(KValue tool)` | Every file the path would run for a tool, in the order of the path, with the `PATHEXT` extensions on Windows. Empty when none; a name with a folder is checked as it is. |
+| `bool Load(KValue file, KValue? args = null)` | Runs a batch file (Windows, `cmd.exe /d /s /c "call file args && set"`) or a shell script (elsewhere, `/bin/sh -c "set -- args; . file && env"`) in a child that starts with the script environment, and brings in the variables it defined, changed or removed; `LastLoaded` names them. A file that returns an error changes nothing. `NotFound`, `Failed`. |
+| `void Dump(LogLevels Level = Normal)` | Prints every variable, sorted, and the path entries in order: what the tools receive. |
+| `ApiError LastError` | The last failure. Reset by every call that can fail. |
+| `KList LastLoaded` | The names the last `Load` set, changed or removed. |
+
+```csharp
+Env.Set("MY_SDK", "C:/sdk");
+Env.PrependPath("C:/sdk/bin");
+KList removed = Env.Clean("OLD_SDK_*");          // the script's own list
+if (!Env.Load("tools/env.bat", "x64"))           // a vendor script, its variables brought in
+	Msg.PrintAndAbort("environment: " + Env.LastError.Message);
+foreach (KValue cl in Env.Which("cl"))
+	Msg.Print("cl at " + cl);
+```
+
+The reserved action `kenv` prints the same from the command line: `mkb kenv` the environment
+of the process, `mkb kenv cl gn` where each tool resolves on the path.
 
 ---
 

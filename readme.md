@@ -26,7 +26,7 @@ to learn.
 - [Examples](#examples)
 - [Documentation](#documentation)
   - [API reference](doc/api.md): the types, functions and classes available in scripts
-  - [Extensions](doc/extensions.md): [clang](doc/extensions/clang.md), [clang docs](doc/extensions/clang.doc.md), [git](doc/extensions/git.md), [github](doc/extensions/github.md), [bin2cpp](doc/extensions/bin2cpp.md), [bin2obj](doc/extensions/bin2obj.md), [modder](doc/extensions/modder.md), [dotnet docs](doc/extensions/dotnet.doc.md)
+  - [Extensions](doc/extensions.md): [clang](doc/extensions/clang.md), [clang docs](doc/extensions/clang.doc.md), [git](doc/extensions/git.md), [github](doc/extensions/github.md), [bin2cpp](doc/extensions/bin2cpp.md), [bin2obj](doc/extensions/bin2obj.md), [modder](doc/extensions/modder.md), [dotnet docs](doc/extensions/dotnet.doc.md), [env.win.msvc](doc/extensions/env.win.msvc.md)
   - [Debugging guide](doc/debug.md)
   - [How Kombine runs a script](doc/execution.md): reference resolution, compilation, the cache and execution
   - [Building the tool](doc/building.md), with the build, test and publish actions
@@ -159,6 +159,7 @@ mkb [parameters] [action] [action parameters]
      khelp: Show this help and exit. Also available as "-h" or "--help" when used alone.
      kconfig: Manages the tool configuration.
      kcache: Manages the tool cache.
+     kenv: Shows the environment the tools receive. "kenv tool..." shows where each tool resolves on the path.
 
     [action parameters]
              They are optional and belong to the specified action. In case of scripts, they are passed to the

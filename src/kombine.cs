@@ -43,7 +43,8 @@ namespace Kltv.Kombine {
 		/// khelp: Show this help and exit
 		/// kconfig: Manages the tool configuration (not yet implemented)
 		/// kcache: Manages the tool cache (not fully implemented)
-		/// 
+		/// kenv: Shows the environment the tools receive; kenv tool... shows where each tool resolves
+		///
 		/// [action parameters]
 		/// They are optional and belong to the specified action. In case of scripts, they are passed to the
 		/// executed function as parameters.
@@ -83,6 +84,11 @@ namespace Kltv.Kombine {
 				Msg.PrintErrorMod("Not yet implemented", ".main");
 				Msg.Deinitialize();
 				return Constants.ExitCodeFailure;
+			}
+			if (Config.Action == "kenv") {
+				Env.DumpAction(Config.ActionParameters);
+				Msg.Deinitialize();
+				return Constants.ExitCodeSuccess;
 			}
 
 			// Future use: "kupdate" to update to latest version automatically

@@ -303,6 +303,12 @@ edit that passes unseen is one that keeps both the date and the size of the file
 without record but present is checked by dates the way the previous extension did and gets its
 record when it passes, so an upgrade does not rebuild everything once.
 
+The environment is part of the record as well: the hash of the command line includes the
+`INCLUDE` and `LIB` variables and the file the tool of the command (the compiler, the driver of
+the link, the archiver) resolves to on the path, so a toolchain switch (another SDK, another
+Visual Studio, another clang first on the path) builds everything again instead of mixing objects
+built against two SDKs in one archive. The records of the earlier versions are made again once.
+
 On Windows, the objects of the MSVC target carry the time of their compile unless the units are
 compiled with `-mno-incremental-linker-compatible`: without that switch, a unit compiled again
 from the same code gives different bytes, and the archive and the link behind it are made again.

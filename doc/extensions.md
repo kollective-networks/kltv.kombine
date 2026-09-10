@@ -49,6 +49,7 @@ pragma changes in the meaning of the file.
 | [bin2obj.csx](../extensions/bin2obj.csx) | [bin2obj.md](extensions/bin2obj.md) | Embeds binary files into object files as data sections (COFF, ELF or Mach-O, the format and the machine of the host by default); up to date by content, reproducible objects, results and output modes. Requires Kombine 1.6. |
 | [modder.csx](../extensions/modder.csx) | [modder.md](extensions/modder.md) | Applies (and verifies) modifications over downloaded third-party sources. |
 | [dotnet.doc.csx](../extensions/dotnet.doc.csx) | [dotnet.doc.md](extensions/dotnet.doc.md) | Converts a C# XML documentation file into Markdown. |
+| [env.win.msvc.csx](../extensions/env.win.msvc.csx) | [env.win.msvc.md](extensions/env.win.msvc.md) | The environment of MSVC on Windows: finds the Visual Studio installations, toolsets and Windows SDKs through several sources, selects what the script requires and sets the variables Visual Studio provides, without vcvarsall; the first of the `env.<platform>.<toolchain>` extensions. Requires Kombine 1.7. |
 
 Each page lists the members of the extension, shows a usage example and links to the
 example that demonstrates it.

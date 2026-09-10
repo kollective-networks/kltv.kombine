@@ -1,3 +1,16 @@
+## [Unreleased]
+
+### Features
+
+- `Env`: the environment the tools and the child scripts receive, from a script: get, set, remove, clean by list or wildcard, snapshot and restore, the path entries, where a tool resolves, require and forbid, and a batch file or shell script loaded into it. Generic: no toolchain list lives in the engine. See doc/api.md, Environment
+- `kenv`: a reserved action that shows the environment the tools receive, and where the tools given resolve on the path. See doc/api.md, Script Basics
+- `env.win.msvc.csx`: the environment of MSVC on Windows, the first of the `env.<platform>.<toolchain>` extensions. Finds the Visual Studio installations, toolsets and Windows SDKs through several sources (vswhere, the installer records, the registry, the folders, the environment), selects what the script requires (an option set is a requirement, strict at the precision given, that or newer with a trailing plus, or a range; an option unset takes the newest installed without an error), composes the variables Visual Studio provides without vcvarsall, clears the ones of a previous toolchain and restores them on request. See doc/extensions/env.win.msvc.md
+- Clang extension: the include and library paths and the file each command's tool resolves to on the path are part of the records of the units, archives and links, so a toolchain switch builds everything again instead of mixing objects of two SDKs. See doc/extensions/clang.md
+
+### Bugfixes
+
+- The script environment ignores the case of the names on Windows, as the system does: `Import("PATH")` and `Import("Path")` read one variable, and an exported `PATH` replaces `Path` instead of adding a second one
+
 ## [1.6.24363661]
 
 ### Breaking changes

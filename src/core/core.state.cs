@@ -185,9 +185,17 @@ namespace Kltv.Kombine {
 		}
 
 		/// <summary>
-		/// Environment variables for the script
+		/// Environment variables for the script. The names ignore the case on Windows, as the system
+		/// does (PATH and Path are one variable), and are exact elsewhere.
 		/// </summary>
-		public Dictionary<string,string> Environment { get; set; } = new Dictionary<string,string>();
+		public Dictionary<string,string> Environment { get; set; } = NewEnvironment();
+
+		/// <summary>
+		/// A new environment dictionary with the name comparison of the platform.
+		/// </summary>
+		internal static Dictionary<string,string> NewEnvironment() {
+			return new Dictionary<string,string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+		}
 
 		/// <summary>
 		/// Shared objects for the script

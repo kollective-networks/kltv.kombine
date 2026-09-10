@@ -28,8 +28,8 @@ A script has two parts: the code at the top level, which runs every time the scr
 evaluated, and the actions, the functions that receive the action parameters and whose
 return value is the exit code. Evaluation comes first, then the action named on the command
 line (see [Script structure](../readme.md#script-structure-and-execution) and the
-[exit codes](../readme.md#exit-codes)). The actions `khelp`, `kversion`, `kconfig` and
-`kcache` belong to the tool and never reach a script.
+[exit codes](../readme.md#exit-codes)). The actions `khelp`, `kversion`, `kconfig`,
+`kcache` and `kenv` belong to the tool and never reach a script.
 
 ## Resolving references
 

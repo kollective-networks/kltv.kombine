@@ -115,6 +115,9 @@ Legend: :heavy_check_mark: implemented — :x: planned / not implemented yet.
 | :heavy_check_mark: | Check if it is Windows / Linux / macOS |
 | :x: | Check if the operating system meets some version |
 | :heavy_check_mark: | Get the number of available CPU cores |
+| :heavy_check_mark: | Script environment (Env): get, set, remove, clean by list or wildcard, snapshot and restore, path entries, where a tool resolves, require and forbid |
+| :heavy_check_mark: | Load a batch file or a shell script into the script environment (Env.Load) |
+| :heavy_check_mark: | kenv: the environment the tools receive and where the tools resolve, from the command line |
 
 ## Version & Build Helpers
 
@@ -287,6 +290,7 @@ Reusable build scripts shipped in the [extensions](../extensions/) folder — se
 | :heavy_check_mark: | github: create releases, upload assets, publish |
 | :heavy_check_mark: | bin2cpp: embed binary files into C++ sources, generated again by content |
 | :heavy_check_mark: | bin2obj: embed binary files into COFF, ELF and Mach-O object files, the format and the machine of the host by default or set, generated again by content, reproducible objects |
+| :heavy_check_mark: | env.win.msvc: the environment of MSVC on Windows from what is installed (several sources, never vswhere alone), requirements per option, the variables composed without vcvarsall, cleared and restored |
 | :heavy_check_mark: | modder: apply and verify modifications over third-party sources |
 | :heavy_check_mark: | dotnet.doc: convert C# XML documentation to Markdown |
 

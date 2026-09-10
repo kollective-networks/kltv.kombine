@@ -33,6 +33,7 @@ namespace Kltv.Kombine {
 		/// -ko:debug or -ko:d   : Output will be debug
 		/// -kfile: Indicates which script file we should execute (default kombine.csx)
 		/// -kforward: Allows the forward search of the subfolders to resolve #load / child script references (disabled by default)
+		/// -kmodules:strict: Two different copies of one module in a run fail the script instead of warning
 		///
 		/// [action] Action to be executed. If not specified the default action is "khelp"
 		/// The action is used to specify which function in the script should be called after evaluation but
@@ -150,8 +151,6 @@ namespace Kltv.Kombine {
 			if (kombineScript != null) {
 				main.State.Environment = kombineScript.State.Environment.Clone();
 				main.State.SharedObjects = kombineScript.State.SharedObjects.Clone();
-				// Mark also if the parent has been rebuilt
-				main.ParentWasRebuilt = kombineScript.WasRebuilt;
 			}
 			// If its not the first script (is a nested one) add indentation
 			if (kombineScript != null)

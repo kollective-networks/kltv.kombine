@@ -88,7 +88,7 @@ Legend: :heavy_check_mark: implemented — :x: planned / not implemented yet.
 | :heavy_check_mark: | Get function for the action arguments (starting script) |
 | :heavy_check_mark: | Contains function for the action arguments (current script) |
 | :heavy_check_mark: | Get function for the action arguments (current script) |
-| :heavy_check_mark: | WasRebuilded to fetch the rebuild state of the current script or parent (to trigger rebuild on compilations) |
+| :heavy_check_mark: | WasRebuilded to know if the current script was compiled in this run (to trigger rebuild on compilations) |
 
 ## Sharing API
 
@@ -245,7 +245,9 @@ Legend: :heavy_check_mark: implemented — :x: planned / not implemented yet.
 | State | Feature |
 | :---: | :--- |
 | :heavy_check_mark: | Clear the complete cache (kcache clear) |
-| :heavy_check_mark: | Rebuild the current script ignoring its cached file (-ksrb) |
+| :heavy_check_mark: | Rebuild every script and module of the run ignoring the cached files (-ksrb) |
+| :heavy_check_mark: | Scripts cached by content: a touched or moved script is not compiled again |
+| :heavy_check_mark: | Loaded files compiled once per run as modules (#pragma kombine module), cached by content and shared by every script |
 | :x: | Clear only the downloaded scripts (HTTP sources) cache |
 | :x: | Garbage collection of cached files not used anymore |
 | :x: | Garbage collection of cached files not used in the last month |

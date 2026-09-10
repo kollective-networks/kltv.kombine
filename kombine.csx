@@ -45,11 +45,16 @@ int smoke(string[] args){
 /// <summary>
 /// Runs the unit tests by executing the example scripts in child Kombine instances:
 /// the "test", "extensions" and "extras" actions from examples/kombine.csx.
+/// The network example loads clang.csx from the repository URL and the extension examples load
+/// the local one: two copies of the module in one run, which Kombine reports once. Expected here.
 /// </summary>
 /// <param name="args">Action arguments. Forwarded to the child scripts.</param>
 /// <returns>Always zero.</returns>
 int test(string[] args){
 	Msg.Print("Running tests");
+	Msg.Print("Note: the network example loads clang.csx from the repository URL and the extension examples load the local one.");
+	Msg.Print("      Kombine reports once that the module clang.csx is loaded from two different files in this run: that is expected here.");
+	Msg.Print("");
 	Kombine("examples/kombine.csx", "test",args);
 	Kombine("examples/kombine.csx", "extensions", args);
 	Kombine("examples/kombine.csx", "extras", args);

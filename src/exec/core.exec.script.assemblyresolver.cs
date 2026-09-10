@@ -25,7 +25,7 @@ namespace Kltv.Kombine {
 		/// <summary>
 		/// 
 		/// </summary>
-		private class AssemblyResolver : MetadataReferenceResolver {
+		internal class AssemblyResolver : MetadataReferenceResolver {
 			public AssemblyResolver() {}
 
 			public override bool Equals(object? other) {

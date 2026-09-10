@@ -1,4 +1,5 @@
 #pragma kombine requires 1.5
+#pragma kombine module
 /*---------------------------------------------------------------------------------------------------------
 
 	Kombine Modder Extension Example

@@ -83,29 +83,34 @@ namespace Kltv.Kombine {
 		}
 
 		/// <summary>
-		/// Returns if the script is cached and it could be used.
+		/// Returns if the script has a state in the cache. Whether the state is still valid is decided
+		/// by its content: the script hash and the hashes of the loaded files it records.
 		/// </summary>
 		/// <param name="scriptname">Scriptname to check on the cache.</param>
-		/// <returns>True if we can use it. False otherwise.</returns>
+		/// <returns>True if there is a state. False otherwise.</returns>
 		internal static bool IsScriptCached(string scriptname) {
 			string filename = ConvertFilename(scriptname);
 			Msg.PrintMod("Trying to fetch this: "+filename+" from cache.", ".cache", Msg.LogLevels.Debug);
-			// Check if it exists
 			if (!Files.Exists(filename)) {
 				Msg.PrintMod(filename + " does not exists in cache.", ".cache", Msg.LogLevels.Debug);
 				return false;
 			}
-			// Check the modified date.
-			long compiledDate = Files.GetModifiedTime(filename);
-			Msg.PrintMod("Compiled date in cache: " + compiledDate, ".cache",Msg.LogLevels.Debug);
-			long scriptDate = Files.GetModifiedTime(scriptname);
-			Msg.PrintMod("Script modified date: " + scriptDate, ".cache", Msg.LogLevels.Debug);
-			if (scriptDate > compiledDate) { 
-				Msg.PrintMod("Script is newer than the compiled version. Recompile.", ".cache", Msg.LogLevels.Debug);
-				return false;
-			}
-			Msg.PrintMod("Script is older than the compiled version. Use the compiled version.", ".cache", Msg.LogLevels.Debug);
 			return true;
+		}
+
+		/// <summary>
+		/// The state file of a module (a loaded file with "#pragma kombine module"): one per full path,
+		/// in the states folder, named by the hash of the path with the module extension.
+		/// </summary>
+		/// <param name="modulepath">The full path of the module file.</param>
+		/// <returns>The state file name including the cache path.</returns>
+		internal static string ConvertModuleFilename(string modulepath) {
+			string full = Path.GetFullPath(modulepath);
+			byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(full));
+			StringBuilder sb = new StringBuilder();
+			foreach (byte b in hash)
+				sb.Append(b.ToString("x2"));
+			return Path.GetFullPath(Path.Combine(CacheStates, sb + Constants.Ext_Module));
 		}
 
 		/// <summary>

@@ -24,6 +24,11 @@ namespace Kltv.Kombine {
 		private string? scriptfilename = null;
 
 		/// <summary>
+		/// The signature of the state files this engine writes and accepts
+		/// </summary>
+		private const long StateSignature = 0x000020002;
+
+		/// <summary>
 		///  Initializes one Kombine script instance.
 		///  It initializes the environment variables with the current system environment
 		/// </summary>
@@ -37,19 +42,22 @@ namespace Kltv.Kombine {
 		}
 
 		/// <summary>
-		/// Fetch and deserialize the cache. 
+		/// Fetch and deserialize the cache.
 		/// Returns true if the script is available to be executed
 		/// false otherwise (non existent, outdated)
 		/// </summary>
 		/// <param name="filename">Script name to try recover state</param>
+		/// <param name="scriptHash">The content hash of the script text.</param>
+		/// <param name="debug">If the script must carry debug information.</param>
 		/// <returns>True if ready. False it should be rebuilt.</returns>
-		public bool FetchCache(string filename) {
+		public bool FetchCache(string filename, string scriptHash, bool debug) {
 			//
-			// Check if was initialized. 
+			// Check if was initialized.
 			// We will try to find the precompiled file alongside the script
 			//
 			if (scriptfilename == null) {
 				scriptfilename = filename;
+				ScriptHash = scriptHash;
 				Msg.PrintMod("Trying to locate the state", ".exec.state", Msg.LogLevels.Debug);
 				if (!Cache.IsScriptCached(filename)) {
 					// Compile the script
@@ -57,7 +65,7 @@ namespace Kltv.Kombine {
 					return false;
 				} else {
 					// Load the script
-					return Deserialize();
+					return Deserialize(debug);
 				}
 			} else {
 				Msg.PrintMod("State is already in memory.", ".exec.state", Msg.LogLevels.Debug);
@@ -94,16 +102,17 @@ namespace Kltv.Kombine {
 			}
 			// Set Signature and version
 			//
-			stateFile.Signature = 0x000020001;
+			stateFile.Signature = StateSignature;
 			stateFile.Version = KombineMain.Version.Major + "." + KombineMain.Version.Minor + "." + KombineMain.Version.Build;
-			// Fetch file time from the script and save it to serialize
+			// The content the script was compiled from: a touch without an edit keeps the state valid
 			//
-			stateFile.ScriptModifiedTime = File.GetLastWriteTimeUtc(scriptfilename).ToBinary();
+			stateFile.ScriptHash = ScriptHash;
 			//
-			// Set the file dependencies with their modification times to build the DAG and trigger rebuilds if something changed
+			// Set the file dependencies with their content hashes to trigger rebuilds if something changed:
+			// the helpers merged into the script and the modules referenced, transitively
 			//
 			stateFile.SourceDependencies = FileDependencies.Keys.ToArray();
-			stateFile.SourceDependenciesTime = FileDependencies.Values.ToArray();
+			stateFile.SourceDependenciesHash = FileDependencies.Values.ToArray();
 			// Save the compiled script bytes into the struct
 			//
 			byte[] result = BinaryPack.BinaryConverter.Serialize(stateFile);
@@ -111,9 +120,12 @@ namespace Kltv.Kombine {
 		}
 
 		/// <summary>
-		/// Loads the state file 
+		/// Loads the state file and checks it is valid for this run: written by this engine version with
+		/// the same debug setting, from the same script content and the same content of every file the
+		/// script loads.
 		/// </summary>
-		public bool Deserialize() {
+		/// <param name="debug">If the script must carry debug information.</param>
+		public bool Deserialize(bool debug) {
 			if (scriptfilename == null) {
 				Msg.PrintErrorMod("Script filename is null. Aborting", ".exec.state");
 				return false;
@@ -133,7 +145,7 @@ namespace Kltv.Kombine {
 			Msg.PrintMod("Loaded cached state file.", ".exec.state", Msg.LogLevels.Debug);
 			// Check the version because maybe the script was cached but for a previous Kombine version
 			// and that could trigger errors.
-			if (stateFile.Signature != 0x000020001) {
+			if (stateFile.Signature != StateSignature) {
 				Msg.PrintWarningMod("State file signature is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
 				return false;
 			}
@@ -141,22 +153,31 @@ namespace Kltv.Kombine {
 				Msg.PrintWarningMod("State file version is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
 				return false;
 			}
+			if (stateFile.BuildWithDebug != debug) {
+				Msg.PrintMod("State file was built " + (stateFile.BuildWithDebug ? "with" : "without") + " debug information and this run needs the opposite. Rebuilding.", ".exec.state", Msg.LogLevels.Verbose);
+				return false;
+			}
+			if (stateFile.ScriptHash != ScriptHash) {
+				Msg.PrintMod("The script content changed. Rebuilding.", ".exec.state", Msg.LogLevels.Verbose);
+				return false;
+			}
 			//
 			// Check if the file dependencies are still valid. If something changed we need to rebuild.
+			// The list of this run comes from the pre pass over the loaded files; it must be the same list,
+			// file by file, with the same content.
 			//
-			foreach (string f in stateFile.SourceDependencies) {
-				if (!File.Exists(f)) {
-					Msg.PrintWarningMod("State file dependency " + f + " does not exist anymore. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
+			if (stateFile.SourceDependencies.Length != stateFile.SourceDependenciesHash.Length || stateFile.SourceDependencies.Length != FileDependencies.Count) {
+				Msg.PrintMod("The files loaded by the script changed. Rebuilding.", ".exec.state", Msg.LogLevels.Verbose);
+				return false;
+			}
+			for (int i = 0; i < stateFile.SourceDependencies.Length; i++) {
+				string f = stateFile.SourceDependencies[i];
+				if (!FileDependencies.TryGetValue(f, out string? hash)) {
+					Msg.PrintMod("State file dependency " + f + " is not loaded anymore. Rebuilding.", ".exec.state", Msg.LogLevels.Verbose);
 					return false;
 				}
-				long t = File.GetLastWriteTimeUtc(f).ToBinary();
-				int idx = Array.IndexOf(stateFile.SourceDependencies, f);
-				if (idx < 0 || idx >= stateFile.SourceDependenciesTime.Length) {
-					Msg.PrintWarningMod("State file dependency " + f + " is not valid. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
-					return false;
-				}
-				if (t != stateFile.SourceDependenciesTime[idx]) {
-					Msg.PrintWarningMod("State file dependency " + f + " has changed. Deleting state.", ".exec.state", Msg.LogLevels.Verbose);
+				if (hash != stateFile.SourceDependenciesHash[i]) {
+					Msg.PrintMod("State file dependency " + f + " has changed. Rebuilding.", ".exec.state", Msg.LogLevels.Verbose);
 					return false;
 				}
 			}
@@ -173,11 +194,16 @@ namespace Kltv.Kombine {
 		/// </summary>
 		public Dictionary<string,object> SharedObjects { get; set; } = new Dictionary<string,object>();
 
+		/// <summary>
+		/// The content hash of the script text this state belongs to
+		/// </summary>
+		public string ScriptHash { get; set; } = string.Empty;
 
 		/// <summary>
-		/// File dependencies for the script with filename and modification date. This is used to build the DAG of dependencies and trigger rebuilds if something changed.
+		/// File dependencies for the script with filename and content hash: the helpers merged into the
+		/// script and the modules it references, transitively. A change of any of them triggers a rebuild.
 		/// </summary>
-		public Dictionary<string,long> FileDependencies { get; set; } = new Dictionary<string,long>();
+		public Dictionary<string,string> FileDependencies { get; set; } = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
 
 		/// <summary>
 		/// Return the data object which belongs to this state.
@@ -190,31 +216,30 @@ namespace Kltv.Kombine {
 
 		/// <summary>
 		/// State file holds the full structure state for building serialized to disk
-		/// It includes among signatures and co, the file time for the script (just to rebuild if something changed)
-		/// and the project list with units, sources,etc, everything with modification dates to build the DAG
+		/// It includes among signatures and co, the content hash of the script (just to rebuild if something changed)
+		/// and the loaded files with their content hashes
 		/// </summary>
 		[BinarySerialization(SerializationMode.Fields)]
 		public class StateFile {
 
 			/// <summary>
-			/// Signature to recognize a state file (by default 0x000020001)
+			/// Signature to recognize a state file (by default 0x000020002)
 			/// </summary>
 			public long				Signature;
 			/// <summary>
-			/// Version of the state file (just in case we need to discard older ones due to update) 
-			/// Current: 0x00010000;
+			/// Version of the state file (just in case we need to discard older ones due to update)
 			/// </summary>
 			public string			Version = "invalid";
 			/// <summary>
-			/// Script modification time in EPOCH
+			/// Content hash of the script text
 			/// </summary>
-			public long				ScriptModifiedTime = 0;
+			public string			ScriptHash = string.Empty;
 
 			/// <summary>
-			/// Array of file dependencies with filename and modification date
+			/// Array of file dependencies with filename and content hash
 			/// </summary>
 			public string[]         SourceDependencies = new string[0];
-			public long[]           SourceDependenciesTime = new long[0];
+			public string[]         SourceDependenciesHash = new string[0];
 
 			/// <summary>
 			/// If the script was built with debug information

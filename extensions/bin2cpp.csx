@@ -1,4 +1,5 @@
 #pragma kombine requires 1.6
+#pragma kombine module
 /*---------------------------------------------------------------------------------------------------------
 
 	Kombine Bin2cpp Extension

@@ -70,6 +70,53 @@ files may declare a version: the highest wins. The compiler does not know the pr
 warn about it (CS1633): Kombine suppresses that warning, and the `.editorconfig` at the root of
 the repository silences it in the editors.
 
+### Loaded files and modules
+
+A file brought in with `#load` is merged into the script that loads it: it is compiled again
+inside every script that loads it, and every script gets its own copy of its types, its
+variables and its functions. That is right for a helper with per script state, such as a set of
+report functions with their counters.
+
+A file that declares itself a module in its first lines is compiled once, as its own assembly,
+cached by its content and shared by every script of the run that loads it:
+
+```csharp
+#pragma kombine requires 1.6
+#pragma kombine module
+```
+
+The shipped extensions are modules. For a script nothing changes: `#load` as always, the same
+names, the same usings; the module's types, functions and variables resolve by the same names
+they had when merged. What changes is the meaning of the module file itself:
+
+- Its top level statements run once per run, when the module is first loaded, not once per
+  script that loads it (the extensions use them for their version check).
+- Its top level variables are one static each, shared by every script of the run; its top level
+  functions are static. A helper that keeps per script state at its top level must not take the
+  pragma. The variables are initialized before the statements run; a variable declared with
+  `var` gets the type of its initializer, as in a script.
+- Its types are the same type in every script: an object a script puts in the [`Share`](#share)
+  registry is usable as is by another, without `Cast<T>()`.
+- Its top level members and types are public, as they are visible to the loading script when
+  merged.
+- Its own `#load` lines are resolved relative to the module (its folder, then its parents and
+  the tool folder), whoever loads it: a module loading a module references it, a module loading
+  a file without the pragma merges it. A remote file (`#load` of an URL) is a module when it
+  carries the pragma, cached and shared the same way, and named by the last segment of its URL.
+
+A remote file is fetched the first time it is loaded and again with `-ksrb` (or
+`Engine.RebuildScripts`), once per run; the cached copy is used otherwise, whether the loading
+script is compiled or not, so a normal run makes no request. When a fetch fails the cached copy
+is used when there is one.
+
+A module is compiled again when its content, or the content of a file it loads, changed; a
+script is compiled again when its content, the content of a merged file or the content of a
+module it loads changed. Moving or touching files changes nothing. A module with a compile
+error is reported once, with its own file name, and the scripts loading it do not run. When two
+scripts of a run resolve a module name to two different files (a copy in a sub project, an
+older version vendored somewhere), Kombine prints a warning naming both files; `-kmodules:strict`
+makes it a failure.
+
 ### Default usings
 
 The following namespaces are imported automatically, so everything in this document can
@@ -81,7 +128,7 @@ be used without `using` directives:
 
 ### Injected properties
 
-These read-only properties are injected into every script and can be used directly:
+These read-only properties are injected into every script and every module and can be used directly:
 
 | Property | Description |
 | --- | --- |
@@ -98,10 +145,11 @@ These read-only properties are injected into every script and can be used direct
 | --- | --- |
 | `-ksdbg` | Build the script with debug information (script debugging). |
 | `-ksdbgw` | As `-ksdbg`, but wait for a debugger to attach before executing the action. |
-| `-ksrb` / `-ksrebuild` | Rebuild the script even if a compiled version is cached. A script can force it for its children with `Engine.RebuildScripts`. |
+| `-ksrb` / `-ksrebuild` | Rebuild every script and module of the run even if a compiled version is cached. A script can force it for its children with `Engine.RebuildScripts`. |
 | `-ko:s` / `-ko:n` / `-ko:v` / `-ko:d` | Output level: silent, normal, verbose, debug. Normal shows the script output; verbose and debug add the messages of Kombine itself (see [Logging](#logging-msg)). |
 | `-kfile:<name>` | Script file to execute (default `kombine.csx`). |
 | `-kforward` | Allows the forward search of the subfolders when resolving `#load` and child script references. Disabled by default, since it can bind a foreign copy of a helper when repositories are nested. A script can toggle it for its children with `Engine.ForwardSearch`. |
+| `-kmodules:strict` | Two different copies of one [module](#loaded-files-and-modules) in a run (the same file name resolved to two files) fail the script that loads the second one instead of printing a warning. |
 
 `mkb -h` and `mkb --help` print the help, as `mkb khelp` does.
 
@@ -242,7 +290,7 @@ KValue cmd    = "clang++ -o out/bin/app " + objects.Flatten();
 
 | Member | Description |
 | --- | --- |
-| `bool Args.WasRebuilded` | True if the script (or its parent) was rebuilt in this run. Useful to invalidate caches derived from the script. |
+| `bool Args.WasRebuilded` | True if the script was compiled in this run: its content or the content of a file it loads changed, or the compile was forced. A rebuilt parent does not make it true, since a child is compiled again only when its own state is not valid. Useful to invalidate caches derived from the script. |
 | `bool Contains(string arg)` | Returns true if the given value is present in the action arguments. |
 | `string Get(int index)` | Returns the argument at the given index, or empty if out of bounds. |
 
@@ -266,7 +314,7 @@ run with [`Kombine()`](#global-functions-statics); the running script is already
 | --- | --- |
 | `ApiError LastError` | Last failure of a child script run with `Kombine()`: script not found, unresolved references, compile error, action not found or not returning an int, exception or abort. Reset when a child runs. The engine prints nothing for a child failure: the calling script reads the return code and this reason (see [Error reporting](#error-reporting)). |
 | `bool ForwardSearch` | Allows the forward search of the subfolders when resolving `#load` and child script references. Mirrors `-kforward`. Disabled by default, since it can bind a foreign copy of a helper when repositories are nested. |
-| `bool RebuildScripts` | Forces the rebuild of the scripts compiled from now on, even if a compiled version is cached. Mirrors `-ksrb`. Needed to make a change of `ForwardSearch` effective on a cached child script, since the resolution happens at compile time. |
+| `bool RebuildScripts` | Forces the rebuild of the scripts, and of the modules they load, compiled from now on, even if a compiled version is cached. Mirrors `-ksrb`. Needed to make a change of `ForwardSearch` effective on a cached child script, since the resolution happens at compile time. |
 
 ```csharp
 bool previous = Engine.ForwardSearch;

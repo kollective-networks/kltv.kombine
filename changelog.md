@@ -11,6 +11,8 @@ What no longer compiles or no longer runs, why, and what to change.
 
 ### Features
 
+- Modules: a loaded file that declares `#pragma kombine module` is compiled once per run as its own assembly, cached by its content and shared by every script that loads it, one copy of its types and statics for the run; the shipped extensions are modules. Two different copies of one module in a run are warned about, `-kmodules:strict` makes it a failure. See doc/api.md, Loaded files and modules
+- The cache goes by content: a script or a module is compiled again when its content or the content of a file it loads changed, a touched or moved file compiles nothing, an edited file compiles only what loads it. See doc/building.md, The cache
 - `Msg.OnMessage`: a delegate that receives every message of the engine and of every script of the run, with its level, kind, module and indentation, before it is written to the console, so a script filters the log and forwards it to another facility or log system. See doc/api.md, Logging
 - The clang, git, bin2cpp and bin2obj extensions emit their detailed lines whatever their output mode, at verbose level in `Progress` and `Silent`, so a `Msg.OnMessage` handler receives the whole detail while the console shows the progress line
 - `Tool.OnStdout` and `Tool.OnStderr` deliver the output fragments while a command runs; `Tool.Timeout` kills a command that runs longer, synchronous or queued; `Tool.CancelCommands()` cancels a running batch. See doc/api.md, Tool
@@ -37,6 +39,10 @@ What no longer compiles or no longer runs, why, and what to change.
 
 ### Misc
 
+- A rebuilt script no longer rebuilds the child scripts it runs: a child is compiled again only when its own content or a file it loads changed, or with `-ksrb` / `Engine.RebuildScripts`; `Args.WasRebuilded` is true only for a script compiled in this run
+- A state built with `-ksdbg` is not used by a run without it and the other way around: the script is compiled again with the information the run needs
+- A remote file (`#load` of an URL) is fetched the first time it is loaded and again with `-ksrb`, once per run; the cached copy is used otherwise, so a normal run makes no request and an edit of the loading script no longer refetches it. A remote file with the module pragma is a module like a local one
+- Clang extension: `Clang.Status` is one static set of counters for the run and the options set as default are copied as the same type, since the extension is a module; the registry container and the copy by property name go
 - Clang extension: the default output mode is `Progress`, one line per verb; the per unit lines of the previous version are the `Detailed` mode and the listings print only with `Verbose`; `Verbose` no longer passes `-v` to the tools, `ClangVerbose` does
 - Clang extension: `Librarian` deletes the archive and writes it again with every object of the call, so an object removed from the list leaves it; a script that built one archive from several calls passes the whole list in one call
 - Bin2cpp and bin2obj: a failure aborts the script by default (`AbortOnFailure`); false is returned instead with `AbortOnFailure = false`; the per file lines are the `Detailed` output mode, `Progress` is the default

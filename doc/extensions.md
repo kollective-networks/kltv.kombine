@@ -28,6 +28,15 @@ An URL can be used as well; the file is fetched and cached:
 #load "https://raw.githubusercontent.com/kollective-networks/kltv.kombine/main/extensions/clang.csx"
 ```
 
+The provided extensions are modules (they declare `#pragma kombine module`): an extension is
+compiled once per run, as its own assembly, cached by its content and shared by every script
+that loads it, instead of being compiled again inside each one. The script sees no difference,
+the extension keeps one copy of its types and statics for the whole run, and editing an
+extension compiles it once plus the scripts that load it. An extension loaded from an URL is a
+module as well: it is fetched the first time and again with `-ksrb`, and its cached copy is
+used otherwise. See [Loaded files and modules](api.md#loaded-files-and-modules) for what the
+pragma changes in the meaning of the file.
+
 ## Provided extensions
 
 | Extension | Documentation | Description |
@@ -49,6 +58,10 @@ example that demonstrates it.
 An extension is a plain `.csx` file with a class, or static helpers, that scripts load
 with `#load`. Some conventions of the provided ones, worth keeping:
 
+- Declare the minimum Kombine version and the module pragma in the first lines
+  (`#pragma kombine requires 1.6`, `#pragma kombine module`), so the file is compiled once
+  per run and its top level statements (a version check, an environment export) run once.
+  Leave the module pragma out of a helper that keeps per script state at its top level.
 - Return values the script can act on (`bool`, `ToolResult`, a result class) instead of
   aborting; abort only when asked through an `abortwhenfailed` style parameter.
 - Print with `Msg`, so the output honors the indentation and the log level, and report

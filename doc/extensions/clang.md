@@ -246,10 +246,9 @@ if (!clang.VersionCheck(16, 0, 0))
 
 The results are the material of the summary a build script prints or writes at the end: the
 extension writes no report of its own. `Clang.Status` keeps the numbers only; the diagnostics
-stay in the result of the verb that produced them. The status is shared the way the options are:
-the registry hands a child script the objects present when it starts, so the main script touches
-the status (`Clang.Status.Reset()`) before running the children, and every child adds to the
-same numbers; a child that finds none keeps its own.
+stay in the result of the verb that produced them. The extension is a module, loaded once per
+run, so the status is one set of numbers every script of the run adds to, child scripts
+included; `Reset()` in the main script starts the count of a build.
 
 ```csharp
 int build(string[] args) {

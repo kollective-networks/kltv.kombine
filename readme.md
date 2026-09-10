@@ -147,6 +147,8 @@ mkb [parameters] [action] [action parameters]
        Indicates which script file we should execute (default kombine.csx)
     -kforward
        Allows the forward search of the subfolders to resolve #load / child script references (disabled by default).
+    -kmodules:strict
+       Two different copies of one module (a loaded file with #pragma kombine module) in a run fail the script instead of warning.
 
     [action] Action to be executed. If not specified the default action is "khelp"
              The action is used to specify which function in the script should be called after evaluation but
@@ -251,7 +253,11 @@ That's why we added a build cache which is transparent to you. The first time a 
 is executed — or whenever you modify it — it is built and placed in the cache (in your
 home folder, in the space reserved for applications; for example, on Windows,
 `/users/<username>/appdata/roaming/kombine`). In the following executions the script
-runs as an application, without being rebuilt, so it's fast.
+runs as an application, without being rebuilt, so it's fast. The cache goes by content:
+touching or moving a script changes nothing. The extensions are modules, compiled once
+per run and shared by every script that loads them, so a project with many scripts pays
+for an extension once; see [the building guide](doc/building.md#the-cache) for what is
+compiled again when.
 
 If you want to rebuild your script, use a parameter or an action:
 
@@ -589,8 +595,8 @@ relative or absolute paths, which forces you to maintain the script relationship
 your file system. In Kombine, `#load` works a bit differently:
 
 - If the path is absolute, it is used as is.
-- If the path is an URI, the file is fetched from that URL, stored in the cache and
-  used.
+- If the path is an URI, the file is fetched from that URL the first time (and again
+  with `-ksrb`), stored in the cache and used from there in the following runs.
 - If the path is relative, Kombine looks in several folders, in this order:
   1. The folder of the script that contains the `#load`
   2. The script directory (where the running script is located)
@@ -620,7 +626,7 @@ per check and a summary, and fails the run when a check fails.
 
 | Example | Demonstrates |
 | --- | --- |
-| [00.base](examples/00.base/) | Version checks, admin rights, the exit code contract and progress reporting. |
+| [00.base](examples/00.base/) | Version checks, admin rights, the exit code contract, progress reporting, the log handler and the modules. |
 | [01.simple](examples/01.simple/) | Minimal script with two actions. |
 | [02.types](examples/02.types/) | Operations with `KValue` and `KList`. |
 | [03.child](examples/03.child/) | Child scripts, Import/Export and the other sharing methods. |

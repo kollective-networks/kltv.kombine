@@ -66,6 +66,9 @@ namespace Kltv.Kombine {
 			/// <returns></returns>
 			public override SourceText ReadText(string resolvedPath) {
 				Msg.PrintMod("ReadText:"+resolvedPath,".exec.script.sourceresolver", Msg.LogLevels.Debug);
+				// A module is referenced as an assembly, prepared before the compilation was created: nothing merges
+				if (Modules.IsModule(resolvedPath))
+					return SourceText.From("");
 
 				// The minimum version the loaded file declares: an unsatisfied one fails the script before the compile
 				string? versionError = null;
@@ -119,13 +122,7 @@ namespace Kltv.Kombine {
 				if (resolvedPath != null) {
 					// One line per include on real compiles, behind verbose so normal builds stay quiet
 					Msg.PrintMod("#load \"" + path + "\" -> " + resolvedPath, ".exec.script.sourceresolver", Msg.LogLevels.Verbose);
-					// Save the dependency in the state
-					//
-					// Get the modification time of the dependency file
-					long modTime = File.GetLastWriteTimeUtc(resolvedPath).ToBinary();
-					KombineScript? current = KombineMain.CurrentRunningScript;
-					if (current != null)
-						current.State.FileDependencies[resolvedPath] = modTime;
+					// The dependency is already in the state: the pre pass of the loaded files recorded every one with its content hash
 					return resolvedPath;
 				}
 				// The reason is collected for the failure report of the script; the compile errors that

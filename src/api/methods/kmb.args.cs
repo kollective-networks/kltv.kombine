@@ -17,17 +17,15 @@ namespace Kltv.Kombine.Api {
 	public static class Args{
 
 		/// <summary>
-		/// Returns if the script or parent was rebuilt
+		/// Returns if the script was compiled in this run: its text or one of the files it loads changed,
+		/// or the compile was forced. A rebuilt parent does not make it true: a child is compiled again
+		/// only when its own state is not valid.
 		/// </summary>
 		public static bool WasRebuilded {
 			get {
 				if (KombineMain.CurrentRunningScript == null)
 					return false;
-				if (KombineMain.CurrentRunningScript.WasRebuilt)
-					return true;
-				if (KombineMain.CurrentRunningScript.ParentWasRebuilt)
-					return true;
-				return false;
+				return KombineMain.CurrentRunningScript.WasRebuilt;
 			}
 		}
 

@@ -1,4 +1,5 @@
 #pragma kombine requires 1.6
+#pragma kombine module
 /*---------------------------------------------------------------------------------------------------------
 
 	Kombine Clang Extension
@@ -23,8 +24,9 @@
 	in a Last<Verb> property of the instance: LastCompile (the units with their status, diagnostics and
 	counts), LastLibrarian and LastLinker (the output, whether it was up to date, the objects, the
 	diagnostics and their counts), LastFormat (the files formatted and rejected). Clang.Status
-	accumulates the counters of the whole run, child scripts included once the main script touched
-	it (Clang.Status.Reset()) before running them, as SetAsDefault() does for the options; the
+	accumulates the counters of the whole run, child scripts included: the extension is a module
+	("#pragma kombine module"), loaded once per run and shared by every script that loads it, so the
+	status is one for the run and the options set as default are the very object a child copies; the
 	script prints or writes its own summary from those results, the extension writes no report of
 	its own.
 
@@ -228,42 +230,26 @@ public class ToolVersionInfo {
 
 /// <summary>
 /// The counters accumulated over the run: every Compile, Librarian, Linker and Format of this
-/// script and of its child scripts adds to them. The numbers live in a container of the Share
-/// registry, created by the first script that touches the status and handed to the child scripts
-/// it runs from then on, the way SetAsDefault() hands the options: touch it in the main script
-/// (Clang.Status.Reset()) before running the children, so every script adds to the same numbers;
-/// a child that finds none keeps its own. The diagnostics are not accumulated, each verb prints its
-/// own and keeps them in its result. Reset() starts over, Print() prints the summary on demand.
+/// script and of its child scripts adds to them. The extension is loaded once per run, so the
+/// numbers are one static set every script adds to. The diagnostics are not accumulated, each verb
+/// prints its own and keeps them in its result. Reset() starts over, Print() prints the summary on
+/// demand.
 /// </summary>
 public class ClangStatus {
-	private const string Key = "ClangStatus";
 
-	/// <summary>
-	/// The shared container, created on the first use of the run. A dictionary, a type every script
-	/// knows, since a class of this file would be a different type in a child script.
-	/// </summary>
-	private static Dictionary<string, long> Container() {
-		object? o = Share.Get(Key);
-		if (o is Dictionary<string, long> d)
-			return d;
-		Dictionary<string, long> n = new Dictionary<string, long>();
-		Share.Set(Key, n);
-		o = Share.Get(Key);
-		return (o as Dictionary<string, long>) ?? n;
-	}
+	/// <summary>The counters of the run, by name.</summary>
+	private static readonly Dictionary<string, long> counters = new Dictionary<string, long>();
 
 	private long Get(string key) {
-		Dictionary<string, long> d = Container();
-		lock (d) {
-			return d.TryGetValue(key, out long v) ? v : 0;
+		lock (counters) {
+			return counters.TryGetValue(key, out long v) ? v : 0;
 		}
 	}
 
 	/// <summary>Adds to one counter.</summary>
 	internal void Add(string key, long n) {
-		Dictionary<string, long> d = Container();
-		lock (d) {
-			d[key] = (d.TryGetValue(key, out long v) ? v : 0) + n;
+		lock (counters) {
+			counters[key] = (counters.TryGetValue(key, out long v) ? v : 0) + n;
 		}
 	}
 
@@ -278,9 +264,8 @@ public class ClangStatus {
 
 	/// <summary>Sets every counter to zero.</summary>
 	public void Reset() {
-		Dictionary<string, long> d = Container();
-		lock (d) {
-			d.Clear();
+		lock (counters) {
+			counters.Clear();
 		}
 	}
 
@@ -468,40 +453,15 @@ public class Clang {
 
 		/// <summary>
 		/// Copies every property of another options object into this one, the lists as new lists, so a
-		/// change on this instance never touches the source. The source may be the options of another
-		/// script (a different type with the same properties): the copy goes by property name, and an
-		/// enumeration travels by its number so Output arrives whatever the type it was declared in.
+		/// change on this instance never touches the source. The source is the same type whatever the
+		/// script that set it as default: the extension is loaded once per run.
 		/// </summary>
-		internal void CopyFrom(object source) {
-			Type mine = GetType();
-			Type theirs = source.GetType();
-			foreach (System.Reflection.PropertyInfo p in mine.GetProperties()) {
+		internal void CopyFrom(ClangOptions source) {
+			foreach (System.Reflection.PropertyInfo p in typeof(ClangOptions).GetProperties()) {
 				if (p.SetMethod == null || !p.SetMethod.IsPublic)
 					continue;
-				System.Reflection.PropertyInfo? s = theirs.GetProperty(p.Name);
-				if (s == null)
-					continue;
-				object? value;
-				try {
-					value = s.GetValue(source);
-				} catch {
-					continue;
-				}
-				if (value == null) {
-					p.SetValue(this, null);
-					continue;
-				}
-				try {
-					if (p.PropertyType.IsEnum) {
-						p.SetValue(this, Enum.ToObject(p.PropertyType, Convert.ToInt32(value)));
-					} else if (p.PropertyType == typeof(KList) && value is KList list) {
-						p.SetValue(this, new KList(list));
-					} else if (p.PropertyType.IsInstanceOfType(value)) {
-						p.SetValue(this, value);
-					}
-				} catch (Exception ex) {
-					Msg.Print("clang: option " + p.Name + " not copied: " + ex.Message, Msg.LogLevels.Verbose);
-				}
+				object? value = p.GetValue(source);
+				p.SetValue(this, value is KList list ? new KList(list) : value);
 			}
 		}
 	}
@@ -2147,9 +2107,8 @@ public class Clang {
 	/// Takes a copy of the options set as default by this script or a parent script, if any.
 	/// </summary>
 	private void OpenSharedCompileOptions() {
-		object? obj = Share.Get(ClangOptions.SharedName);
-		if (obj != null)
-			Options.CopyFrom(obj);
+		if (Share.Get(ClangOptions.SharedName) is ClangOptions defaults)
+			Options.CopyFrom(defaults);
 	}
 
 	/// <summary>

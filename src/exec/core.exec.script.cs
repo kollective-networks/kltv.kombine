@@ -78,14 +78,20 @@ namespace Kltv.Kombine {
 		internal bool WasRebuilt { get; private set; } = false;
 
 		/// <summary>
-		/// Signals if the parent script was rebuilt (due to script changed or by version, not forced)
+		/// The content hash of the script text, the identity of the script in its state
 		/// </summary>
-		internal bool ParentWasRebuilt { get; set; } = false;
+		internal string ScriptHash { get; private set; } = string.Empty;
 
 		/// <summary>
-		///	 Automatic usings for the script to be included
+		/// The modules the script loads (the loaded files with "#pragma kombine module"), transitively,
+		/// in dependency order: referenced as assemblies by the compilation, imported by their class name.
 		/// </summary>
-		private string[] Usings { get; set; } = new string[] {
+		internal List<Modules.Module> ModulesLoaded { get; private set; } = new List<Modules.Module>();
+
+		/// <summary>
+		///	 Automatic usings for every script and module
+		/// </summary>
+		internal static readonly string[] DefaultUsings = new string[] {
 			"System",
 			"System.IO",
 			"System.Text",
@@ -255,23 +261,36 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			// Save the action parameters
 			this.ActionParameters = ActionParameters ?? Array.Empty<string>();
 			//
-			// Check state / fetch from cache
+			// The script text, checked for the version it needs, and the files it loads: the modules are
+			// compiled or taken from their states and loaded now, since the cached script references them
+			// as assemblies too; the helpers are hashed for the state check.
 			//
-			if ( (State.FetchCache(Scriptfile) == false) || (Config.Rebuild == true) || (ParentWasRebuilt) ) {
+			string? scriptText = FetchScriptText(Scriptfile, DebugBuild);
+			if (scriptText == null) {
+				// The failure was reported with its reason
+				return Constants.ExitCodeFailure;
+			}
+			List<string> moduleErrors = new List<string>();
+			if (!Modules.Resolve(Path.GetFullPath(Scriptfile), scriptText, null, ScriptPath, ModulesLoaded, State.FileDependencies, null, moduleErrors)) {
+				ReportFailure(Modules.FailureCode, "The modules loaded by the script could not be prepared: " + Scriptfile + "\n" + string.Join("\n", moduleErrors));
+				return Constants.ExitCodeFailure;
+			}
+			//
+			// Check state / fetch from cache: the state is valid when the script content and the content of
+			// every loaded file are the ones it was compiled from. What happened to the parent does not matter.
+			//
+			if ( (State.FetchCache(Scriptfile, ScriptHash, DebugBuild) == false) || (Config.Rebuild == true) ) {
 				//
 				// There is no previous state saved. We will try to build the script
-				// 
+				//
 				if (Config.Rebuild){
 					Msg.PrintMod("Rebuild forced. Triggering rebuild.", ".exec.script", Msg.LogLevels.Debug);
 				} else {
 					Msg.PrintMod("No previous state or old. Triggering rebuild.", ".exec.script", Msg.LogLevels.Debug);
-					if (ParentWasRebuilt) {
-						Msg.PrintMod("Parent script was rebuilt. Triggering rebuild.", ".exec.script", Msg.LogLevels.Debug);
-					}
-					// Mark ourselves as rebuilt because we will do it due to cache miss or by parent changed
-					WasRebuilt = true;
 				}
-				if (Compile(Scriptfile,DebugBuild) == false) {
+				// Mark ourselves as rebuilt: the script is compiled in this run
+				WasRebuilt = true;
+				if (Compile(Scriptfile, scriptText, DebugBuild) == false) {
 					// The failure was reported by the compilation with its reason
 					return Constants.ExitCodeFailure;
 				}
@@ -430,18 +449,15 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 		/// Assembly Name, Class Name and Module Name should be defined before calling this function.
 		/// State should be initialized before calling this function.
 		/// </summary>
-		/// <param name="filename"></param>
-		/// <param name="Debug"></param>
+		/// <param name="filename">The script file, named in the messages.</param>
+		/// <param name="scriptText">Its text, as FetchScriptText returns it.</param>
+		/// <param name="Debug">If the script must carry debug information.</param>
 		/// <returns>True if compilation was okey. False otherwise</returns>
-		private bool Compile(string filename, bool Debug = false) {
+		private bool Compile(string filename, string scriptText, bool Debug = false) {
 			ResolveErrors.Clear();
 			VersionErrors.Clear();
-			// Load the script text
-			string? scriptText = FetchScriptText(filename,Debug);
-			if (scriptText == null){
-				Msg.PrintErrorMod("Could not load script text. Aborting",".exec.script", Msg.LogLevels.Verbose);
-				return false;
-			}
+			// One line per compile, behind verbose: a cached run prints nothing
+			Msg.PrintMod("Compiling the script " + Path.GetFileName(filename), ".exec.script", Msg.LogLevels.Verbose);
 			//
 			// Prepare the compilation environment
 			//
@@ -518,12 +534,16 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				// options = options.WithSpecificDiagnosticOptions(ImmutableDictionary.Create<string, ReportDiagnostic>());
 				// Syntax tree
 				// options = options.WithSyntaxTreeOptions(SyntaxTreeOptions.);
-				// Add the usings to the script.
+				// Add the usings to the script: the default ones and the class of every module it loads,
+				// so the types, functions and variables of a module resolve by the same names as a merged file
 				Msg.PrintMod("Adding Imports.", ".exec.script", Msg.LogLevels.Debug);
-				foreach(string s in Usings) {
+				List<string> usings = new List<string>(DefaultUsings);
+				foreach (Modules.Module module in ModulesLoaded)
+					usings.Add(module.ClassName);
+				foreach(string s in usings) {
 					Msg.PrintMod("Import: " + s, ".exec.script", Msg.LogLevels.Debug);
 				}
-				options = options.WithUsings(Usings);
+				options = options.WithUsings(usings);
 				// XmlReferenceResolver. 
 				// TODO: Check if we need to use it.
 			}
@@ -549,12 +569,23 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 			// We use the workaround from the last link. So we will create a reference list using the raw metadata to avoid the bug.
 			Msg.PrintMod("Adding references.", ".exec.script", Msg.LogLevels.Debug);
 			List<MetadataReference> references = new List<MetadataReference>();
-			Assembly[] refs = AppDomain.CurrentDomain.GetAssemblies(); 
+			Assembly[] refs = AppDomain.CurrentDomain.GetAssemblies();
 			foreach (Assembly asm in refs) {
+				// The modules loaded by other scripts are not references of this one: only the ones it loads are, below
+				string? name = asm.GetName().Name;
+				if (name != null && name.StartsWith(Modules.AssemblyPrefix))
+					continue;
 				unsafe {
 					Msg.PrintMod("Adding reference for: " + asm.GetName(), ".exec.script", Msg.LogLevels.Debug);
 					if (asm.TryGetRawMetadata(out var blob, out var length))
 						references.Add(AssemblyMetadata.Create(ModuleMetadata.CreateFromMetadata((IntPtr)blob, length)).GetReference());
+				}
+			}
+			foreach (Modules.Module module in ModulesLoaded) {
+				MetadataReference? reference = Modules.ReferenceOf(module);
+				if (reference != null) {
+					Msg.PrintMod("Adding reference for the module: " + module.AssemblyName, ".exec.script", Msg.LogLevels.Debug);
+					references.Add(reference);
 				}
 			}
 			// Create the compilation object
@@ -662,11 +693,12 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 		}
 
 		/// <summary>
-		/// Fetches the script text from the given filename.
+		/// Fetches the script text from the given filename, checks the version it needs and keeps its
+		/// content hash as the identity of the script in its state.
 		/// </summary>
 		/// <param name="Debug"></param>
 		/// <param name="filename"></param>
-		/// <returns></returns>
+		/// <returns>The text with the line directive of the file first, null when it could not be read.</returns>
 		private string? FetchScriptText(string filename,bool Debug) {
 			string? scriptText = null;
 			try {
@@ -689,7 +721,7 @@ string ParentScriptFolder { get { return Folders.ParentScriptFolder; } }
 				ReportFailure(ErrorCode.NotSupported, versionError);
 				return null;
 			}
-			Msg.PrintMod("Compiling script.", ".exec.script", Msg.LogLevels.Debug);
+			ScriptHash = Modules.Hash(scriptText);
 			// Preprocesor to indicate the source file to use. Its needed to track source file from debugger.
 			Msg.PrintMod("Adding source file debug reference (invoked with -ksdbg)", ".exec.script", Msg.LogLevels.Debug);
 			string realfile = Path.GetFullPath(filename);

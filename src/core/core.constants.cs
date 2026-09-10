@@ -79,9 +79,14 @@ namespace Kltv.Kombine {
 		public const string Ext_Compiled =			@".dat";
 
 		/// <summary>
-		/// 
+		///
 		/// </summary>
 		public const string Ext_IncludeCache =		@".cache";
+
+		/// <summary>
+		/// The state of a module (a loaded file with "#pragma kombine module", compiled as its own assembly)
+		/// </summary>
+		public const string Ext_Module =			@".mod";
 
 
 		// Output Artifacts Folders

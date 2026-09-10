@@ -628,17 +628,32 @@ namespace Kltv.Kombine.Api {
 			LastResolveReason = string.Empty;
 			string? look = null;
 
-			// Check if its an URL
+			// Check if its an URL: the file is fetched the first time it is loaded and again when a rebuild
+			// is asked (-ksrb, Engine.RebuildScripts), once per run; the cached copy is used otherwise,
+			// whether the loading script is compiled or not, so a normal run makes no request
 			if (path.StartsWith("http://") || path.StartsWith("https://")){
+				string cached = Cache.GetIncludeCached(path);
+				lock (fetchedUrls) {
+					if (fetchedUrls.Contains(path))
+						return Files.Exists(cached) ? cached : null;
+				}
+				if (Cache.IsIncludeCached(path) && !Config.Rebuild) {
+					Msg.PrintMod("ResolveReference (cached copy): " + path + " -> " + cached, ".folders", Msg.LogLevels.Debug);
+					return cached;
+				}
 				KValue content = Http.GetDocument(path);
+				lock (fetchedUrls) {
+					fetchedUrls.Add(path);
+				}
 				if (content.IsEmpty()){
 					Msg.PrintWarningMod("Failed to fetch: " + path+" trying to use cache.", ".folders", Msg.LogLevels.Verbose);
 					if (Cache.IsIncludeCached(path)) {
-						return Cache.GetIncludeCached(path);
+						return cached;
 					}
 					Msg.PrintWarningMod("Failed to fetch: " + path + " and no cache found.", ".folders", Msg.LogLevels.Verbose);
 					return null;
 				}
+				Msg.PrintMod("ResolveReference (fetched): " + path + " -> " + cached, ".folders", Msg.LogLevels.Verbose);
 				return Cache.SetIncludeCached(path, content);
 			}
 			// Check if its an absolute path
@@ -708,6 +723,11 @@ namespace Kltv.Kombine.Api {
 		/// Reason of the last failed reference resolution, for the script executor to report.
 		/// </summary>
 		internal static string LastResolveReason { get; private set; } = string.Empty;
+
+		/// <summary>
+		/// The URLs fetched (or tried) in this run: a remote file is fetched once per run at most.
+		/// </summary>
+		private static readonly HashSet<string> fetchedUrls = new HashSet<string>(StringComparer.Ordinal);
 		#endregion
 
 	}

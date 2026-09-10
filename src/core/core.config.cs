@@ -65,6 +65,12 @@ namespace Kltv.Kombine
 		public static bool ResolveForward { get; internal set; } = false;
 
 		/// <summary>
+		/// If two different copies of one module in a run (same file name, another path) fail the script
+		/// instead of warning (-kmodules:strict, disabled by default)
+		/// </summary>
+		public static bool ModulesStrict { get; internal set; } = false;
+
+		/// <summary>
 		/// Action to be executed
 		/// </summary>
 		public static string Action { get; private set; } = string.Empty;
@@ -112,6 +118,8 @@ namespace Kltv.Kombine
 		/// -ko:verbose or -ko:v : Output will be verbose
 		/// -ko:debug or -ko:d   : Output will be debug
 		/// -kfile: Indicates which script file we should execute (default kombine.csx)
+		/// -kforward: Allows the forward search of the subfolders to resolve #load / child script references
+		/// -kmodules:strict: Two different copies of one module in a run fail the script instead of warning
 		///
 		/// [action] Action to be executed. If not specified the default action is "khelp"
 		/// The action is used to specify which function in the script should be called after evaluation but
@@ -230,6 +238,10 @@ namespace Kltv.Kombine
 				ResolveForward = true;
 				return true;
 			}
+			if (cmd == "-kmodules:strict") {
+				ModulesStrict = true;
+				return true;
+			}
 			return false;
 		}
 
@@ -272,6 +284,8 @@ namespace Kltv.Kombine
 			Msg.Print("   Indicates which script file we should execute (default kombine.csx)");
 			Msg.Print("-kforward");
 			Msg.Print("   Allows the forward search of the subfolders to resolve #load / child script references (disabled by default).");
+			Msg.Print("-kmodules:strict");
+			Msg.Print("   Two different copies of one module (a loaded file with #pragma kombine module) in a run fail the script instead of warning.");
 			Msg.Print("");
 			Msg.Print("[action] Action to be executed. If not specified the default action is \"khelp\"");
 			Msg.Print("         The action is used to specify which function in the script should be called after evaluation but");

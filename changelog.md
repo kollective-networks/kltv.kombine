@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Bugfixes
+
+- Tools that exit within a millisecond no longer fail at random on Linux and macOS: the launch read the process start time after starting it, which throws once the child has exited and been reaped, and the exception was taken for a failed launch (exit code -1, `ToolStatus.Failed`) although the tool had run. The start time is now taken from our own clock before the launch
+
 ## [1.7.24363778]
 
 ### Features

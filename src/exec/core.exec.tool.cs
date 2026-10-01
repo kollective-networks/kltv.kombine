@@ -489,6 +489,10 @@ namespace Kltv.Kombine {
 					try {
 						// Lock the current running processes list and start the process
 						lock(CurrentRunningProcessesLock) {
+							// The start time comes from our own clock, taken before the start. Asking the process for it
+							// afterwards fails on Linux and macOS once the child has exited and been reaped, which a
+							// tool that runs for a millisecond often has by then
+							ProcessStartTime = DateTime.Now;
 							// Try to start the process
 							if (ProcessHandle.Start() == false) {
 								Msg.PrintWarningMod("Error when executing a requested tool: " + this.Name, ".exec", Msg.LogLevels.Verbose);
@@ -512,7 +516,6 @@ namespace Kltv.Kombine {
 									}
 								}
 							}
-							ProcessStartTime = ProcessHandle.StartTime;
 						}
 					} catch (Exception ex) {
 						Msg.PrintWarningMod("Error when executing a requested tool: " + this.Name,".exec", Msg.LogLevels.Verbose);
@@ -530,8 +533,8 @@ namespace Kltv.Kombine {
 		}
 
 		/// <summary>
-		/// Holds the start time since cannot be fetched on exiting delegate
-		/// It raises an exception at least on macos
+		/// The start time, taken from our clock when the process is launched. Process.StartTime cannot be used:
+		/// on Linux and macOS it throws once the process has exited and been reaped.
 		/// </summary>
 		private DateTime ProcessStartTime = DateTime.Now;
 

@@ -548,6 +548,12 @@ void TestNothingLeftBehind(){
 	Case("archive deleted", () => File.Delete(ArchiveFile()), "", "core");
 	Case("executable deleted", () => File.Delete(Exe2()), "", "app2");
 	Case("rebuild", () => rebuildNext = true, "a.c,b.cpp,c.c,main1.cpp,main2.c", "");
+	// An output without its record is built: nothing tells what it was made from
+	Case("object record deleted", () => File.Delete(Objects("a.c")[0] + ".kdep"), "a.c", "");
+	// The record of a link sits next to its first object
+	Case("executable record deleted", () => File.Delete(Path.Combine(Obj, Path.GetFileName(Exe2()) + ".kdep")), "", "app2");	// The -v of ClangVerbose shows what the tools do and changes nothing they make
+	Case("verbose switched on", () => clang.Options.ClangVerbose = true, "", "");
+	Case("verbose switched off", () => clang.Options.ClangVerbose = false, "", "");
 	// A header deleted: the unit compiles again and fails as it should
 	File.Delete(Path.Combine(Inc, "only.h"));
 	ToolResult r = clang.Compile(Sources("a.c", "b.cpp", "c.c"), Objects("a.c", "b.cpp", "c.c"));

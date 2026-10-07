@@ -24,14 +24,24 @@ declares it with `#pragma kombine requires 1.6`). Demonstrated and tested by
   An input whose date and size match the record counts as unchanged without being read; one
   whose date or size moved is read and its content hash compared. A file touched without an edit
   generates nothing; an edit dated older than the output still generates; the one edit that
-  passes unseen keeps both the date and the size of the file.
+  passes unseen keeps both the date and the size of the file. The record holds what the output
+  was made from: the date and size an input had before it was read and the hash of the bytes
+  read, so an input written while the output was being made is generated again on the next call.
 - **A failure leaves the previous output intact.** An output is written to a temporary file and
   moved into place once complete; no partial file is ever left.
 - **The symbol derives from the path as given**, so a script should pass its binaries through
   relative paths and keep them stable: a path given differently is a different symbol, and the
   output is generated again with it. `Symbols` holds the friendly name (the path with dots, lower
   case) and the symbol of every input of the last call, generated or not, for a script that
-  writes a header declaring them; `<symbol>_size` names the length of each array.
+  writes a header declaring them; `<symbol>_size` names the length of each array, a
+  `std::uint32_t` on every platform (the generated source includes `<cstdint>`):
+
+```c
+#include <cstdint>
+
+extern "C" const unsigned char varlogo_png1234567890[];
+extern "C" const std::uint32_t varlogo_png1234567890_size;
+```
 
 ```csharp
 #load "extensions/bin2cpp.csx"

@@ -15,7 +15,8 @@
 	OpenCompileCommands, plus Version, VersionCheck and ToolVersion for the tools. Each verb takes its
 	arguments and reads its configuration from the ClangOptions of the instance (clang.Options); the
 	options set as default with SetAsDefault() are copied into every new instance, in this script and
-	in its child scripts. No variants of a verb exist: the output mode and the options decide.
+	in its child scripts, whichever copy of the extension set them. No variants of a verb exist: the
+	output mode and the options decide.
 
 	Results. Compile, Librarian and Linker return the ToolResult of the tools as they always did
 	(Status Success, Failed, or NoChanges when nothing was to do; ExitCode, Stdout, Stderr); Format,
@@ -451,17 +452,45 @@ public class Clang {
 		/// <summary>The name the options are shared under.</summary>
 		internal const string SharedName = "ClangOptions";
 
+		/// <summary>The defaults shared by SetAsDefault(), or null when none were: an options object of this
+		/// extension or of another copy of it, which a script that builds this one as a part of itself loaded
+		/// from a file of its own. Read it with CopyFrom.</summary>
+		public static object? SharedDefaults() => Share.Get(SharedName);
+
 		/// <summary>
 		/// Copies every property of another options object into this one, the lists as new lists, so a
-		/// change on this instance never touches the source. The source is the same type whatever the
-		/// script that set it as default: the extension is loaded once per run.
+		/// change on this instance never touches the source. The source may come from another copy of the
+		/// extension (a parent script that loaded its own file): another type with the same properties, so
+		/// they are matched by name, an enum by the name of its value. A property the source does not have,
+		/// or has with another type, is left as it is.
 		/// </summary>
-		internal void CopyFrom(ClangOptions source) {
-			foreach (System.Reflection.PropertyInfo p in typeof(ClangOptions).GetProperties()) {
-				if (p.SetMethod == null || !p.SetMethod.IsPublic)
+		public void CopyFrom(object source) => CopyProperties(source, this);
+
+		/// <summary>
+		/// Copies every property of this options object into another, which may come from another copy of
+		/// the extension, as CopyFrom reads one: what a build that runs inside another lends to the defaults
+		/// that build shared, and gives back once it is done.
+		/// </summary>
+		public void CopyInto(object target) => CopyProperties(this, target);
+
+		static void CopyProperties(object source, object target) {
+			foreach (System.Reflection.PropertyInfo to in target.GetType().GetProperties()) {
+				if (to.SetMethod == null || !to.SetMethod.IsPublic)
 					continue;
-				object? value = p.GetValue(source);
-				p.SetValue(this, value is KList list ? new KList(list) : value);
+				System.Reflection.PropertyInfo? from = source.GetType().GetProperty(to.Name);
+				if (from == null || from.GetMethod == null)
+					continue;
+				object? value = from.GetValue(source);
+				if (value is KList list)
+					value = new KList(list);
+				else if (value != null && to.PropertyType.IsEnum && value.GetType().IsEnum) {
+					if (!System.Enum.TryParse(to.PropertyType, value.ToString(), out object? same))
+						continue;
+					value = same;
+				}
+				if (value != null && !to.PropertyType.IsInstanceOfType(value))
+					continue;
+				to.SetValue(target, value);
 			}
 		}
 	}
@@ -556,10 +585,9 @@ public class Clang {
 		string defines = Join(Options.Defines.Select(v => "-D" + Q(v)));
 		string switchesCC = Join(Options.SwitchesCC.Select(v => (string)v));
 		string switchesCXX = Join(Options.SwitchesCXX.Select(v => (string)v));
-		if (Options.ClangVerbose) {
-			switchesCC = Join(new[] { switchesCC, "-v" });
-			switchesCXX = Join(new[] { switchesCXX, "-v" });
-		}
+		// The -v of ClangVerbose goes to the compilers and not into the recorded command: it changes what the
+		// tools print, not what they produce, so turning it on to look at a build compiles nothing again
+		string verboseSwitch = Options.ClangVerbose ? "-v" : "";
 		// The units: classified, checked, and queued when out of date
 		List<Job> jobs = new List<Job>();
 		Dictionary<string, string> tools = new Dictionary<string, string>();
@@ -604,7 +632,7 @@ public class Clang {
 			if (!resource)
 				AddCompileCommands(unit.Command, srcf, objf);
 			if (rebuild || !UpToDate(objf, unit.Command, srcf, resource ? ResourceInputs(srcf) : null)) {
-				jobs.Add(new Job { Cmd = cmd, Args = args, Unit = unit, Label = src[a], Property = property, Resource = resource, Source = srcf, Output = objf });
+				jobs.Add(new Job { Cmd = cmd, Args = resource ? args : Join(new[] { args, verboseSwitch }), Unit = unit, Label = src[a], Property = property, Resource = resource, Source = srcf, Output = objf });
 			} else {
 				unit.Status = UnitStatus.UpToDate;
 				result.UpToDate++;
@@ -616,12 +644,14 @@ public class Clang {
 		Folders.Create(obj.AsFolders());
 		string label = Options.TaskLabel.Length > 0 ? Options.TaskLabel : "Compiling " + src.Count() + " file" + (src.Count() == 1 ? "" : "s");
 		ToolResult res;
+		DateTime batchStart = DateTime.UtcNow;
 		try {
 			res = RunBatch("Compile", label, jobs, Options.ConcurrentBuild, abort, result, "compiled", result.UpToDate);
 		} finally {
 			// Whatever happened while the units ran, the compile database is saved
 			compdb?.Save();
 		}
+		DateTime batchEnd = DateTime.UtcNow;
 		// The counters of the units, the records of the compiled ones
 		foreach (Job j in jobs) {
 			CompileUnit u = j.Unit!;
@@ -629,7 +659,7 @@ public class Clang {
 			result.Errors += u.Errors;
 			if (u.Status == UnitStatus.Compiled || u.Status == UnitStatus.Warnings) {
 				result.Compiled++;
-				Record(RecordFile(j.Output), u.Command, DepInputs(j.Source, j.Output, j.Resource));
+				Record(RecordFile(j.Output), u.Command, DepInputs(j.Source, j.Output, j.Resource), batchStart, batchEnd);
 			} else {
 				DeleteRecord(RecordFile(j.Output));
 				if (u.Status == UnitStatus.Failed)
@@ -680,8 +710,9 @@ public class Clang {
 		string outf = RealPath(output);
 		string mode = Options.ClangVerbose ? "rcsv" : "rcs";
 		// The recorded command carries a version of the way the archive is written: the archives the
-		// previous, chunked way left incomplete are made again once
-		string command = "archive-v2 " + Options.AR + " " + mode + " " + Q(outf) + " " + Join(inputs.Select(i => Q(i)));
+		// previous, chunked way left incomplete are made again once. It is the one without the v of
+		// ClangVerbose, which changes what the archiver prints and not what it writes
+		string command = "archive-v2 " + Options.AR + " rcs " + Q(outf) + " " + Join(inputs.Select(i => Q(i)));
 		string label = Options.TaskLabel.Length > 0 ? Options.TaskLabel : "Library " + Path.GetFileName(outf);
 		if (UpToDate(outf, command, null, inputs)) {
 			result.UpToDate = true;
@@ -726,6 +757,7 @@ public class Clang {
 		// 32767) the objects go through a response file, never through several incremental commands:
 		// each of those reads the archive and writes it back, so two overlapping ones lose objects
 		Status.Add("queued", 1);
+		DateTime archiveStart = DateTime.UtcNow;
 		Job job = new Job { Cmd = Options.AR, Args = mode + " " + Q(outf) + " " + Join(inputs.Select(i => Q(i))), Label = Path.GetFileName(outf), Property = "AR", Output = outf, Extra = duplicates };
 		string? responsefile = null;
 		ToolResult res;
@@ -763,7 +795,7 @@ public class Clang {
 				File.Delete(outf);
 			return FailResult(ErrorCode.Failed, FailureMessage(jobs), "Librarian", abort, res, AbortText("Librarian", jobs));
 		}
-		Record(LinkRecordFile(outf, inputs), command, inputs);
+		Record(LinkRecordFile(outf, inputs), command, inputs, archiveStart, DateTime.UtcNow);
 		return res;
 	}
 
@@ -812,12 +844,13 @@ public class Clang {
 		string libdirs = Join(Options.LibraryDirs.Select(v => "-L" + Q(v)));
 		string libs = Join(Options.Libraries.Select(v => Path.IsPathRooted(v) ? Q(v) : "-l" + (string)v));
 		string switches = Join(Options.SwitchesLD.Select(v => (string)v));
-		if (Options.ClangVerbose)
-			switches = Join(new[] { switches, "-v" });
 		if (SharedLibrary)
 			switches = Join(new[] { switches, "-shared" });
-		string args = Join(new[] { LinkerSwitch(), switches, Join(inputs.Take(objs.Count()).Select(i => Q(i))), libdirs, libs, "-o", Q(outf) });
-		string command = Options.CXX + " " + args;
+		// The recorded command is the one without the -v of ClangVerbose, which changes what the driver
+		// prints and not what it links; the -v goes on the line that runs
+		string recorded = Join(new[] { LinkerSwitch(), switches, Join(inputs.Take(objs.Count()).Select(i => Q(i))), libdirs, libs, "-o", Q(outf) });
+		string args = Options.ClangVerbose ? Join(new[] { recorded, "-v" }) : recorded;
+		string command = Options.CXX + " " + recorded;
 		string label = Options.TaskLabel.Length > 0 ? Options.TaskLabel : "Linking " + Path.GetFileName(outf);
 		if (UpToDate(outf, command, null, inputs)) {
 			result.UpToDate = true;
@@ -829,6 +862,7 @@ public class Clang {
 		Status.Add("queued", 1);
 		// A response file when the line is too long for the platform (Windows: 32767)
 		string? responsefile = null;
+		DateTime linkStart = DateTime.UtcNow;
 		Job job = new Job { Cmd = Options.CXX, Args = args, Label = Path.GetFileName(outf), Property = "CXX", Output = outf };
 		ToolResult res;
 		try {
@@ -860,7 +894,7 @@ public class Clang {
 		Report("Linker", new List<Job> { job }, result.Warnings, result.Errors, job.Failed ? 1 : 0, false, job.ToolFailure);
 		if (job.Failed)
 			return FailResult(ErrorCode.Failed, FailureMessage(new List<Job> { job }), "Linker", abort, res, AbortText("Linker", new List<Job> { job }));
-		Record(LinkRecordFile(outf, inputs), command, inputs);
+		Record(LinkRecordFile(outf, inputs), command, inputs, linkStart, DateTime.UtcNow);
 		return res;
 	}
 
@@ -1814,6 +1848,10 @@ public class Clang {
 	/// <summary>The first line of a record, with the version of its layout.</summary>
 	private const string RecordHeader = "kombine-record 2";
 
+	/// <summary>The hash recorded for an input written while the tools ran: no content has it, so the next
+	/// check builds the output again.</summary>
+	private const string ChangedWhileBuilding = "changed-while-building";
+
 	/// <summary>
 	/// The part of the environment that changes what a command produces, hashed with the command line
 	/// of every record: the include and library paths and the file the tool of the command resolves
@@ -1847,9 +1885,9 @@ public class Clang {
 	/// the record counts as unchanged without being read; one whose date or size moved is read and
 	/// its content hash compared, so a file touched without an edit builds nothing. Every file is
 	/// looked at once per verb call, whatever the number of units that include it. A unit also needs
-	/// its dependency file. An output without record but present is checked the way the previous
-	/// extension did (the dates of the source and its dependency file against the object) and gets
-	/// its record when it passes, so an upgrade does not rebuild everything once.
+	/// its dependency file. An output without a record is built: a record is what says which command
+	/// made it, and an output left by a build that failed, or whose record went (a link whose first
+	/// object changed), may have been made by another command than the one asked for now.
 	/// </summary>
 	/// <param name="output">The object, archive or executable.</param>
 	/// <param name="command">Its command line.</param>
@@ -1870,28 +1908,11 @@ public class Clang {
 		try {
 			lines = File.ReadAllLines(recordFile);
 		} catch (FileNotFoundException) {
-			// No record yet: the check of the previous extension, then the record is written
-			List<string> legacyInputs = inputs != null ? new List<string>(inputs) : new List<string>();
-			if (source != null) {
-				legacyInputs.Insert(0, source);
-				string dep = DepFile(output);
-				if (inputs == null && File.Exists(dep))
-					legacyInputs.AddRange(ParseDepFile(File.ReadAllText(dep)));
-			}
-			long outputTime = Files.GetModifiedTime(output);
-			foreach (string i in legacyInputs) {
-				FileState? state = StateOf(i);
-				if (state == null) {
-					Msg.Print("clang: " + i + " is missing, " + output + " will be built", Msg.LogLevels.Verbose);
-					return false;
-				}
-				if (Files.GetModifiedTime(i) > outputTime) {
-					Msg.Print("clang: " + i + " is newer than " + output + ", it will be built", Msg.LogLevels.Verbose);
-					return false;
-				}
-			}
-			Record(recordFile, command, legacyInputs);
-			return true;
+			Msg.Print("clang: " + output + " has no record, it will be built", Msg.LogLevels.Verbose);
+			return false;
+		} catch (DirectoryNotFoundException) {
+			Msg.Print("clang: " + output + " has no record, it will be built", Msg.LogLevels.Verbose);
+			return false;
 		} catch (Exception ex) {
 			Msg.Print("clang: the record of " + output + " cannot be read (" + ex.Message + "), it will be built", Msg.LogLevels.Verbose);
 			return false;
@@ -1945,14 +1966,23 @@ public class Clang {
 	/// <summary>
 	/// Writes the record of an output: a header, the hash of its command line, and one line per input
 	/// with its content hash, date, size and path, separated by tabs.
+	///
+	/// The tools ran between `from` and `to`. An input looked at before they ran is recorded as it was
+	/// then. One first seen now, and written while they ran, may have been read by them before or after
+	/// that write: it is recorded as changed, so the next call builds the output again instead of taking
+	/// the edit for one it already has. A date past `to` is a clock of its own and not an edit.
 	/// </summary>
-	private void Record(string recordFile, string command, List<string> inputs) {
+	private void Record(string recordFile, string command, List<string> inputs, DateTime from, DateTime to) {
 		List<string> lines = new List<string> { RecordHeader, "command " + Hash(Encoding.UTF8.GetBytes(command + EnvironmentKey(command))) };
 		foreach (string i in inputs.Distinct(StringComparer.OrdinalIgnoreCase)) {
 			string path = Path.IsPathRooted(i) ? i : Path.GetFullPath(i);
 			FileState? state = StateOf(path);
 			if (state == null)
 				continue;
+			if (state.Ticks > from.Ticks && state.Ticks <= to.Ticks) {
+				lines.Add(ChangedWhileBuilding + "\t0\t-1\t" + path);
+				continue;
+			}
 			lines.Add(HashOf(path, state) + "\t" + state.Ticks + "\t" + state.Size + "\t" + path);
 		}
 		try {
@@ -2134,7 +2164,7 @@ public class Clang {
 	/// Takes a copy of the options set as default by this script or a parent script, if any.
 	/// </summary>
 	private void OpenSharedCompileOptions() {
-		if (Share.Get(ClangOptions.SharedName) is ClangOptions defaults)
+		if (ClangOptions.SharedDefaults() is object defaults)
 			Options.CopyFrom(defaults);
 	}
 

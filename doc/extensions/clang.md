@@ -117,6 +117,20 @@ property, the lists as new lists, so a change on an instance never touches the s
 the first call of the run sets the defaults). Every default corresponds to what the previous
 extension did.
 
+The defaults may have been set by another copy of the extension: a parent script that builds this
+project as a part of itself and loaded its own file. A new instance takes them all the same, property
+by property, and three members read and write them across copies:
+
+| Member | Meaning |
+| --- | --- |
+| `static object? SharedDefaults()` | The defaults stored by `SetAsDefault()`, whichever copy of the extension stored them; null when none were. |
+| `void CopyFrom(object source)` | Copies every property of another options object into this one, matched by name (an enum by the name of its value), the lists as new lists. A property the source lacks, or has with another type, is left as it is. |
+| `void CopyInto(object target)` | The same the other way: every property of this one into another options object. |
+
+A project built inside another one finds the parent's defaults shared already, and the registry keeps
+the first: it reads them with `CopyFrom`, adds its own switches and defines, lends the result to the
+shared object with `CopyInto` for its build, and gives the parent's back with `CopyInto` once it ends.
+
 | Property | Default | Meaning |
 | --- | --- | --- |
 | `string CC` | `clang` | The C compiler; `gcc` takes the same command lines. |
@@ -132,7 +146,7 @@ extension did.
 | `KList LibraryDirs`, `Libraries`, `SwitchesLD` | empty | `-L`, `-l` (a full path is passed as it is) and switches of the link. |
 | `int ConcurrentBuild` | the number of processors | Units compiled, and files formatted, in parallel. |
 | `bool Verbose` | false | The extension prints its own details: the listings and the response file messages, in the `Progress` and `Detailed` modes. |
-| `bool ClangVerbose` | false | `-v` to the compilers and to the linker, `rcsv` to the archiver; their extra lines show in the `Detailed` mode. |
+| `bool ClangVerbose` | false | `-v` to the compilers and to the linker, `rcsv` to the archiver; their extra lines show in the `Detailed` mode. Turning it on or off builds nothing again. |
 | `string TaskLabel` | empty | The start message of the progress line; empty uses the verb and the output ("Compiling 48 files", "Linking app.exe", "Library libapp.a"). |
 | `bool ShowWarnings` | true | The warnings printed in full in the report; false reduces them to their count per unit. |
 | `Func<string, string, bool>? DiagnosticFilter` | null | Given the source of a unit and one diagnostic line, returns whether the diagnostic is printed. |
@@ -299,9 +313,16 @@ files its script names; of an archive, its objects; of a link, its objects and t
 the options found in the library paths. Two guarantees follow: a file touched without an edit (a
 branch switched and switched back, a checkout, a copy) builds nothing, neither the unit nor the
 archive and the link behind it, and an edit dated older than the output still builds. The one
-edit that passes unseen is one that keeps both the date and the size of the file. An output
-without record but present is checked by dates the way the previous extension did and gets its
-record when it passes, so an upgrade does not rebuild everything once.
+edit that passes unseen is one that keeps both the date and the size of the file.
+
+An output without a record is built, whatever its date: the record is what says which command
+made it. A unit that fails loses its record and keeps the object of its last good build, so the
+next call compiles it whatever its source and headers say; and the record of an archive or a link
+moves with its first object, so a list in another order links again rather than trusting an
+output made from another list. An input written while the tools ran, which they may have read
+before or after the write, is recorded as changed, so the next call builds the output again
+instead of taking that edit for one it already has. The `-v` of `ClangVerbose` is not part of the
+recorded command: it changes what the tools print, not what they produce.
 
 The environment is part of the record as well: the hash of the command line includes the
 `INCLUDE` and `LIB` variables and the file the tool of the command (the compiler, the driver of

@@ -34,7 +34,10 @@ declares it with `#pragma kombine requires 1.6`). Demonstrated and tested by
   when an input changed. An input whose date and size match the record counts as unchanged
   without being read; one whose date or size moved is read and its content hash compared. A file
   touched without an edit generates nothing; an edit dated older than the output still
-  generates; the one edit that passes unseen keeps both the date and the size of the file.
+  generates; the one edit that passes unseen keeps both the date and the size of the file. The
+  record holds what the output was made from: the date and size an input had before it was read
+  and the hash of the bytes read, so an input written while the output was being made is
+  generated again on the next call.
 - **Reproducible objects.** No header carries a timestamp, so an object generated again from the
   same data has the same bytes, and the archive or the link behind it is not made again.
 - **A failure leaves the previous output intact.** An output is written to a temporary file and
@@ -44,12 +47,14 @@ declares it with `#pragma kombine requires 1.6`). Demonstrated and tested by
   output is generated again with it. `Symbols` holds the friendly name (the path with dots, lower
   case) and the symbol of every input of the last call, generated or not; `<symbol>_size` names
   the length of each block.
-- **The size is a 32 bit value** in every format. Declare it as `unsigned int` (or `uint32_t`), not
-  as `unsigned long`, which is 8 bytes on Linux and macOS and would read past it:
+- **The size is a 32 bit value** in every format. Declare it as `uint32_t`, not as `unsigned long`,
+  which is 8 bytes on Linux and macOS and would read past it:
 
 ```c
+#include <cstdint>
+
 extern "C" const unsigned char varlogo_png1234567890[];
-extern "C" const unsigned int  varlogo_png1234567890_size;
+extern "C" const std::uint32_t varlogo_png1234567890_size;
 ```
 
 ```csharp

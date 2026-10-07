@@ -52,6 +52,11 @@
 		<Compile Remove="src\util\util.folders.windows.cs" />
 		<Compile Remove="src\util\util.lang.extensions.cs" />
 	</ItemGroup>
+	<!-- The shipped extensions, in extensions/ beside the tool: a #load "extensions/<name>.csx" that no folder of the
+	     project answers resolves to them, so every script of a run loads one file -->
+	<ItemGroup>
+		<None Include="..\extensions\*.csx" Link="extensions\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
 	<!-- Packages -->
 	<ItemGroup>
 		<PackageReference Include="SharpCompress" Version="0.49.1" />

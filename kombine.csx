@@ -82,7 +82,8 @@ int build(string[] args){
 /// <summary>
 /// Builds all the different packages for the tool.
 /// Generates the version number, builds release binaries for Windows, Linux and MacOS
-/// (both unpacked and single file, self-contained) and compresses them into out/pkg/.
+/// (both unpacked and single file, self-contained) and compresses them into out/pkg/, every package with the
+/// shipped extensions in extensions/ beside the tool.
 /// Run this before the "release" action.
 /// </summary>
 /// <param name="args">Action arguments. Not used.</param>
@@ -111,8 +112,8 @@ int publish(string[] args){
 	ExitCode = Exec("dotnet","publish -c Release -r win-x64 -p:PublishSingleFile=true --self-contained true",true);
 	if (ExitCode != 0)
 		return ExitCode;
-	Msg.Print("[Windows] Compress the single file tool");
-	Compress.Zip.CompressFile("../out/pub/win-x64/release/mkb.exe","../out/pkg/kombine.win.zip");
+	Msg.Print("[Windows] Compress the single file tool and the extensions");
+	PackTool("win-x64", "mkb.exe", "../out/pkg/kombine.win.zip");
 	// Linux
 	// ------------------------------------------------------------------------------------------
 	Msg.Print("Building for Linux");
@@ -126,8 +127,8 @@ int publish(string[] args){
 	ExitCode = Exec("dotnet","publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true",true);
 	if (ExitCode != 0)
 		return ExitCode;
-	Msg.Print("[Linux] Compress the single file tool");
-	Compress.Tar.CompressFile("../out/pub/linux-x64/release/mkb","../out/pkg/kombine.lnx.tar.gz");
+	Msg.Print("[Linux] Compress the single file tool and the extensions");
+	PackTool("linux-x64", "mkb", "../out/pkg/kombine.lnx.tar.gz");
 	// OSX
 	// ------------------------------------------------------------------------------------------
 	Msg.Print("Building for Mac OSX");
@@ -141,13 +142,34 @@ int publish(string[] args){
 	ExitCode = Exec("dotnet","publish -c Release -r osx-x64 -p:PublishSingleFile=true --self-contained true",true);
 	if (ExitCode != 0)
 		return ExitCode;
-	Msg.Print("[MacOS] Compress the single file tool");
-	Compress.Tar.CompressFile("../out/pub/osx-x64/release/mkb","../out/pkg/kombine.osx.tar.gz");
+	Msg.Print("[MacOS] Compress the single file tool and the extensions");
+	PackTool("osx-x64", "mkb", "../out/pkg/kombine.osx.tar.gz");
 	// ------------------------------------------------------------------------------------------
 	Folders.CurrentFolderPop();
 	RestoreVersionNumber();
 	Msg.Print("Done!");
 	return 0;
+}
+
+/// <summary>
+/// One single file package: the tool and the shipped extensions beside it, in extensions/, so a script that
+/// loads "extensions/[name].csx" and has no copy of its own finds them in the tool folder, and every script of
+/// a run loads the same file. Staged under out/pkg/stage/ and removed once packed.
+/// </summary>
+/// <param name="rid">The runtime the tool was published for (win-x64, linux-x64, osx-x64).</param>
+/// <param name="tool">The file name of the published tool.</param>
+/// <param name="package">The package written: a .zip name makes a zip, any other a tar.gz.</param>
+void PackTool(string rid, string tool, string package) {
+	string stage = "../out/pkg/stage/" + rid + "/";
+	Folders.Delete(stage, true);
+	Folders.Create(stage + "extensions/");
+	Files.Copy("../out/pub/" + rid + "/release/" + tool, stage + tool, false);
+	Folders.Copy("../extensions/", stage + "extensions/", Folders.CopyOptions.Default, "*.csx");
+	if (package.EndsWith(".zip"))
+		Compress.Zip.CompressFolder(stage, package, true, false);
+	else
+		Compress.Tar.CompressFolder(stage, package, true, false);
+	Folders.Delete("../out/pkg/stage/", true);
 }
 
 /// <summary>

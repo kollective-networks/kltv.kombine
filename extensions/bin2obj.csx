@@ -40,8 +40,8 @@
 	The symbol of an input derives from its path exactly as given, so a script should pass its
 	binaries through relative paths and keep them stable; a path given differently is a different
 	symbol and the output is generated again with it. The size symbol (<symbol>_size) is a 32 bit
-	unsigned value in every format: declared as unsigned int, not as unsigned long, which is 8 bytes
-	on Linux and macOS.
+	unsigned value in every format: declared as uint32_t, not as unsigned long, which is 8 bytes on
+	Linux and macOS.
 
 ---------------------------------------------------------------------------------------------------------*/
 
@@ -241,7 +241,7 @@ public class Bin2obj {
 				Line(e.Source, " No changes. Skipping.", null);
 			} else {
 				try {
-					Write(e.Output, (string temp) => GenerateObjectFile(File.ReadAllBytes(e.Source), e.Symbol, temp));
+					Write(e.Output, (string temp) => GenerateObjectFile(ReadInput(e.Source), e.Symbol, temp));
 					Record(e.Output, generator, inputs);
 					e.Status = EntryStatus.Generated;
 					result.Generated++;
@@ -291,7 +291,7 @@ public class Bin2obj {
 					List<byte[]> datas = new List<byte[]>();
 					List<string> names = new List<string>();
 					foreach (Entry e in result.Entries) {
-						datas.Add(File.ReadAllBytes(e.Source));
+						datas.Add(ReadInput(e.Source));
 						names.Add(e.Symbol);
 					}
 					GenerateObjectFileMultipleSections(datas, names, temp);
@@ -447,6 +447,7 @@ public class Bin2obj {
 		LastError = ApiError.None;
 		Symbols.Clear();
 		hashes.Clear();
+		read.Clear();
 	}
 
 	/// <summary>
@@ -533,12 +534,20 @@ public class Bin2obj {
 		record["generator"] = generator;
 		JsonArray list = new JsonArray();
 		foreach (string i in inputs.Select(i => Path.GetFullPath(i)).Distinct(StringComparer.OrdinalIgnoreCase)) {
-			FileInfo fi = new FileInfo(i);
 			JsonObject entry = new JsonObject();
 			entry["path"] = i;
-			entry["date"] = fi.LastWriteTimeUtc.Ticks;
-			entry["size"] = fi.Length;
-			entry["hash"] = HashFile(i, true);
+			// What the output was made from: the date and size taken before the read and the hash of the bytes
+			// read. A write after the read moves the date, and the next check finds the content changed
+			if (read.TryGetValue(i, out (long Ticks, long Size, string Hash) used)) {
+				entry["date"] = used.Ticks;
+				entry["size"] = used.Size;
+				entry["hash"] = used.Hash;
+			} else {
+				FileInfo fi = new FileInfo(i);
+				entry["date"] = fi.LastWriteTimeUtc.Ticks;
+				entry["size"] = fi.Length;
+				entry["hash"] = HashFile(i, true);
+			}
 			list.Add(entry);
 		}
 		record["inputs"] = list;
@@ -556,6 +565,20 @@ public class Bin2obj {
 
 	/// <summary>The content hashes read during the current call.</summary>
 	private readonly Dictionary<string, string> hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+	/// <summary>The inputs read during the current call: their date and size before the read and the hash of
+	/// the bytes read, which is what their record says the output was made from.</summary>
+	private readonly Dictionary<string, (long Ticks, long Size, string Hash)> read = new Dictionary<string, (long Ticks, long Size, string Hash)>(StringComparer.OrdinalIgnoreCase);
+
+	/// <summary>The bytes of an input, kept in `read` as they were read.</summary>
+	private byte[] ReadInput(string path) {
+		string full = Path.GetFullPath(path);
+		FileInfo fi = new FileInfo(full);
+		long ticks = fi.LastWriteTimeUtc.Ticks, size = fi.Length;
+		byte[] data = File.ReadAllBytes(full);
+		read[full] = (ticks, size, Convert.ToHexString(SHA256.HashData(data)));
+		return data;
+	}
 
 	/// <summary>The content hash of a file, from the cache of the current call unless fresh.</summary>
 	private string HashFile(string path, bool fresh = false) {

@@ -1,7 +1,20 @@
 ## [Unreleased]
 
+### Breaking changes
+
+- **Bin2cpp: the size is a `std::uint32_t`.** The generated sources define `<symbol>_size` as `std::uint32_t` (and include `<cstdint>`) instead of `unsigned long`, which is 4 bytes on Windows and 8 on Linux and macOS; the size now has the same width on every platform and the same as bin2obj's. A declaration of `unsigned long` in a script's header becomes `uint32_t`. Outputs are generated again once
+
+### Features
+
+- The extensions ship with the tool, in `extensions/` beside `mkb`, in every package and in the build output: a script that keeps no copy of its own loads `#load "extensions/clang.csx"` from there, so a project built inside another one loads the same file, shares its types, and no notice of two copies of one module is printed. See doc/extensions.md
+- Clang extension: a new instance takes the defaults another copy of the extension shared (a parent script that loaded its own file), property by property, where it took none before and fell back to the built in ones. `ClangOptions.SharedDefaults()`, `CopyFrom(object)` and `CopyInto(object)` read and write the defaults across copies, so a project built inside another one can add its own to the parent's and give the parent's back. See doc/extensions/clang.md
+
 ### Bugfixes
 
+- Clang extension: an output without a record is built. The check by dates kept for outputs of the earlier extension did not look at the command, so a unit that failed (its record removed, the object of its last good build kept) was taken as up to date once its sources were older than that object, and linked as it was; and an archive or a link whose first object changed lost its record and was taken as up to date from the dates of its inputs alone. An output built by an extension older than 1.6 is built once more
+- Clang extension: an input written while the tools ran (a header saved during a long build) is recorded as changed, so the next call builds the output again; it was recorded with the content it had after the batch, and the edit was taken for one the output already had
+- Clang extension: the `-v` of `ClangVerbose` (and the `v` of the archiver) is not part of the recorded command, so turning it on to look at a build compiles nothing again
+- Bin2obj and bin2cpp: the record of an output holds the date and size an input had before it was read and the hash of the bytes read, so an input written while the output was made is generated again on the next call; it was hashed again after the write
 - Tools that exit within a millisecond no longer fail at random on Linux and macOS: the launch read the process start time after starting it, which throws once the child has exited and been reaped, and the exception was taken for a failed launch (exit code -1, `ToolStatus.Failed`) although the tool had run. The start time is now taken from our own clock before the launch
 
 ## [1.7.24363778]

@@ -22,6 +22,14 @@ below the repository root. The forward search of the subfolders is disabled by d
 since it could bind a foreign copy of a helper when repositories are nested; the
 `-kforward` switch (or `Engine.ForwardSearch` from a script) enables it.
 
+The provided extensions ship with the tool, in `extensions/` beside `mkb`, so a project that keeps no
+copy of its own loads them by that same line. Every script of a run then loads one file: a project
+built inside another one (a library its application builds as a part of itself) shares the
+extension's types and statics with it, and no notice of two copies of one module is printed. A
+project that keeps a copy of its own binds that copy first, since the parent folders are searched
+before the tool folder, and two projects that keep one each load two modules, even when the two
+files are the same.
+
 An URL can be used as well; the file is fetched and cached:
 
 ```csharp

@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.7.24438319]
 
 ### Breaking changes
 
